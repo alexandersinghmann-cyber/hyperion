@@ -51,7 +51,13 @@ html,body{margin:0;padding:0;overflow:hidden;font-family:var(--sans);background:
 .trend-dir{font-size:14px;width:20px;text-align:center}
 
 /* Bottom bar */
-.bar{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--bg);border-top:1px solid var(--s3);padding:6px 0 calc(6px + var(--sab));z-index:100;box-shadow:0 100px 0 100px var(--bg)}
+.bar{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--bg);border-top:1px solid var(--s3);padding:6px 0 calc(6px + var(--sab));z-index:100}
+@media (display-mode: standalone){
+  .bar{padding-bottom:6px}
+  .pad{padding-bottom:70px}
+}
+html.ios-standalone .bar{padding-bottom:6px}
+html.ios-standalone .pad{padding-bottom:70px}
 .bar-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:var(--tx3);font:600 9px var(--mono);cursor:pointer;padding:6px 0;transition:color .15s;letter-spacing:.5px;text-transform:uppercase}
 .bar-btn.on{color:var(--acc)}
 .bar-btn svg{width:20px;height:20px}
@@ -234,24 +240,6 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 </head>
 <body>
 <div id="app">
-  <!-- DEBUG - REMOVE AFTER FIX -->
-  <div id="dbg" style="position:fixed;bottom:60px;left:8px;right:8px;z-index:9999;background:rgba(255,0,0,0.85);color:#fff;font:11px/1.4 monospace;padding:8px;border-radius:6px;pointer-events:none"></div>
-  <script>
-  setInterval(function(){
-    var a=document.getElementById('app'),v=document.querySelector('.view.on'),b=document.querySelector('.bar'),d=document.getElementById('dbg');
-    if(!d)return;
-    var ar=a?a.getBoundingClientRect():{height:'?',bottom:'?'};
-    var vr=v?v.getBoundingClientRect():{height:'?'};
-    var br=b?b.getBoundingClientRect():{height:'?',top:'?',bottom:'?'};
-    d.textContent='innerH:'+window.innerHeight
-      +' | docH:'+document.documentElement.clientHeight
-      +'\nappH:'+Math.round(ar.height)+' appBot:'+Math.round(ar.bottom)
-      +'\nviewH:'+Math.round(vr.height)+' scrollH:'+(v?v.scrollHeight:'?')
-      +'\nbarH:'+Math.round(br.height)+' barTop:'+Math.round(br.top)+' barBot:'+Math.round(br.bottom)
-      +'\nscreenH:'+screen.height+' appCSS:'+((a&&a.style.height)||'auto')+' dpr:'+devicePixelRatio
-      +'\nstandalone:'+(navigator.standalone?'YES':'NO');
-  },1000);
-  </script>
   <!-- REST TIMER -->
   <div class="rest-bar" id="restBar">
     <div style="display:flex;align-items:center;gap:10px">
@@ -1427,6 +1415,9 @@ document.querySelectorAll('.overlay').forEach(o=>{o.addEventListener('click',e=>
 
 // ===== INIT =====
 function init(){
+  // iOS standalone PWA: add class so CSS can remove extra safe-area padding
+  // (the dead space below the CSS viewport already acts as home indicator clearance)
+  if(window.navigator.standalone)document.documentElement.classList.add('ios-standalone');
   load();
   if(S.activeSession){
     sessionStart=S.activeSession.startTime||Date.now();startTimer();
