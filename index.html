@@ -29,7 +29,7 @@
 html,body{margin:0;padding:0;overflow:hidden;font-family:var(--sans);background:var(--bg);background-image:radial-gradient(ellipse at 50% 0%,rgba(201,169,110,0.03) 0%,transparent 60%);color:var(--tx);-webkit-tap-highlight-color:transparent;touch-action:manipulation;font-size:15px;line-height:1.4}
 
 /* Shell */
-#app{position:fixed;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;overflow:hidden}
+#app{position:fixed;top:0;left:0;right:0;display:flex;flex-direction:column;overflow:hidden;height:100%}
 .view{display:none;flex:1;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;opacity:0;transform:translateY(6px);transition:opacity .15s ease,transform .15s ease}
 .view.on{display:flex;opacity:1;transform:translateY(0)}
 .pad{padding:calc(20px + var(--sat)) 16px 20px}
@@ -248,7 +248,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       +'\nappH:'+Math.round(ar.height)+' appBot:'+Math.round(ar.bottom)
       +'\nviewH:'+Math.round(vr.height)+' scrollH:'+(v?v.scrollHeight:'?')
       +'\nbarH:'+Math.round(br.height)+' barTop:'+Math.round(br.top)+' barBot:'+Math.round(br.bottom)
-      +'\nscreenH:'+screen.height+' dpr:'+devicePixelRatio
+      +'\nscreenH:'+screen.height+' appCSS:'+((a&&a.style.height)||'auto')+' dpr:'+devicePixelRatio
       +'\nstandalone:'+(navigator.standalone?'YES':'NO');
   },1000);
   </script>
@@ -534,6 +534,22 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 // ================================================================
 // HYPERION v2 — Strength Coaching System
 // ================================================================
+
+// iOS standalone PWA full-screen fix
+(function(){
+  function fixHeight(){
+    var app=document.getElementById('app');
+    if(!app)return;
+    if(window.navigator.standalone && screen.height>window.innerHeight){
+      app.style.height=screen.height+'px';
+    } else {
+      app.style.height='100%';
+    }
+  }
+  fixHeight();
+  window.addEventListener('resize',fixHeight);
+  window.addEventListener('orientationchange',function(){setTimeout(fixHeight,100);});
+})();
 
 const K2L=2.20462,L2K=0.453592,STORE='hyperion_v2';
 const COMPOUNDS=['squat','hinge','push'];
