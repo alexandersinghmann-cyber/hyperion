@@ -234,6 +234,24 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 </head>
 <body>
 <div id="app">
+  <!-- DEBUG - REMOVE AFTER FIX -->
+  <div id="dbg" style="position:fixed;bottom:60px;left:8px;right:8px;z-index:9999;background:rgba(255,0,0,0.85);color:#fff;font:11px/1.4 monospace;padding:8px;border-radius:6px;pointer-events:none"></div>
+  <script>
+  setInterval(function(){
+    var a=document.getElementById('app'),v=document.querySelector('.view.on'),b=document.querySelector('.bar'),d=document.getElementById('dbg');
+    if(!d)return;
+    var ar=a?a.getBoundingClientRect():{height:'?',bottom:'?'};
+    var vr=v?v.getBoundingClientRect():{height:'?'};
+    var br=b?b.getBoundingClientRect():{height:'?',top:'?',bottom:'?'};
+    d.textContent='innerH:'+window.innerHeight
+      +' | docH:'+document.documentElement.clientHeight
+      +'\nappH:'+Math.round(ar.height)+' appBot:'+Math.round(ar.bottom)
+      +'\nviewH:'+Math.round(vr.height)+' scrollH:'+(v?v.scrollHeight:'?')
+      +'\nbarH:'+Math.round(br.height)+' barTop:'+Math.round(br.top)+' barBot:'+Math.round(br.bottom)
+      +'\nscreenH:'+screen.height+' dpr:'+devicePixelRatio
+      +'\nstandalone:'+(navigator.standalone?'YES':'NO');
+  },1000);
+  </script>
   <!-- REST TIMER -->
   <div class="rest-bar" id="restBar">
     <div style="display:flex;align-items:center;gap:10px">
