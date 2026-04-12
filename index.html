@@ -29,10 +29,10 @@
 html,body{margin:0;padding:0;overflow:hidden;font-family:var(--sans);background:var(--bg);background-image:radial-gradient(ellipse at 50% 0%,rgba(201,169,110,0.03) 0%,transparent 60%);color:var(--tx);-webkit-tap-highlight-color:transparent;touch-action:manipulation;font-size:15px;line-height:1.4}
 
 /* Shell */
-#app{position:fixed;top:0;left:0;right:0;display:flex;flex-direction:column;overflow:hidden;height:100%}
+#app{position:fixed;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;overflow:hidden}
 .view{display:none;flex:1;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;opacity:0;transform:translateY(6px);transition:opacity .15s ease,transform .15s ease}
 .view.on{display:flex;opacity:1;transform:translateY(0)}
-.pad{padding:calc(20px + var(--sat)) 16px 20px}
+.pad{padding:calc(20px + var(--sat)) 16px calc(70px + var(--sab))}
 
 /* Sparkline */
 .spark{display:inline-block;vertical-align:middle}
@@ -51,8 +51,7 @@ html,body{margin:0;padding:0;overflow:hidden;font-family:var(--sans);background:
 .trend-dir{font-size:14px;width:20px;text-align:center}
 
 /* Bottom bar */
-.bar{display:flex;background:var(--bg);border-top:1px solid var(--s3);padding:6px 0 calc(6px + var(--sab));flex-shrink:0;position:relative}
-.bar::after{content:'';position:absolute;top:100%;left:0;right:0;height:200px;background:var(--bg)}
+.bar{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--bg);border-top:1px solid var(--s3);padding:6px 0 calc(6px + var(--sab));z-index:100;box-shadow:0 100px 0 100px var(--bg)}
 .bar-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:var(--tx3);font:600 9px var(--mono);cursor:pointer;padding:6px 0;transition:color .15s;letter-spacing:.5px;text-transform:uppercase}
 .bar-btn.on{color:var(--acc)}
 .bar-btn svg{width:20px;height:20px}
@@ -536,21 +535,6 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 // HYPERION v2 — Strength Coaching System
 // ================================================================
 
-// iOS standalone PWA full-screen fix
-(function(){
-  function fixHeight(){
-    var app=document.getElementById('app');
-    if(!app)return;
-    if(window.navigator.standalone){
-      app.style.height=Math.max(screen.height,screen.availHeight,window.innerHeight+100)+'px';
-    } else {
-      app.style.height='100%';
-    }
-  }
-  fixHeight();
-  window.addEventListener('resize',fixHeight);
-  window.addEventListener('orientationchange',function(){setTimeout(fixHeight,100);});
-})();
 
 const K2L=2.20462,L2K=0.453592,STORE='hyperion_v2';
 const COMPOUNDS=['squat','hinge','push'];
