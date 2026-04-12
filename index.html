@@ -51,7 +51,8 @@ html,body{margin:0;padding:0;overflow:hidden;font-family:var(--sans);background:
 .trend-dir{font-size:14px;width:20px;text-align:center}
 
 /* Bottom bar */
-.bar{display:flex;background:var(--bg);border-top:1px solid var(--s3);padding:6px 0 calc(6px + var(--sab));flex-shrink:0}
+.bar{display:flex;background:var(--bg);border-top:1px solid var(--s3);padding:6px 0 calc(6px + var(--sab));flex-shrink:0;position:relative}
+.bar::after{content:'';position:absolute;top:100%;left:0;right:0;height:200px;background:var(--bg)}
 .bar-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:var(--tx3);font:600 9px var(--mono);cursor:pointer;padding:6px 0;transition:color .15s;letter-spacing:.5px;text-transform:uppercase}
 .bar-btn.on{color:var(--acc)}
 .bar-btn svg{width:20px;height:20px}
@@ -540,8 +541,8 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   function fixHeight(){
     var app=document.getElementById('app');
     if(!app)return;
-    if(window.navigator.standalone && screen.height>window.innerHeight){
-      app.style.height=screen.height+'px';
+    if(window.navigator.standalone){
+      app.style.height=Math.max(screen.height,screen.availHeight,window.innerHeight+100)+'px';
     } else {
       app.style.height='100%';
     }
