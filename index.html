@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#08090C">
 <title>HYPERION</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2309090B'/%3E%3Cpath d='M18 4L8 18h7l-1 10 10-14h-7l1-10z' fill='%2322D3EE'/%3E%3C/svg%3E">
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%2309090B'/%3E%3Cpath d='M101 22L45 101h40l-6 57 56-79h-40l6-57z' fill='%2322D3EE'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAAA9zQYyAAADuklEQVR4nO3cwW1cNxiF0V9GNoIr8MJtuP912vDCZTiLJLCjSDZHj3wkL8+pgMB874IAgXl6fv74vSDEh9kHgJ4ETRRBE0XQRBE0UQRNFEETRdBEETRRBE0UQRNF0EQRNFEETRRBE0XQRBE0UQRNFEETRdBEETRRBL2gT39+nX2EbQl6MWK+RtBEEfRCrPN1gl6EmPsQ9AJexvzty+dJJ9mfoIki6MlcNfoS9ERi7k/QRBH0JNZ5DEFPIOZxBH0zMY8laKII+kbWeTxB36Q1Zq+E1wiaKIK+gavGfQQ9mJjvJWiiCHog63w/QQ8i5jkEPYCY5xE0UQTd2ZV19qhynaA7ctWYT9BEEXQn1nkNgu5AzOsQ9EViXougiSLoC6zzegT9TmJek6CJIuh3GLHOXgn7EPSDXDXWJugHiHl9giaKoBtZ5z0IuoGY9yFoogj6N6zzXgT9C2Lej6AX4FGlH0G/wTrvSdCvEPO+BP2CmPcmaKII+ifWeX+C/oeYMwiaKIIu65zk+KDFnOXooFeI2SthX0cHTZ5jg15hnenvyKDFnOuP2Qc43eof1253/OMWevWAVrJbzFWHBS3mfMcELebH7LjOVQcFTbtdY646JGjr3G7nmKsOCFrMZ4kPmna7r3NVeNDWuV1CzFXBQYv5TLFB0y5lnatCg7bO7ZJirgoMWszt0mKuCgtazEQFTbvEda4KCto6t0uNuSokaDHzr4igaZe8zlUBQVvndukxV20etJh5adugxfyYE9a5auOgaXdKzFWbBm2d250Uc9Wmf2Ow+o/kg5tny4Wmzeof/giCDnVizFWCJoygO1vh/nzqOlcJOs7JMVcJOsrpMVcJmjCCDmGd/yboAGL+QdBEEfTmrPN/CXpjYv4/QW9KzK8TdEcrvBKeTtAbss5vE/RmxPxrgiaKoDdinX9P0JsQcxtBE0XQG7DO7QS9ODE/RtCdjHhUEfPjBE0UQS/KOr+PoBck5vcTNFEEvRjrfI2gFyLm6wS9CDH3IWiiCHoB1rkfQXdw5ZVQzH0JmiiCnsg69yfoScQ8hqAnEPM4giaKoG9mnccS9I3EPJ6giSLoi1ofVazzPQR9AzHfR9BEEfRg1vlegh5IzPcT9CBinkPQRBH0ANZ5HkF3Jua5BE0UQV/w8pXQOs8n6E7EvAZBdyDmdQiaKIK+yDqv5en5+eP32YeAXiw0UQRNFEETRdBEETRRBE0UQRNF0EQRNFEETRRBE0XQRBE0UQRNFEETRdBEETRRBE0UQRNF0ET5C+0cxWmfBu/WAAAAAElFTkSuQmCC">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -24,6 +24,7 @@
   --mono:'SF Mono',ui-monospace,'Cascadia Code','Fira Code',monospace;
   --sans:-apple-system,'SF Pro Text','Inter',system-ui,sans-serif;
   --sab:env(safe-area-inset-bottom,0px);
+  --sat:env(safe-area-inset-top,0px);
 }
 html,body{height:100%;overflow:hidden;font-family:var(--sans);background:var(--bg);background-image:radial-gradient(ellipse at 50% 0%,rgba(201,169,110,0.03) 0%,transparent 60%);color:var(--tx);-webkit-tap-highlight-color:transparent;touch-action:manipulation;font-size:15px;line-height:1.4}
 body{display:flex;flex-direction:column}
@@ -32,7 +33,7 @@ body{display:flex;flex-direction:column}
 #app{display:flex;flex-direction:column;height:100%;overflow:hidden}
 .view{display:none;flex:1;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;opacity:0;transform:translateY(6px);transition:opacity .15s ease,transform .15s ease}
 .view.on{display:flex;opacity:1;transform:translateY(0)}
-.pad{padding:20px 16px calc(64px + var(--sab))}
+.pad{padding:calc(20px + var(--sat)) 16px calc(64px + var(--sab))}
 
 /* Sparkline */
 .spark{display:inline-block;vertical-align:middle}
@@ -171,7 +172,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .prog-stall{background:var(--warn-dim);color:var(--warn)}
 
 /* Rest timer */
-.rest-bar{position:fixed;top:0;left:0;right:0;z-index:90;background:var(--bg);border-bottom:1px solid var(--acc);padding:10px 16px;display:none;align-items:center;justify-content:space-between}
+.rest-bar{position:fixed;top:0;left:0;right:0;z-index:90;background:var(--bg);border-bottom:1px solid var(--acc);padding:calc(10px + var(--sat)) 16px 10px;display:none;align-items:center;justify-content:space-between}
 .rest-bar.on{display:flex}
 .rest-t{font:700 26px var(--mono);color:var(--acc);text-shadow:0 0 10px var(--acc-glow)}
 .rest-t.go{color:var(--grn);text-shadow:0 0 10px rgba(52,211,153,0.3);animation:blink .5s infinite}
