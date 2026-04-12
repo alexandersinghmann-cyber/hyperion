@@ -53,10 +53,12 @@ html,body{margin:0;padding:0;overflow:hidden;font-family:var(--sans);background:
 /* Bottom bar */
 .bar{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--bg);border-top:1px solid var(--s3);padding:6px 0 calc(6px + var(--sab));z-index:100}
 @media (display-mode: standalone){
-  .bar{padding-bottom:6px}
+  #app{position:fixed;top:0;left:0;right:0;bottom:auto}
+  .bar{position:absolute;bottom:0;left:0;right:0;padding-bottom:6px}
   .pad{padding-bottom:70px}
 }
-html.ios-standalone .bar{padding-bottom:6px}
+html.ios-standalone #app{position:fixed;top:0;left:0;right:0;bottom:auto}
+html.ios-standalone .bar{position:absolute;bottom:0;left:0;right:0;padding-bottom:6px}
 html.ios-standalone .pad{padding-bottom:70px}
 .bar-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:var(--tx3);font:600 9px var(--mono);cursor:pointer;padding:6px 0;transition:color .15s;letter-spacing:.5px;text-transform:uppercase}
 .bar-btn.on{color:var(--acc)}
@@ -1415,9 +1417,19 @@ document.querySelectorAll('.overlay').forEach(o=>{o.addEventListener('click',e=>
 
 // ===== INIT =====
 function init(){
-  // iOS standalone PWA: add class so CSS can remove extra safe-area padding
-  // (the dead space below the CSS viewport already acts as home indicator clearance)
-  if(window.navigator.standalone)document.documentElement.classList.add('ios-standalone');
+  // iOS standalone PWA: extend #app into the dead space below the CSS viewport
+  if(window.navigator.standalone){
+    document.documentElement.classList.add('ios-standalone');
+    // Measure safe-area-inset-bottom in actual pixels
+    var probe=document.createElement('div');
+    probe.style.cssText='position:fixed;bottom:0;left:0;width:1px;height:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none';
+    document.body.appendChild(probe);
+    var sab=probe.getBoundingClientRect().height;
+    document.body.removeChild(probe);
+    // Extend app to fill the dead space (bar is position:absolute inside)
+    var app=document.getElementById('app');
+    app.style.height=(window.innerHeight+sab)+'px';
+  }
   load();
   if(S.activeSession){
     sessionStart=S.activeSession.startTime||Date.now();startTimer();
