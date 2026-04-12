@@ -1425,8 +1425,7 @@ function init(){
     // screen.height includes top+bottom safe areas, innerHeight excludes them.
     // On iPhone Air: screen=912, inner=844, diff=68. Top safe area (Dynamic Island)
     // is ~59pt, so bottom gap ≈ 68-59 = ~9pt... but the actual visible gap is larger.
-    // 34px was close but left a small gap. 44px fills it completely.
-    var sab=44;
+    var sab=38;
     var app=document.getElementById('app');
     app.style.height=(window.innerHeight+sab)+'px';
   }
