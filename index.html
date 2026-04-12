@@ -242,6 +242,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 </head>
 <body>
 <div id="app">
+  <div id="dbg" style="position:fixed;top:60px;left:8px;right:8px;z-index:9999;background:rgba(255,0,0,0.9);color:#fff;font:11px/1.4 monospace;padding:8px;border-radius:6px;pointer-events:none"></div>
   <!-- REST TIMER -->
   <div class="rest-bar" id="restBar">
     <div style="display:flex;align-items:center;gap:10px">
@@ -1429,6 +1430,17 @@ function init(){
     // Extend app to fill the dead space (bar is position:absolute inside)
     var app=document.getElementById('app');
     app.style.height=(window.innerHeight+sab)+'px';
+    // Debug: show key values
+    setTimeout(function(){
+      var d=document.getElementById('dbg');
+      if(d){
+        var br=document.querySelector('.bar').getBoundingClientRect();
+        d.textContent='standalone:YES sab:'+sab+' innerH:'+window.innerHeight
+          +'\nappH:'+app.getBoundingClientRect().height+' appBot:'+Math.round(app.getBoundingClientRect().bottom)
+          +'\nbarBot:'+Math.round(br.bottom)+' barH:'+Math.round(br.height)
+          +'\nscreenH:'+screen.height+' barPos:'+getComputedStyle(document.querySelector('.bar')).position;
+      }
+    },500);
   }
   load();
   if(S.activeSession){
