@@ -52,14 +52,6 @@ html,body{margin:0;padding:0;overflow:hidden;font-family:var(--sans);background:
 
 /* Bottom bar */
 .bar{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--bg);border-top:1px solid var(--s3);padding:6px 0 calc(6px + var(--sab));z-index:100}
-@media (display-mode: standalone){
-  #app{position:fixed;top:0;left:0;right:0;bottom:auto}
-  .bar{position:absolute;bottom:0;left:0;right:0;padding-bottom:6px}
-  .pad{padding-bottom:70px}
-}
-html.ios-standalone #app{position:fixed;top:0;left:0;right:0;bottom:auto}
-html.ios-standalone .bar{position:absolute;bottom:0;left:0;right:0;padding-bottom:6px}
-html.ios-standalone .pad{padding-bottom:70px}
 .bar-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:var(--tx3);font:600 9px var(--mono);cursor:pointer;padding:6px 0;transition:color .15s;letter-spacing:.5px;text-transform:uppercase}
 .bar-btn.on{color:var(--acc)}
 .bar-btn svg{width:20px;height:20px}
@@ -195,6 +187,20 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .h-line{display:flex;justify-content:space-between;padding:3px 0;font-size:13px}
 .h-line .nm{color:var(--tx)}
 .h-line .val{font-family:var(--mono);color:var(--tx2)}
+
+/* ===== EXTRA CREDIT ===== */
+.bonus-section{margin-top:12px;border:1px solid var(--gold-dim);border-radius:var(--r);overflow:hidden}
+.bonus-toggle{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--gold-dim);cursor:pointer;-webkit-user-select:none}
+.bonus-toggle-label{font:600 11px var(--mono);color:var(--gold);text-transform:uppercase;letter-spacing:1px}
+.bonus-toggle-arrow{color:var(--gold);font-size:14px;transition:transform .2s}
+.bonus-section.open .bonus-toggle-arrow{transform:rotate(90deg)}
+.bonus-list{display:none;padding:8px}
+.bonus-section.open .bonus-list{display:block}
+.bonus-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s1);border-radius:var(--rs);margin-bottom:4px;border:1px solid var(--s2);cursor:pointer;transition:all .12s}
+.bonus-item:active{transform:scale(.98);opacity:.85}
+.bonus-item .bi-name{font-weight:600;font-size:13px;color:var(--tx)}
+.bonus-item .bi-rx{font:11px var(--mono);color:var(--tx3);margin-top:1px}
+.bonus-item .bi-add{color:var(--gold);font:700 16px var(--sans);flex-shrink:0}
 
 /* ===== MODALS ===== */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:200;display:none;align-items:flex-end;justify-content:center;padding:0}
@@ -378,6 +384,14 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <div class="section-hdr" style="margin-top:20px">Session History</div>
     <div id="histList"></div>
 
+    <!-- Coach Report -->
+    <div class="sync-bar" style="margin-top:16px">
+      <span>Coach Report</span>
+      <button class="btn btn-sm btn-gold" onclick="generateCoachReport()">Generate</button>
+    </div>
+    <div id="coachReportBox" style="display:none;margin-top:8px;background:var(--s1);border:1px solid var(--s3);border-radius:var(--rs);padding:12px;font:12px var(--mono);color:var(--tx2);white-space:pre-wrap;max-height:300px;overflow-y:auto"></div>
+    <div id="coachReportMsg" style="display:none;text-align:center;padding:6px;font-size:12px;color:var(--grn)">Copied to clipboard</div>
+
     <!-- Sync -->
     <div class="sync-bar">
       <span>Export data for Cowork</span>
@@ -538,6 +552,9 @@ const DEF_PROGRAM={name:"Apr 11–16 Block",active:true,days:[
   {id:"d1e4",name:"Hamstring Curl",cat:"isolation",sets:3,reps:"10-12",loadKg:36,unit:"kg",rest:90,tags:[]},
   {id:"d1e5",name:"Calf Raise",cat:"isolation",sets:3,reps:"12-15",loadKg:40.8,unit:"kg",rest:90,tags:[]},
   {id:"d1e6",name:"Pallof Press",cat:"core",sets:2,reps:"12",loadKg:15.9,unit:"kg",rest:60,tags:["per side"]}
+],bonus:[
+  {id:"d1b1",name:"Hanging Knee Raise",cat:"core",sets:3,reps:"10-12",loadKg:0,unit:"bw",rest:60,tags:[]},
+  {id:"d1b2",name:"DB Hip Thrust",cat:"hinge",sets:3,reps:"10-12",loadKg:30,unit:"kg",rest:90,tags:[]}
 ]},
 {id:2,label:"Upper A: Pull Heavy",dayOfWeek:"Sunday",dur:60,exercises:[
   {id:"d2e1",name:"Lat Pulldown",cat:"pull",sets:4,reps:"8-10",loadKg:65,unit:"kg",rest:120,tags:[]},
@@ -547,6 +564,9 @@ const DEF_PROGRAM={name:"Apr 11–16 Block",active:true,days:[
   {id:"d2e5",name:"DB Curl",cat:"isolation",sets:3,reps:"10-12",loadKg:12,unit:"kg",rest:90,tags:[]},
   {id:"d2e6",name:"Lateral Raise",cat:"isolation",sets:3,reps:"12-15",loadKg:6,unit:"kg",rest:60,tags:[]},
   {id:"d2e7",name:"Ext. Rotation",cat:"rehab",sets:2,reps:"15",loadKg:0,unit:"bw",rest:60,tags:["rehab"]}
+],bonus:[
+  {id:"d2b1",name:"Band Pull-Apart",cat:"rehab",sets:3,reps:"15-20",loadKg:0,unit:"bw",rest:45,tags:[]},
+  {id:"d2b2",name:"Close-Grip Lat Pulldown",cat:"pull",sets:3,reps:"10-12",loadKg:55,unit:"kg",rest:90,tags:[]}
 ]},
 {id:3,label:"Deadlift Heavy + Squat Light",dayOfWeek:"Monday",dur:65,exercises:[
   {id:"d3e1",name:"Deadlift",cat:"hinge",sets:4,reps:"5",loadKg:110,unit:"kg",rest:180,tags:[]},
@@ -554,6 +574,9 @@ const DEF_PROGRAM={name:"Apr 11–16 Block",active:true,days:[
   {id:"d3e3",name:"Back Extension",cat:"hinge",sets:3,reps:"12-15",loadKg:4.5,unit:"kg",rest:90,tags:[]},
   {id:"d3e4",name:"Hamstring Curl",cat:"isolation",sets:3,reps:"10-12",loadKg:36,unit:"kg",rest:90,tags:[]},
   {id:"d3e5",name:"Cable Crunch",cat:"core",sets:3,reps:"12-15",loadKg:36.3,unit:"kg",rest:60,tags:[]}
+],bonus:[
+  {id:"d3b1",name:"DB Carry",cat:"core",sets:3,reps:"30m",loadKg:24,unit:"kg",rest:60,tags:["per hand"]},
+  {id:"d3b2",name:"Incline Walk",cat:"cardio",sets:1,reps:"10 min",loadKg:0,unit:"bw",rest:0,tags:[]}
 ]},
 {id:4,label:"Core + Rehab",dayOfWeek:"Tuesday",dur:40,exercises:[
   {id:"d4e1",name:"Pallof Press",cat:"core",sets:3,reps:"12",loadKg:15.9,unit:"kg",rest:60,tags:["per side"]},
@@ -563,6 +586,8 @@ const DEF_PROGRAM={name:"Apr 11–16 Block",active:true,days:[
   {id:"d4e5",name:"Face Pull",cat:"rehab",sets:3,reps:"15",loadKg:13.6,unit:"kg",rest:60,tags:["rehab"]},
   {id:"d4e6",name:"Ext. Rotation",cat:"rehab",sets:3,reps:"15",loadKg:0,unit:"bw",rest:60,tags:["rehab"]},
   {id:"d4e7",name:"Band Pull-Apart",cat:"rehab",sets:3,reps:"15",loadKg:0,unit:"bw",rest:45,tags:["rehab"]}
+],bonus:[
+  {id:"d4b1",name:"Incline Walk",cat:"cardio",sets:1,reps:"15 min",loadKg:0,unit:"bw",rest:0,tags:[]}
 ]},
 {id:5,label:"Squat Medium + Hinge",dayOfWeek:"Wednesday",dur:60,exercises:[
   {id:"d5e1",name:"Back Squat",cat:"squat",sets:4,reps:"6",loadKg:87.5,unit:"kg",rest:150,tags:[]},
@@ -571,6 +596,9 @@ const DEF_PROGRAM={name:"Apr 11–16 Block",active:true,days:[
   {id:"d5e4",name:"Hamstring Curl",cat:"isolation",sets:3,reps:"10-12",loadKg:36,unit:"kg",rest:90,tags:[]},
   {id:"d5e5",name:"Calf Raise",cat:"isolation",sets:3,reps:"12-15",loadKg:40.8,unit:"kg",rest:90,tags:[]},
   {id:"d5e6",name:"Pallof Press",cat:"core",sets:2,reps:"12",loadKg:15.9,unit:"kg",rest:60,tags:["per side"]}
+],bonus:[
+  {id:"d5b1",name:"Dead Bug w/ Band",cat:"core",sets:3,reps:"8",loadKg:0,unit:"bw",rest:60,tags:["per side"]},
+  {id:"d5b2",name:"Walking Lunge",cat:"squat",sets:3,reps:"12",loadKg:0,unit:"bw",rest:60,tags:["per leg"]}
 ]},
 {id:6,label:"Upper B: Pull Volume",dayOfWeek:"Thursday",dur:55,exercises:[
   {id:"d6e1",name:"Seated Row",cat:"pull",sets:4,reps:"10-12",loadKg:52.2,unit:"kg",rest:90,tags:[]},
@@ -580,6 +608,9 @@ const DEF_PROGRAM={name:"Apr 11–16 Block",active:true,days:[
   {id:"d6e5",name:"DB Curl",cat:"isolation",sets:3,reps:"10-12",loadKg:12,unit:"kg",rest:90,tags:[]},
   {id:"d6e6",name:"Lateral Raise",cat:"isolation",sets:3,reps:"12-15",loadKg:6,unit:"kg",rest:60,tags:[]},
   {id:"d6e7",name:"Ext. Rotation",cat:"rehab",sets:2,reps:"15",loadKg:0,unit:"bw",rest:60,tags:["rehab"]}
+],bonus:[
+  {id:"d6b1",name:"Prone Y-Raise",cat:"rehab",sets:3,reps:"12-15",loadKg:2,unit:"kg",rest:60,tags:[]},
+  {id:"d6b2",name:"Cable Tricep Extension",cat:"isolation",sets:3,reps:"12-15",loadKg:15,unit:"kg",rest:60,tags:[]}
 ]}
 ]};
 
@@ -944,7 +975,7 @@ function renderEx(){
       <div class="ex-head" onclick="document.getElementById('ex${i}').classList.toggle('open')">
         <div class="ex-status ${stCls}">${allDone?'✓':anyDone?'◐':'○'}</div>
         <div class="ex-info">
-          <div class="ex-name">${ex.name}${ex.tags.includes('per side')?' <span class="td" style="font-size:11px">/side</span>':''}${ex.tags.includes('per hand')?' <span class="td" style="font-size:11px">/hand</span>':''}</div>
+          <div class="ex-name">${(ex.tags||[]).includes('bonus')?'<span style="color:var(--gold);font-size:10px;margin-right:4px">★</span>':''}${ex.name}${ex.tags.includes('per side')?' <span class="td" style="font-size:11px">/side</span>':''}${ex.tags.includes('per hand')?' <span class="td" style="font-size:11px">/hand</span>':''}${ex.tags.includes('per leg')?' <span class="td" style="font-size:11px">/leg</span>':''}</div>
           <div class="ex-rx">${ex.prescribed.sets}×${ex.prescribed.reps} @ ${fmtW(ex.prescribed.loadKg,ex.prescribed.unit)}</div>
         </div>
         ${hasPain?`<button class="btn btn-sm btn-d" onclick="event.stopPropagation();painExI=${i};document.getElementById('painExName').textContent='${ex.name}';showModal('painModal')" style="padding:3px 8px;font-size:10px">Pain</button>`:''}
@@ -981,6 +1012,50 @@ function renderEx(){
       </div>
     </div>`;
   }).join('');
+
+  // Extra Credit (bonus exercises)
+  const day=S.program.days[sess.dayIndex];
+  const bonuses=(day&&day.bonus)||[];
+  // Filter out bonuses already activated into the session
+  const activatedNames=sess.exercises.filter(e=>(e.tags||[]).includes('bonus')).map(e=>e.name);
+  const available=bonuses.filter(b=>!activatedNames.includes(b.name));
+  if(available.length>0){
+    list.innerHTML+=`<div class="bonus-section" id="bonusSection" onclick="this.classList.toggle('open')">
+      <div class="bonus-toggle">
+        <span class="bonus-toggle-label">Extra Credit · ${available.length} available</span>
+        <span class="bonus-toggle-arrow">›</span>
+      </div>
+      <div class="bonus-list" onclick="event.stopPropagation()">
+        ${available.map((b,bi)=>{
+          const tagStr=(b.tags||[]).map(t=>' <span class="td" style="font-size:10px">/'+t+'</span>').join('');
+          return`<div class="bonus-item" onclick="activateBonus(${bi})">
+            <div style="flex:1"><div class="bi-name">${b.name}${tagStr}</div><div class="bi-rx">${b.sets}×${b.reps} @ ${fmtW(b.loadKg,b.unit)}</div></div>
+            <div class="bi-add">+</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+}
+
+function activateBonus(bi){
+  const sess=S.activeSession;if(!sess)return;
+  const day=S.program.days[sess.dayIndex];
+  const activatedNames=sess.exercises.filter(e=>(e.tags||[]).includes('bonus')).map(e=>e.name);
+  const available=(day.bonus||[]).filter(b=>!activatedNames.includes(b.name));
+  const bonus=available[bi];if(!bonus)return;
+
+  const ex={
+    name:bonus.name,cat:bonus.cat,
+    prescribed:{sets:bonus.sets,reps:bonus.reps,loadKg:bonus.loadKg,unit:bonus.unit||'kg'},
+    performed:[],notes:'',progression:null,nextLoad:null,painEvent:null,
+    tags:[...(bonus.tags||[]),'bonus'],rest:bonus.rest||(COMPOUNDS.includes(bonus.cat)?150:90)
+  };
+  // Pre-fill sets
+  for(let i=0;i<bonus.sets;i++){
+    ex.performed.push({type:'working',weightKg:bonus.loadKg,reps:repRange(bonus.reps).max||parseInt(bonus.reps)||0,rpe:null,logged:false});
+  }
+  sess.exercises.push(ex);save();renderEx();
 }
 
 function logSet(ei,si){
@@ -1114,9 +1189,9 @@ function confirmRpe(){
   };
   S.sessions.push(rec);
 
-  // Update program loads
+  // Update program loads (skip bonus exercises)
   rec.exercises.forEach(rx=>{
-    if(rx.progression==='increase'&&rx.nextLoad){
+    if(rx.progression==='increase'&&rx.nextLoad&&!(rx.tags||[]).includes('bonus')){
       S.program.days.forEach(d=>{d.exercises.forEach(px=>{if(px.name===rx.name&&px.loadKg===rx.prescribed.loadKg)px.loadKg=rx.nextLoad})});
     }
   });
@@ -1124,6 +1199,8 @@ function confirmRpe(){
   S.activeSession=null;save();
   renderSummary(rec);showView('vSummary');
   document.getElementById('navBar').style.display='flex';
+  // Auto-copy report to clipboard
+  setTimeout(()=>{try{navigator.clipboard.writeText(document.getElementById('reportBox').textContent)}catch(e){}},300);
 }
 
 // ===== SUMMARY =====
@@ -1402,6 +1479,76 @@ function doImport(){
   try{const j=JSON.parse(document.getElementById('importArea').value);if(j.name&&j.days){S.program=j;save();hideModal('importModal');renderTrain()}else{alert('Needs "name" and "days"')}}catch(e){alert('Invalid JSON: '+e.message)}
 }
 
+// ===== COACH REPORT =====
+function generateCoachReport(){
+  const blockName=S.program.name||'Unnamed Block';
+  const blockSessions=S.sessions.filter(s=>{
+    // Include sessions whose dayLabel matches any day in the current program
+    return S.program.days.some(d=>d.label===s.dayLabel);
+  });
+  if(blockSessions.length===0){
+    const box=document.getElementById('coachReportBox');
+    box.style.display='block';box.textContent='No sessions recorded for block "'+blockName+'".';
+    return;
+  }
+
+  let r=`## COACH REPORT — ${blockName}\nGenerated: ${fmtDate(todayStr())}\nSessions: ${blockSessions.length} / ${S.program.days.length}\n\n`;
+
+  // Per-session summary
+  blockSessions.forEach(s=>{
+    const vol=s.exercises.reduce((a,e)=>(e.performed||[]).filter(p=>p.type==='working').reduce((b,p)=>b+p.weightKg*p.reps,a),0);
+    r+=`### ${s.dayLabel} — ${fmtDate(s.date)} — ${s.duration||'?'}m — RPE ${s.rpe||'?'}\n`;
+    s.exercises.forEach(ex=>{
+      const w=(ex.performed||[]).filter(p=>p.type==='working');
+      const wu=(ex.performed||[]).filter(p=>p.type==='warmup');
+      const pi=ex.progression==='increase'?'↑':ex.progression==='flag'?'⚠':ex.progression==='stall'?'⏸':'→';
+      const bonus=(ex.tags||[]).includes('bonus')?' [BONUS]':'';
+      r+=`  ${pi} ${ex.name}${bonus}: ${w.map(s=>fmtW(s.weightKg,ex.prescribed?.unit)+'×'+s.reps).join(' / ')}`;
+      if(ex.progression==='increase'&&ex.nextLoad)r+=` → next ${ex.nextLoad} kg`;
+      r+='\n';
+      if(wu.length)r+=`    Warmup: ${wu.map(s=>fmtW(s.weightKg,ex.prescribed?.unit)+'×'+s.reps).join(', ')}\n`;
+      if(ex.notes)r+=`    Note: ${ex.notes}\n`;
+    });
+    if(s.painEvents&&s.painEvents.length>0)r+=`  ⚠ Pain: ${s.painEvents.map(p=>p.exercise+' ('+p.severity+')').join(', ')}\n`;
+    if(s.sessionNotes)r+=`  Notes: ${s.sessionNotes}\n`;
+    r+=`  Volume: ${Math.round(vol)} kg\n\n`;
+  });
+
+  // Progression summary
+  r+=`### PROGRESSION SUMMARY\n`;
+  const exProg={};
+  blockSessions.forEach(s=>{s.exercises.forEach(ex=>{
+    if(!exProg[ex.name])exProg[ex.name]=[];
+    exProg[ex.name].push({prog:ex.progression,load:ex.prescribed?.loadKg,next:ex.nextLoad,date:s.date});
+  })});
+  Object.entries(exProg).forEach(([name,entries])=>{
+    const last=entries[entries.length-1];
+    const arrow=last.prog==='increase'?'↑':last.prog==='flag'?'⚠':last.prog==='stall'?'⏸':'→';
+    r+=`  ${arrow} ${name}: ${entries.map(e=>(e.load||'?')+' kg').join(' → ')}`;
+    if(last.prog==='increase'&&last.next)r+=` → ${last.next} kg`;
+    r+='\n';
+  });
+
+  // Pain summary
+  const allPain=blockSessions.flatMap(s=>(s.painEvents||[]).map(p=>({...p,date:s.date})));
+  if(allPain.length>0){
+    r+=`\n### PAIN EVENTS\n`;
+    allPain.forEach(p=>{r+=`  ${fmtDate(p.date)}: ${p.exercise} — ${p.severity}\n`});
+  } else {
+    r+=`\nNo pain events this block.\n`;
+  }
+
+  // Display & copy
+  const box=document.getElementById('coachReportBox');
+  box.style.display='block';box.textContent=r;
+  navigator.clipboard.writeText(r).then(()=>{
+    const m=document.getElementById('coachReportMsg');m.style.display='block';setTimeout(()=>m.style.display='none',2500);
+  }).catch(()=>{
+    const t=document.createElement('textarea');t.value=r;document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);
+    const m=document.getElementById('coachReportMsg');m.style.display='block';setTimeout(()=>m.style.display='none',2500);
+  });
+}
+
 // ===== SYNC =====
 function syncData(){
   const d={exportedAt:new Date().toISOString(),program:S.program,sessions:S.sessions,goals:S.goals,settings:S.settings};
@@ -1418,17 +1565,6 @@ document.querySelectorAll('.overlay').forEach(o=>{o.addEventListener('click',e=>
 // ===== INIT =====
 function init(){
   // iOS standalone PWA: extend #app into the dead space below the CSS viewport
-  if(window.navigator.standalone){
-    document.documentElement.classList.add('ios-standalone');
-    // env(safe-area-inset-bottom) returns 0 in iOS standalone mode because
-    // iOS already shrinks the viewport. Calculate the bottom gap manually:
-    // screen.height includes top+bottom safe areas, innerHeight excludes them.
-    // On iPhone Air: screen=912, inner=844, diff=68. Top safe area (Dynamic Island)
-    // is ~59pt, so bottom gap ≈ 68-59 = ~9pt... but the actual visible gap is larger.
-    var sab=38;
-    var app=document.getElementById('app');
-    app.style.height=(window.innerHeight+sab)+'px';
-  }
   load();
   if(S.activeSession){
     sessionStart=S.activeSession.startTime||Date.now();startTimer();
