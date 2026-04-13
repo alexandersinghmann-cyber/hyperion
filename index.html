@@ -1013,9 +1013,10 @@ function renderEx(){
     </div>`;
   }).join('');
 
-  // Extra Credit (bonus exercises)
+  // Extra Credit (bonus exercises) — fall back to DEF_PROGRAM if saved program lacks bonus data
   const day=S.program.days[sess.dayIndex];
-  const bonuses=(day&&day.bonus)||[];
+  const defDay=DEF_PROGRAM.days[sess.dayIndex];
+  const bonuses=(day&&day.bonus)||(defDay&&defDay.bonus)||[];
   // Filter out bonuses already activated into the session
   const activatedNames=sess.exercises.filter(e=>(e.tags||[]).includes('bonus')).map(e=>e.name);
   const available=bonuses.filter(b=>!activatedNames.includes(b.name));
@@ -1041,8 +1042,9 @@ function renderEx(){
 function activateBonus(bi){
   const sess=S.activeSession;if(!sess)return;
   const day=S.program.days[sess.dayIndex];
+  const defDay=DEF_PROGRAM.days[sess.dayIndex];
   const activatedNames=sess.exercises.filter(e=>(e.tags||[]).includes('bonus')).map(e=>e.name);
-  const available=(day.bonus||[]).filter(b=>!activatedNames.includes(b.name));
+  const available=((day&&day.bonus)||(defDay&&defDay.bonus)||[]).filter(b=>!activatedNames.includes(b.name));
   const bonus=available[bi];if(!bonus)return;
 
   const ex={
