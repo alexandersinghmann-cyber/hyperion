@@ -114,18 +114,14 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .big3-tile .b3-ring-mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0}
 .big3-tile .b3-ring-pct{font:800 24px var(--mono);color:var(--tx);letter-spacing:-1.5px;line-height:1}
 .big3-tile .b3-ring-pct-sign{font:700 11px var(--mono);color:var(--tx3);vertical-align:top;margin-left:1px}
-.big3-tile .b3-cur{font:700 12px var(--mono);color:var(--tx);letter-spacing:-.2px;margin-top:8px;position:relative;z-index:1}
-.big3-tile .b3-gap{font:800 16px var(--mono);letter-spacing:-.5px;line-height:1;margin-top:6px;position:relative;z-index:1}
+.big3-tile .b3-cur{font:700 15px var(--mono);color:var(--tx);letter-spacing:-.3px;line-height:1.1;margin-top:10px;position:relative;z-index:1;white-space:nowrap}
+.big3-tile .b3-gap{font:600 11px var(--mono);letter-spacing:-.1px;line-height:1.1;margin-top:4px;position:relative;z-index:1;white-space:nowrap}
 .big3-tile .b3-gap.short{color:var(--red)}
 .big3-tile .b3-gap.hit{color:var(--grn)}
 .big3-tile .b3-gap.none{color:var(--tx3)}
-.big3-tile .b3-tgt{font:600 9px var(--mono);color:var(--tx3);margin-top:4px;letter-spacing:.3px;position:relative;z-index:1}
-.big3-tile .b3-delta{font:600 9px var(--mono);margin-top:6px;display:flex;align-items:center;justify-content:center;gap:4px;height:12px;position:relative;z-index:1}
-.big3-tile .b3-delta.up{color:var(--grn)}
-.big3-tile .b3-delta.down{color:var(--red)}
-.big3-tile .b3-delta.flat{color:var(--tx3)}
-.big3-tile .b3-spark{margin-top:2px;opacity:.7;position:relative;z-index:1}
-.big3-tile .b3-baseline{position:absolute;top:6px;right:6px;font:600 7px var(--mono);color:var(--gold);letter-spacing:1px;z-index:2}
+.big3-tile .b3-ctx{font:500 10px var(--mono);color:var(--tx3);letter-spacing:.2px;margin-top:6px;position:relative;z-index:1;white-space:nowrap}
+.big3-tile .b3-base-mark{font:700 10px var(--mono);color:var(--gold);vertical-align:super;margin-left:1px}
+.big3-baseline-note{font:500 10px var(--mono);color:var(--tx3);text-align:center;margin:-8px 0 12px;letter-spacing:.2px;opacity:.75}
 
 .day-card{position:relative;background:var(--s1);border-radius:var(--r);padding:14px 16px;margin-bottom:8px;border:1px solid var(--s3);cursor:pointer;transition:all .15s;overflow:hidden}
 .day-card:active{transform:scale(.98)}
@@ -349,6 +345,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <div id="heroStat"></div>
     <!-- Big 3 e1RM tiles -->
     <div class="big3-tiles" id="big3Tiles"></div>
+    <div class="big3-baseline-note" id="big3BaselineNote" style="display:none"></div>
     <!-- Stats strip -->
     <div class="stat-strip" id="stats"></div>
 
@@ -2047,18 +2044,19 @@ function renderBig3Tiles(){
   const el = document.getElementById('big3Tiles'); if(!el) return;
   const b3 = getBig3E1rm();
   const disp = S.settings.unit || 'kg';
-  const kg = v => Math.round(v*10)/10;
-  const lb = v => Math.round(v*K2L);
+  const primaryIsKg = disp !== 'lb';
+  // Round: integer if >=100, 1 decimal under 100
+  const kgFmt = v => (v>=100 ? Math.round(v) : Math.round(v*10)/10);
+  const lbFmt = v => Math.round(v*K2L);
   const tgts = S.settings.big3Targets || {squat:166,bench:102,dead:186};
   const tiles = [
-    { key:'squat', name:'Squat',    val:b3.squat, delta:b3.deltaSquat, series:b3.series.squat, baseline:false,               tgtKg:tgts.squat },
-    { key:'bench', name:'Bench',    val:b3.bench, delta:b3.deltaBench, series:b3.series.bench, baseline:b3.benchIsBaseline,  tgtKg:tgts.bench },
-    { key:'dead',  name:'Deadlift', val:b3.dead,  delta:b3.deltaDead,  series:b3.series.dead,  baseline:false,               tgtKg:tgts.dead  },
+    { key:'squat', name:'Squat',    val:b3.squat, baseline:false,               tgtKg:tgts.squat },
+    { key:'bench', name:'Bench',    val:b3.bench, baseline:b3.benchIsBaseline,  tgtKg:tgts.bench },
+    { key:'dead',  name:'Deadlift', val:b3.dead,  baseline:false,               tgtKg:tgts.dead  },
   ];
   // Ring geometry
   const R = 38, CX = 44, CY = 44;
   const CIRC = 2 * Math.PI * R;
-  // Color ramp based on pct
   const ringColor = pct => {
     if(pct >= 100) return 'var(--gold)';
     if(pct >= 75)  return 'var(--grn)';
@@ -2066,51 +2064,41 @@ function renderBig3Tiles(){
     if(pct >= 25)  return '#f59e0b';        // amber
     return '#f97316';                        // orange
   };
+  let anyBaseline = false;
   el.innerHTML = tiles.map(t=>{
     const hasVal = t.val>0;
-    const curKg = hasVal ? kg(t.val) : 0;
-    const curLb = hasVal ? lb(t.val) : 0;
-    const tgtKg = kg(t.tgtKg);
-    const tgtLb = lb(t.tgtKg);
+    if(t.baseline) anyBaseline = true;
     const pctRaw = hasVal ? Math.min(999, Math.max(0, t.val/t.tgtKg*100)) : 0;
     const pct = Math.min(100, pctRaw);              // for the ring fill
     const pctLbl = hasVal ? Math.round(pctRaw) : '—';
     const dash = CIRC * pct / 100;
     const color = hasVal ? ringColor(pct) : 'var(--s3)';
-    const primaryIsKg = disp !== 'lb';
-    const curPrim = primaryIsKg ? curKg + ' kg' : curLb + ' lb';
-    const curSec  = primaryIsKg ? curLb + ' lb' : curKg + ' kg';
-    // Gap — ALWAYS in lb (1000 lb club)
-    let gapHtml='', gapClass='short';
+
+    // Line 1: current, primary unit
+    const curLine = hasVal
+      ? (primaryIsKg ? kgFmt(t.val)+' kg' : lbFmt(t.val)+' lb')
+      : '—';
+
+    // Line 2: gap in primary unit (what's left)
+    let gapHtml='';
     if(hasVal){
       const gapKg = t.tgtKg - t.val;
       if(gapKg<=0){
-        gapClass = 'hit';
-        gapHtml = `<div class="b3-gap hit">✓ HIT</div><div class="b3-gap-sub">+${Math.abs(Math.round(gapKg*K2L))} lb past target</div>`;
+        gapHtml = `<div class="b3-gap hit">✓ goal hit</div>`;
       } else {
-        const gapLbVal = Math.round(gapKg*K2L);
-        const gapKgVal = Math.round(gapKg*10)/10;
-        gapHtml = `<div class="b3-gap short">−${gapLbVal} lb</div><div class="b3-gap-sub">−${gapKgVal} kg to goal</div>`;
+        const gapPrim = primaryIsKg ? kgFmt(gapKg)+' kg' : lbFmt(gapKg)+' lb';
+        gapHtml = `<div class="b3-gap short">${gapPrim} left</div>`;
       }
     } else {
-      gapHtml = `<div class="b3-gap" style="color:var(--tx3)">—</div><div class="b3-gap-sub">no data yet</div>`;
-      gapClass = '';
+      gapHtml = `<div class="b3-gap none">no data yet</div>`;
     }
-    const deltaKg = t.delta;
-    const deltaShown = deltaKg===0 ? '—' : (deltaKg>0?'↑ ':'↓ ')+(primaryIsKg?Math.abs(kg(Math.abs(deltaKg))):Math.abs(lb(Math.abs(deltaKg))))+' '+(primaryIsKg?'kg':'lb');
-    const dCls = deltaKg>0?'up':deltaKg<0?'down':'flat';
-    let spark='';
-    if(t.series && t.series.length>=2){
-      const vals = t.series.slice(-6).map(p=>p.e1rm);
-      const mn = Math.min(...vals), mx = Math.max(...vals);
-      const range = (mx-mn) || 1;
-      const sw = 40, sh = 12;
-      const pts = vals.map((v,i)=> (i/(vals.length-1)*sw).toFixed(1)+','+(sh - ((v-mn)/range)*sh).toFixed(1)).join(' ');
-      const sparkColor = deltaKg>=0 ? 'var(--grn)' : 'var(--red)';
-      spark = `<svg class="b3-spark" width="${sw}" height="${sh}" viewBox="0 0 ${sw} ${sh}"><polyline points="${pts}" fill="none" stroke="${sparkColor}" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-    }
+
+    // Line 3: lb context (current / target on one line)
+    const ctxLine = hasVal
+      ? `${lbFmt(t.val)} / ${lbFmt(t.tgtKg)} lb`
+      : `goal ${lbFmt(t.tgtKg)} lb`;
+
     return `<div class="big3-tile" onclick="goToLiftDetail('${t.key}')">
-      ${t.baseline?'<span class="b3-baseline">BASE</span>':''}
       <div class="b3-lbl">${t.name}</div>
       <div class="b3-ring">
         <svg viewBox="0 0 88 88">
@@ -2118,16 +2106,24 @@ function renderBig3Tiles(){
           <circle class="b3-ring-fg" cx="${CX}" cy="${CY}" r="${R}" stroke="${color}" stroke-dasharray="${dash.toFixed(2)} ${CIRC.toFixed(2)}"/>
         </svg>
         <div class="b3-ring-mid">
-          <div><span class="b3-ring-pct">${pctLbl}</span><span class="b3-ring-pct-sign">%</span></div>
+          <div><span class="b3-ring-pct">${pctLbl}</span><span class="b3-ring-pct-sign">%</span>${t.baseline?'<span class="b3-base-mark">*</span>':''}</div>
         </div>
       </div>
-      <div class="b3-cur">${hasVal?curKg+' kg · '+curLb+' lb':'—'}</div>
-      <div class="b3-gap ${hasVal?(t.tgtKg-t.val<=0?'hit':'short'):'none'}">${hasVal?(t.tgtKg-t.val<=0?'✓ HIT':'−'+Math.round((t.tgtKg-t.val)*K2L)+' lb'):'—'}</div>
-      <div class="b3-tgt">goal ${tgtLb} lb · ${tgtKg} kg</div>
-      <div class="b3-delta ${dCls}">${deltaShown}</div>
-      ${spark}
+      <div class="b3-cur">${curLine}</div>
+      ${gapHtml}
+      <div class="b3-ctx">${ctxLine}</div>
     </div>`;
   }).join('');
+  // Footer note for baseline-only bench (rendered into a sibling element)
+  const note = document.getElementById('big3BaselineNote');
+  if(note){
+    if(anyBaseline){
+      note.style.display='block';
+      note.innerHTML='* bench uses pre-injury baseline — updates once a flat bench is logged';
+    } else {
+      note.style.display='none';
+    }
+  }
 }
 
 function goToLiftDetail(key){
