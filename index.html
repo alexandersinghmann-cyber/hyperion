@@ -103,24 +103,26 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 
 /* Big 3 tiles on Train view */
 .big3-tiles{display:flex;gap:6px;margin-bottom:14px}
-.big3-tile{flex:1;background:var(--s1);border:1px solid var(--s3);border-radius:var(--r);padding:10px 8px;cursor:pointer;transition:all .12s;min-width:0;position:relative;overflow:hidden}
+.big3-tile{flex:1;background:var(--s1);border:1px solid var(--s3);border-radius:var(--r);padding:10px 8px 8px;cursor:pointer;transition:all .12s;min-width:0;position:relative;overflow:hidden}
 .big3-tile:active{transform:scale(.98);border-color:var(--acc)}
 .big3-tile .b3-lbl{font:700 9px var(--mono);color:var(--tx3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px}
-.big3-tile .b3-val{font:700 22px var(--mono);color:var(--tx);letter-spacing:-1px;line-height:1}
+.big3-tile .b3-cur-kg{font:700 18px var(--mono);color:var(--tx);letter-spacing:-.5px;line-height:1}
+.big3-tile .b3-cur-lb{font:600 11px var(--mono);color:var(--tx2);letter-spacing:.3px;margin-top:1px}
 .big3-tile .b3-unit{font:500 9px var(--mono);color:var(--tx3);letter-spacing:1px;margin-left:2px}
-.big3-tile .b3-delta{font:600 10px var(--mono);margin-top:3px;display:flex;align-items:center;gap:3px;height:12px}
+.big3-tile .b3-thermo{height:22px;background:var(--s2);border:1px solid var(--s3);border-radius:3px;margin-top:8px;overflow:hidden;position:relative}
+.big3-tile .b3-thermo-fill{position:absolute;top:0;left:0;bottom:0;background:linear-gradient(90deg,var(--acc),var(--grn));border-radius:2px;transition:width .6s ease}
+.big3-tile .b3-thermo-txt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:700 10px var(--mono);color:var(--tx);letter-spacing:.3px;text-shadow:0 1px 2px rgba(0,0,0,.5);z-index:2}
+.big3-tile .b3-gap{font:700 14px var(--mono);margin-top:8px;letter-spacing:-.2px;line-height:1}
+.big3-tile .b3-gap.short{color:var(--red)}
+.big3-tile .b3-gap.hit{color:var(--grn)}
+.big3-tile .b3-gap-sub{font:500 9px var(--mono);color:var(--tx3);letter-spacing:.5px;margin-top:2px}
+.big3-tile .b3-tgt{font:600 9px var(--mono);color:var(--tx3);margin-top:6px;letter-spacing:.4px;padding-top:5px;border-top:1px dashed var(--s3)}
+.big3-tile .b3-delta{font:600 10px var(--mono);margin-top:4px;display:flex;align-items:center;gap:3px;height:12px}
 .big3-tile .b3-delta.up{color:var(--grn)}
 .big3-tile .b3-delta.down{color:var(--red)}
 .big3-tile .b3-delta.flat{color:var(--tx3)}
 .big3-tile .b3-spark{position:absolute;bottom:4px;right:4px;opacity:.55}
 .big3-tile .b3-baseline{position:absolute;top:6px;right:6px;font:600 8px var(--mono);color:var(--gold);letter-spacing:1px}
-.big3-tile .b3-sub{font:500 10px var(--mono);color:var(--tx3);margin-top:2px;letter-spacing:.3px}
-.big3-tile .b3-tgt{font:600 9px var(--mono);color:var(--tx2);margin-top:5px;letter-spacing:.5px}
-.big3-tile .b3-gap{font:700 10px var(--mono);margin-top:2px;letter-spacing:.3px}
-.big3-tile .b3-gap.short{color:var(--red)}
-.big3-tile .b3-gap.hit{color:var(--grn)}
-.big3-tile .b3-bar{height:3px;background:var(--s3);border-radius:2px;margin-top:6px;overflow:hidden;position:relative}
-.big3-tile .b3-bar-fill{height:100%;background:linear-gradient(90deg,var(--acc),var(--grn));border-radius:2px;transition:width .5s ease}
 
 .day-card{position:relative;background:var(--s1);border-radius:var(--r);padding:14px 16px;margin-bottom:8px;border:1px solid var(--s3);cursor:pointer;transition:all .15s;overflow:hidden}
 .day-card:active{transform:scale(.98)}
@@ -1936,10 +1938,9 @@ function renderBig3Tiles(){
   const el = document.getElementById('big3Tiles'); if(!el) return;
   const b3 = getBig3E1rm();
   const disp = S.settings.unit || 'kg';
-  // Primary conversion follows unit toggle; secondary always shows the other unit
-  const toUnit = (kg,u) => u==='lb' ? Math.round(kg*K2L) : Math.round(kg*10)/10;
-  const primUnit = disp;
-  const secUnit  = disp==='lb' ? 'kg' : 'lb';
+  // Both units shown regardless of toggle; toggle just controls which is primary
+  const kg = v => Math.round(v*10)/10;
+  const lb = v => Math.round(v*K2L);
   const tgts = S.settings.big3Targets || {squat:166,bench:102,dead:186};
   const tiles = [
     { key:'squat', name:'Squat',    val:b3.squat, delta:b3.deltaSquat, series:b3.series.squat, baseline:false,               tgtKg:tgts.squat },
@@ -1948,28 +1949,36 @@ function renderBig3Tiles(){
   ];
   el.innerHTML = tiles.map(t=>{
     const hasVal = t.val>0;
-    const primShown = hasVal ? toUnit(t.val,primUnit) : '—';
-    const secShown  = hasVal ? toUnit(t.val,secUnit)  : '';
-    const tgtPrim = toUnit(t.tgtKg,primUnit);
-    const tgtSec  = toUnit(t.tgtKg,secUnit);
-    const deltaKg = t.delta;
-    const deltaShown = deltaKg===0 ? '—' : (deltaKg>0?'↑ ':'↓ ')+Math.abs(toUnit(Math.abs(deltaKg),primUnit));
-    const dCls = deltaKg>0?'up':deltaKg<0?'down':'flat';
-    // Gap (shown in primary unit; sign indicates how far off)
+    const curKg = hasVal ? kg(t.val) : 0;
+    const curLb = hasVal ? lb(t.val) : 0;
+    const tgtKg = kg(t.tgtKg);
+    const tgtLb = lb(t.tgtKg);
+    // Progress bar
+    const pct = hasVal ? Math.min(100, Math.max(0, t.val/t.tgtKg*100)) : 0;
+    const pctTxt = hasVal ? Math.round(pct)+'%' : '—';
+    // Primary = kg by default, but user can toggle
+    const primaryIsKg = disp !== 'lb';
+    const curPrim = primaryIsKg ? curKg + ' kg' : curLb + ' lb';
+    const curSec  = primaryIsKg ? curLb + ' lb' : curKg + ' kg';
+    // Gap — ALWAYS shown in lb (the goal unit is "1000 lb club")
     let gapHtml='';
     if(hasVal){
       const gapKg = t.tgtKg - t.val;
       if(gapKg<=0){
-        gapHtml = `<div class="b3-gap hit">✓ target hit</div>`;
+        gapHtml = `<div class="b3-gap hit">✓ hit</div><div class="b3-gap-sub">target cleared</div>`;
       } else {
-        const gPrim = toUnit(gapKg, primUnit);
-        gapHtml = `<div class="b3-gap short">−${gPrim} ${primUnit}</div>`;
+        const gapLbVal = Math.round(gapKg*K2L);
+        const gapKgVal = Math.round(gapKg*10)/10;
+        gapHtml = `<div class="b3-gap short">−${gapLbVal} lb</div><div class="b3-gap-sub">−${gapKgVal} kg to goal</div>`;
       }
+    } else {
+      gapHtml = `<div class="b3-gap" style="color:var(--tx3)">—</div><div class="b3-gap-sub">no data yet</div>`;
     }
-    // Progress bar (cur/target)
-    const pct = hasVal ? Math.min(100, Math.max(0, t.val/t.tgtKg*100)) : 0;
-    const bar = `<div class="b3-bar"><div class="b3-bar-fill" style="width:${pct}%"></div></div>`;
-    // Sparkline (last up to 6 points)
+    // Delta
+    const deltaKg = t.delta;
+    const deltaShown = deltaKg===0 ? '—' : (deltaKg>0?'↑ ':'↓ ')+(primaryIsKg?Math.abs(kg(Math.abs(deltaKg))):Math.abs(lb(Math.abs(deltaKg))));
+    const dCls = deltaKg>0?'up':deltaKg<0?'down':'flat';
+    // Sparkline
     let spark='';
     if(t.series && t.series.length>=2){
       const vals = t.series.slice(-6).map(p=>p.e1rm);
@@ -1983,11 +1992,14 @@ function renderBig3Tiles(){
     return `<div class="big3-tile" onclick="goToLiftDetail('${t.key}')">
       ${t.baseline?'<span class="b3-baseline">BASE</span>':''}
       <div class="b3-lbl">${t.name}</div>
-      <div><span class="b3-val">${primShown}</span><span class="b3-unit">${hasVal?primUnit:''}</span></div>
-      <div class="b3-sub">${hasVal?secShown+' '+secUnit:''}</div>
-      <div class="b3-tgt">→ ${tgtPrim} ${primUnit} · ${tgtSec} ${secUnit}</div>
+      <div class="b3-cur-kg">${hasVal?curPrim:'—'}</div>
+      <div class="b3-cur-lb">${hasVal?curSec:''}</div>
+      <div class="b3-thermo">
+        <div class="b3-thermo-fill" style="width:${pct}%"></div>
+        <div class="b3-thermo-txt">${pctTxt}</div>
+      </div>
       ${gapHtml}
-      ${bar}
+      <div class="b3-tgt">→ ${tgtLb} lb · ${tgtKg} kg</div>
       <div class="b3-delta ${dCls}">${deltaShown}</div>
       ${spark}
     </div>`;
