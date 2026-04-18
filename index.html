@@ -101,6 +101,20 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .stat-val{font:700 20px var(--mono);color:var(--tx);letter-spacing:-1px}
 .stat-lbl{font:600 8px var(--mono);color:var(--tx3);text-transform:uppercase;letter-spacing:1.5px;margin-top:4px}
 
+/* Big 3 tiles on Train view */
+.big3-tiles{display:flex;gap:6px;margin-bottom:14px}
+.big3-tile{flex:1;background:var(--s1);border:1px solid var(--s3);border-radius:var(--r);padding:10px 8px;cursor:pointer;transition:all .12s;min-width:0;position:relative;overflow:hidden}
+.big3-tile:active{transform:scale(.98);border-color:var(--acc)}
+.big3-tile .b3-lbl{font:700 9px var(--mono);color:var(--tx3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px}
+.big3-tile .b3-val{font:700 22px var(--mono);color:var(--tx);letter-spacing:-1px;line-height:1}
+.big3-tile .b3-unit{font:500 9px var(--mono);color:var(--tx3);letter-spacing:1px;margin-left:2px}
+.big3-tile .b3-delta{font:600 10px var(--mono);margin-top:3px;display:flex;align-items:center;gap:3px;height:12px}
+.big3-tile .b3-delta.up{color:var(--grn)}
+.big3-tile .b3-delta.down{color:var(--red)}
+.big3-tile .b3-delta.flat{color:var(--tx3)}
+.big3-tile .b3-spark{position:absolute;bottom:4px;right:4px;opacity:.55}
+.big3-tile .b3-baseline{position:absolute;top:6px;right:6px;font:600 8px var(--mono);color:var(--gold);letter-spacing:1px}
+
 .day-card{position:relative;background:var(--s1);border-radius:var(--r);padding:14px 16px;margin-bottom:8px;border:1px solid var(--s3);cursor:pointer;transition:all .15s;overflow:hidden}
 .day-card:active{transform:scale(.98)}
 .day-card.today{border-color:var(--s3);border-left:3px solid var(--acc);background:linear-gradient(135deg,rgba(34,211,238,.03),transparent)}
@@ -300,6 +314,8 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 
     <!-- Hero stat -->
     <div id="heroStat"></div>
+    <!-- Big 3 e1RM tiles -->
+    <div class="big3-tiles" id="big3Tiles"></div>
     <!-- Stats strip -->
     <div class="stat-strip" id="stats"></div>
 
@@ -449,6 +465,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <p style="font-size:13px;color:var(--tx2);margin-bottom:10px">Rate of Perceived Exertion — how hard was this session? 6 = easy, 10 = absolute max.</p>
     <div class="rpe-row" id="rpeRow"></div>
     <button class="btn btn-p btn-w" style="margin-top:14px" onclick="confirmRpe()">Done</button>
+    <button class="btn btn-s btn-w" style="margin-top:8px" onclick="cancelRpe()">Back to session</button>
   </div>
 </div>
 
@@ -615,7 +632,7 @@ const DEF_PROGRAM={name:"Apr 18–21 Block",active:true,days:[
 
 // ===== STATE =====
 const SEED_SESSION={
-  id:'s_20260411',date:'2026-04-11',dayLabel:'Squat Heavy',duration:58,rpe:7,status:'complete',
+  id:'s_20260411',date:'2026-04-11',dayLabel:'Squat Heavy',blockName:'Apr 11–16 Block',duration:58,rpe:7,status:'complete',
   exercises:[
     {name:'Back Squat',cat:'squat',prescribed:{sets:4,reps:'5',loadKg:92.5,unit:'kg'},
      performed:[
@@ -659,11 +676,13 @@ const SEED_SESSION={
   painEvents:[]
 };
 
-let S={version:2,program:JSON.parse(JSON.stringify(DEF_PROGRAM)),sessions:[],goals:[{id:'g1',name:'1000 lb Total',current:0,target:1000,unit:'lb',auto:true}],settings:{unit:'kg'},activeSession:null};
+let S={version:2,program:JSON.parse(JSON.stringify(DEF_PROGRAM)),sessions:[],goals:[{id:'g1',name:'1000 lb Total',current:0,target:1000,unit:'lb',auto:true}],settings:{unit:'kg',benchBaseline1RM:95},activeSession:null};
 let sessionStart=null,sessionTimer=null,restInt=null,restEnd=null,restDur=0,painExI=null,selRpe=null,viewDayI=0,previewDayI=0;
 
 function save(){try{localStorage.setItem(STORE,JSON.stringify(S))}catch(e){}}
-function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse(r);S={...S,...d};if(!S.goals)S.goals=[{id:'g1',name:'1000 lb Total',current:0,target:1000,unit:'lb',auto:true}];if(!S.settings)S.settings={unit:'kg'};
+function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse(r);S={...S,...d};if(!S.goals)S.goals=[{id:'g1',name:'1000 lb Total',current:0,target:1000,unit:'lb',auto:true}];if(!S.settings)S.settings={unit:'kg',benchBaseline1RM:95};
+  // Backfill benchBaseline1RM for users whose localStorage predates this feature
+  if(S.settings.benchBaseline1RM==null)S.settings.benchBaseline1RM=95;
   // v1→v2 migration
   if(!S.version||S.version<2){S.version=2;S.sessions.forEach(s=>{if(!s.blockName)s.blockName='Apr 11–16 Block'});save()}}
   // Seed Day 1 session if no sessions exist
@@ -777,6 +796,8 @@ function renderTrain(){
   document.getElementById('heroStat').innerHTML=`
     <div class="hero-row"><span class="hero-total">${totalE1>0?totalE1:'—'}</span><span class="hero-unit">lb</span></div>
     ${gap?`<div class="hero-gap">${gap}</div>`:''}`;
+  // Big 3 e1RM tiles (tap → Progress chart)
+  renderBig3Tiles();
   document.getElementById('stats').innerHTML=`
     <div class="stat-item"><div class="stat-val">${blockDone} / ${blockTotal}</div><div class="stat-lbl">Sessions</div></div>
     <div class="stat-item"><div class="stat-val">${streak}</div><div class="stat-lbl">Streak</div></div>
@@ -852,12 +873,12 @@ function showDayPreview(i){
   // Exercise list
   const exContainer=document.getElementById('pvExercises');
   if(done&&session){
-    // Show completed results
+    // Show completed results (read-only — tap does not edit the program)
     exContainer.innerHTML=session.exercises.map((ex,ei)=>{
       const w=(ex.performed||[]).filter(p=>p.type==='working');
       const wu=(ex.performed||[]).filter(p=>p.type==='warmup');
       const pi=ex.progression==='increase'?'<span class="tg">↑</span>':ex.progression==='flag'?'<span class="tr">⚠</span>':'<span class="td">→</span>';
-      return`<div class="preview-ex" onclick="showEditEx(${i},${ei})">
+      return`<div class="preview-ex">
         <div class="pe-dot" style="background:var(--grn)"></div>
         <div style="flex:1">
           <div class="pe-name">${ex.name}</div>
@@ -978,7 +999,6 @@ function renderEx(){
     const anyDone=ex.performed.some(s=>s.logged);
     const stCls=allDone?'done':anyDone?'partial':'pending';
     const autoOpen=!allDone&&(i===0||sess.exercises.slice(0,i).every(e=>e.performed.every(s=>s.logged)));
-    const hasPain=ex.tags.includes('shoulder')||ex.cat==='push';
 
     return`<div class="ex-card ${autoOpen?'open':''} ${autoOpen&&!allDone?'active':''}" id="ex${i}">
       <div class="ex-head" onclick="document.getElementById('ex${i}').classList.toggle('open')">
@@ -987,22 +1007,27 @@ function renderEx(){
           <div class="ex-name">${(ex.tags||[]).includes('bonus')?'<span style="color:var(--gold);font-size:10px;margin-right:4px">★</span>':''}${ex.name}${ex.tags.includes('per side')?' <span class="td" style="font-size:11px">/side</span>':''}${ex.tags.includes('per hand')?' <span class="td" style="font-size:11px">/hand</span>':''}${ex.tags.includes('per leg')?' <span class="td" style="font-size:11px">/leg</span>':''}</div>
           <div class="ex-rx">${ex.prescribed.sets}×${ex.prescribed.reps} @ ${fmtW(ex.prescribed.loadKg,ex.prescribed.unit)}</div>
         </div>
-        ${hasPain?`<button class="btn btn-sm btn-d" onclick="event.stopPropagation();painExI=${i};document.getElementById('painExName').textContent='${ex.name}';showModal('painModal')" style="padding:3px 8px;font-size:10px">Pain</button>`:''}
       </div>
       <div class="ex-body">
         ${getLastHint(ex.name)}
         ${ex.performed.map((s,si)=>{
           const wu=s.type==='warmup';
           const wn=wu?'W':(ex.performed.slice(0,si).filter(x=>x.type==='working').length+1);
-          const dw=s.weightKg===0?'':(ex.prescribed.unit==='lb'?Math.round(s.weightKg*K2L):s.weightKg);
+          const dispU=S.settings.unit||'kg';
+          const dw=s.weightKg===0?'':(dispU==='lb'?Math.round(s.weightKg*K2L):s.weightKg);
           const isSkipped=s.skipped;
           const stCl=isSkipped?'st-skip':s.logged?'st-done':wu?'st-warmup':'st-working';
+          // Preserve user's current input if they're mid-typing (render can fire during logSet)
+          const wInputEl=document.getElementById(`w${i}_${si}`);
+          const rInputEl=document.getElementById(`r${i}_${si}`);
+          const wVal = (wInputEl&&document.activeElement===wInputEl) ? wInputEl.value : (isSkipped?'':dw);
+          const rVal = (rInputEl&&document.activeElement===rInputEl) ? rInputEl.value : (isSkipped?'':s.reps||'');
           return`<div class="set-row ${stCl}">
             <div class="set-num ${wu?'wu':''}">${wn}</div>
             <div class="set-fields">
-              <input type="number" step="0.5" value="${isSkipped?'':dw}" placeholder="wt" id="w${i}_${si}" ${s.logged?'disabled':''}>
+              <input type="number" step="0.5" value="${wVal}" placeholder="wt" id="w${i}_${si}" ${s.logged?'disabled':''}>
               <span class="x">×</span>
-              <input type="number" value="${isSkipped?'':s.reps||''}" placeholder="rps" id="r${i}_${si}" ${s.logged?'disabled':''}>
+              <input type="number" value="${rVal}" placeholder="rps" id="r${i}_${si}" ${s.logged?'disabled':''}>
             </div>
             ${isSkipped?'<span style="font:500 10px var(--mono);color:var(--tx3)">SKIP</span>':s.logged?`<button class="set-log done" onclick="logSet(${i},${si})">✓</button>`:`<button class="set-log ready" onclick="logSet(${i},${si})">Log</button>`}
             ${s.logged&&!isSkipped?`<button class="set-edit" onclick="editSet(${i},${si})">✎</button>`:''}
@@ -1014,7 +1039,8 @@ function renderEx(){
         <div class="ex-actions">
           <button class="btn btn-sm btn-g" onclick="addWu(${i})">+ Warmup</button>
           <button class="btn btn-sm btn-g" onclick="addSet(${i})">+ Set</button>
-          ${!allDone?`<button class="btn btn-sm btn-g" onclick="skipExercise(${i})">Skip Exercise</button>`:''}
+          <button class="btn btn-sm btn-d" onclick="painExI=${i};document.getElementById('painExName').textContent='${ex.name.replace(/'/g,"\\'")}';showModal('painModal')" style="padding:8px 10px;font-size:11px">Pain</button>
+          ${!allDone?`<button class="btn btn-sm btn-g" onclick="skipExercise(${i})">Skip</button>`:''}
           ${!allDone?`<button class="btn btn-sm btn-s" style="margin-left:auto" onclick="logAll(${i})">Log All</button>`:''}
         </div>
         ${ex.painEvent?`<div style="margin-top:8px;padding:8px 10px;border-radius:var(--rs);background:var(--red-dim);font-size:12px;color:var(--red)">⚠ ${ex.painEvent.severity} pain${ex.painEvent.action?' — '+ex.painEvent.action:''}</div>`:''}
@@ -1077,9 +1103,11 @@ function activateBonus(bi){
 function logSet(ei,si){
   const ex=S.activeSession.exercises[ei],s=ex.performed[si];
   const wi=document.getElementById(`w${ei}_${si}`),ri=document.getElementById(`r${ei}_${si}`);
-  if(wi&&wi.value){const v=parseFloat(wi.value);s.weightKg=ex.prescribed.unit==='lb'?v*L2K:v}
+  const dispU=S.settings.unit||'kg';
+  if(wi&&wi.value){const v=parseFloat(wi.value);s.weightKg=dispU==='lb'?v*L2K:v}
   if(ri&&ri.value)s.reps=parseInt(ri.value);
   s.logged=true;save();
+  initAudio();playBeepLater(ex.rest);
   startRest(ex.rest);
   if(ex.performed.every(x=>x.logged))evalProg(ei);
   renderEx();
@@ -1087,10 +1115,11 @@ function logSet(ei,si){
 
 function logAll(ei){
   const ex=S.activeSession.exercises[ei];
+  const dispU=S.settings.unit||'kg';
   ex.performed.forEach((s,si)=>{
     if(!s.logged){
       const wi=document.getElementById(`w${ei}_${si}`),ri=document.getElementById(`r${ei}_${si}`);
-      if(wi&&wi.value){const v=parseFloat(wi.value);s.weightKg=ex.prescribed.unit==='lb'?v*L2K:v}
+      if(wi&&wi.value){const v=parseFloat(wi.value);s.weightKg=dispU==='lb'?v*L2K:v}
       if(ri&&ri.value)s.reps=parseInt(ri.value);
       s.logged=true;
     }
@@ -1139,6 +1168,42 @@ function addExMidSession(){
   showModal('addExModal');
 }
 
+// ===== AUDIO (WebAudio beep on rest complete) =====
+let _audioCtx=null, _audioReady=false;
+function initAudio(){
+  // Must run from a user gesture (first logSet tap qualifies) for iOS Safari.
+  if(_audioReady)return;
+  try{
+    const Ctx = window.AudioContext||window.webkitAudioContext;
+    if(!Ctx)return;
+    _audioCtx = new Ctx();
+    if(_audioCtx.state==='suspended') _audioCtx.resume().catch(()=>{});
+    _audioReady=true;
+  }catch(e){ _audioReady=false; }
+}
+function beep(){
+  if(!_audioReady||!_audioCtx)return;
+  try{
+    const now=_audioCtx.currentTime;
+    const osc=_audioCtx.createOscillator();
+    const gain=_audioCtx.createGain();
+    osc.type='sine';
+    osc.frequency.setValueAtTime(880,now);
+    osc.frequency.linearRampToValueAtTime(660,now+0.25);
+    gain.gain.setValueAtTime(0.0001,now);
+    gain.gain.exponentialRampToValueAtTime(0.25,now+0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001,now+0.35);
+    osc.connect(gain);gain.connect(_audioCtx.destination);
+    osc.start(now);osc.stop(now+0.4);
+  }catch(e){}
+}
+let _restBeepTimer=null;
+function playBeepLater(sec){
+  if(_restBeepTimer)clearTimeout(_restBeepTimer);
+  _restBeepTimer=setTimeout(()=>{beep();setTimeout(beep,220)}, sec*1000);
+}
+function cancelBeep(){if(_restBeepTimer){clearTimeout(_restBeepTimer);_restBeepTimer=null}}
+
 // ===== REST TIMER =====
 function startRest(sec){
   stopRest();restDur=sec;restEnd=Date.now()+sec*1000;
@@ -1158,8 +1223,12 @@ function startRest(sec){
   },250);
 }
 function stopRest(){if(restInt)clearInterval(restInt);restInt=null;document.getElementById('restBar').classList.remove('on')}
-function skipRest(){stopRest()}
-function addRest(s){if(restEnd){restEnd+=s*1000;restDur+=s}}
+function skipRest(){cancelBeep();stopRest()}
+function addRest(s){if(restEnd){restEnd+=s*1000;restDur+=s;// reschedule beep to new end
+  if(_restBeepTimer)clearTimeout(_restBeepTimer);
+  const remMs=Math.max(0,restEnd-Date.now());
+  _restBeepTimer=setTimeout(()=>{beep();setTimeout(beep,220)},remMs);
+}}
 
 // ===== SESSION TIMER =====
 function startTimer(){if(sessionTimer)clearInterval(sessionTimer);sessionTimer=setInterval(()=>{if(!sessionStart)return;const e=Math.floor((Date.now()-sessionStart)/1000);document.getElementById('sDur').textContent=Math.floor(e/60)+':'+String(e%60).padStart(2,'0')},1000)}
@@ -1196,14 +1265,31 @@ function logPain(sev){
   const ex=S.activeSession.exercises[painExI];
   const act=sev==='sharp'?'STOP — switch to alternative':sev==='mild'?'Reduce load 10-20%':'';
   ex.painEvent={severity:sev,action:act,ts:new Date().toISOString()};
-  if(sev==='sharp'){ex.performed.forEach(s=>{if(!s.logged){s.logged=true;s.reps=0}});ex.progression='flag';ex.nextLoad=ex.prescribed.loadKg}
+  if(sev==='sharp'){
+    ex.performed.forEach(s=>{if(!s.logged){s.logged=true;s.reps=0}});
+    ex.progression='flag';ex.nextLoad=ex.prescribed.loadKg;
+  } else if(sev==='mild'){
+    // Offer to drop remaining unlogged sets by 15% — user chooses per-situation.
+    const unlogged = ex.performed.filter(s=>!s.logged&&s.type==='working');
+    if(unlogged.length>0 && confirm('Drop remaining '+unlogged.length+' set'+(unlogged.length>1?'s':'')+' to '+Math.round(ex.prescribed.loadKg*0.85*10)/10+' kg (−15%)?')){
+      unlogged.forEach(s=>{ s.weightKg = Math.round(ex.prescribed.loadKg*0.85*10)/10; });
+    }
+  }
   save();hideModal('painModal');renderEx();
 }
 
 // ===== END SESSION =====
 function cancelSession(){
-  const anyLogged=S.activeSession&&S.activeSession.exercises.some(ex=>ex.performed.some(s=>s.logged));
-  if(anyLogged&&!confirm('Discard this session? Logged sets will be lost.'))return;
+  if(!S.activeSession)return;
+  const anyLogged=S.activeSession.exercises.some(ex=>ex.performed.some(s=>s.logged));
+  const elapsedSec=sessionStart?Math.round((Date.now()-sessionStart)/1000):0;
+  // Confirm if ANY work happened — logged sets OR just being in a session for >60s.
+  // Stops an accidental Cancel tap from wiping a live session.
+  if(anyLogged){
+    if(!confirm('Discard this session? Logged sets will be lost.'))return;
+  } else if(elapsedSec>60){
+    if(!confirm('Cancel this session? '+Math.floor(elapsedSec/60)+' min elapsed.'))return;
+  }
   stopRest();if(sessionTimer)clearInterval(sessionTimer);sessionTimer=null;
   S.activeSession=null;save();
   document.getElementById('navBar').style.display='flex';
@@ -1211,15 +1297,23 @@ function cancelSession(){
 }
 
 function endSession(){
-  stopRest();if(sessionTimer)clearInterval(sessionTimer);sessionTimer=null;
+  // NOTE: do not stop the session timer yet — if the RPE modal is cancelled we
+  // need the session to remain live and the timer to keep counting up.
   selRpe=null;
   const grid=document.getElementById('rpeRow');grid.innerHTML='';
   for(let i=6;i<=10;i++){const b=document.createElement('div');b.className='rpe-opt';b.textContent=i;b.onclick=()=>{selRpe=i;grid.querySelectorAll('.rpe-opt').forEach(x=>x.classList.remove('sel'));b.classList.add('sel')};grid.appendChild(b)}
   showModal('rpeModal');
 }
 
+function cancelRpe(){
+  // User backed out — session stays live, timer keeps running.
+  hideModal('rpeModal');
+}
+
 function confirmRpe(){
   hideModal('rpeModal');
+  // NOW stop the session timer — we're committing the record.
+  stopRest();if(sessionTimer)clearInterval(sessionTimer);sessionTimer=null;
   const sess=S.activeSession;
   const dur=Math.round((Date.now()-(sess.startTime||Date.now()))/60000);
   sess.exercises.forEach((ex,i)=>{if(!ex.progression&&ex.performed.some(s=>s.logged))evalProg(i)});
@@ -1289,29 +1383,128 @@ function copyReport(){
 }
 
 // ===== PROGRESS VIEW =====
-function calcTotal(){
-  const big3={squat:0,bench:0,dead:0};
-  // From sessions
-  S.sessions.forEach(s=>{s.exercises.forEach(ex=>{
-    const w=(ex.performed||[]).filter(p=>p.type==='working'&&!p.skipped);
-    w.forEach(set=>{
-      const e=e1rm(set.weightKg,set.reps);
-      if(ex.name==='Back Squat'&&!ex.name.includes('light')&&e>big3.squat)big3.squat=e;
-      if(ex.name==='Deadlift'&&e>big3.dead)big3.dead=e;
-      if(ex.name.includes('Incline Bench')&&e>big3.bench)big3.bench=e;
+
+// Canonical Big 3 e1RM source — used by Hero total, Big 3 tiles, Progress stats, and e1RM chart.
+// Bench uses logged Flat Bench only; if none has been logged, falls back to S.settings.benchBaseline1RM (Alex: 95 kg).
+// Incline Bench is deliberately EXCLUDED — it is not a 1RM proxy for flat bench.
+function getBig3E1rm(){
+  // name match: "Back Squat" exactly (not "Back Squat (light)") | "Deadlift" exactly | "Flat Bench" or "Bench Press"
+  const isSquat = n => n === 'Back Squat';
+  const isDead  = n => n === 'Deadlift';
+  const isFlatBench = n => /^(flat bench|bench press|barbell bench)$/i.test(n);
+  const series = { squat: [], bench: [], dead: [] };
+
+  S.sessions.forEach(s=>{
+    let sq=0, bn=0, dl=0;
+    s.exercises.forEach(ex=>{
+      (ex.performed||[]).filter(p=>p.type==='working'&&!p.skipped&&p.logged).forEach(set=>{
+        const e = e1rm(set.weightKg, set.reps);
+        if(isSquat(ex.name) && e>sq) sq=e;
+        if(isDead(ex.name)  && e>dl) dl=e;
+        if(isFlatBench(ex.name) && e>bn) bn=e;
+      });
     });
-  })});
-  // Fallback from program
+    if(sq>0) series.squat.push({date:s.date, e1rm:sq});
+    if(bn>0) series.bench.push({date:s.date, e1rm:bn});
+    if(dl>0) series.dead.push({date:s.date, e1rm:dl});
+  });
+
+  // Peak values
+  const peakSquat = series.squat.reduce((m,p)=>Math.max(m,p.e1rm), 0);
+  const peakDead  = series.dead.reduce((m,p)=>Math.max(m,p.e1rm), 0);
+  let peakBench = series.bench.reduce((m,p)=>Math.max(m,p.e1rm), 0);
+
+  // Fallback from current program for squat/deadlift (uses top of rep range to estimate e1RM)
+  // ONLY used if no logged data exists for that lift — we don't want aspirational program loads
+  // to overwrite a real (possibly lower) logged e1RM and distort the trend.
+  let progSquat=0, progDead=0;
   S.program.days.forEach(d=>{d.exercises.forEach(ex=>{
-    const rr=repRange(ex.reps).max||5;const e=e1rm(ex.loadKg,rr);
-    if(ex.name==='Back Squat'&&!ex.name.includes('light')&&e>big3.squat)big3.squat=e;
-    if(ex.name==='Deadlift'&&e>big3.dead)big3.dead=e;
-    if(ex.name.includes('Incline Bench')&&e>big3.bench)big3.bench=e;
+    const rr = repRange(ex.reps).max || 5;
+    const e  = e1rm(ex.loadKg, rr);
+    if(isSquat(ex.name) && e>progSquat) progSquat=e;
+    if(isDead(ex.name)  && e>progDead)  progDead=e;
   })});
-  const total=Math.round(big3.squat*K2L)+Math.round(big3.bench*K2L)+Math.round(big3.dead*K2L);
-  // Update auto goal
-  const ag=S.goals.find(g=>g.auto);if(ag&&total>0){ag.current=total;save()}
+  const squatFinal = peakSquat > 0 ? peakSquat : progSquat;
+  const deadFinal  = peakDead  > 0 ? peakDead  : progDead;
+
+  // Bench: use logged flat bench if we have any, otherwise the user's self-reported baseline.
+  const hasFlatBench = series.bench.length>0;
+  const benchBaseline = (S.settings && S.settings.benchBaseline1RM) || 0;
+  const benchFinal = hasFlatBench ? peakBench : benchBaseline;
+  const benchIsBaseline = !hasFlatBench && benchBaseline>0;
+
+  // Trend delta: current vs previous recorded point (per lift)
+  const delta = (arr) => {
+    if(arr.length < 2) return 0;
+    return arr[arr.length-1].e1rm - arr[arr.length-2].e1rm;
+  };
+
+  return {
+    squat: squatFinal,
+    bench: benchFinal,
+    dead:  deadFinal,
+    benchIsBaseline,
+    hasFlatBench,
+    series,
+    deltaSquat: delta(series.squat),
+    deltaBench: delta(series.bench),
+    deltaDead:  delta(series.dead),
+  };
+}
+
+function calcTotal(){
+  const b3 = getBig3E1rm();
+  const total = Math.round(b3.squat*K2L) + Math.round(b3.bench*K2L) + Math.round(b3.dead*K2L);
+  const ag = S.goals.find(g=>g.auto);
+  if(ag && total>0){ ag.current = total; save(); }
   return total;
+}
+
+// Render Big 3 e1RM tiles on Train view. Tap → Progress view (scrolls to chart).
+function renderBig3Tiles(){
+  const el = document.getElementById('big3Tiles'); if(!el) return;
+  const b3 = getBig3E1rm();
+  const disp = S.settings.unit || 'kg';
+  const conv = v => disp==='lb' ? Math.round(v*K2L) : Math.round(v*10)/10;
+  const unitLbl = disp==='lb' ? 'lb' : 'kg';
+  const tiles = [
+    { key:'squat', name:'Squat',    val:b3.squat, delta:b3.deltaSquat, series:b3.series.squat, baseline:false },
+    { key:'bench', name:'Bench',    val:b3.bench, delta:b3.deltaBench, series:b3.series.bench, baseline:b3.benchIsBaseline },
+    { key:'dead',  name:'Deadlift', val:b3.dead,  delta:b3.deltaDead,  series:b3.series.dead,  baseline:false },
+  ];
+  el.innerHTML = tiles.map(t=>{
+    const shown = t.val>0 ? conv(t.val) : '—';
+    const deltaKg = t.delta;
+    const deltaShown = deltaKg===0 ? '—' : (deltaKg>0?'↑ ':'↓ ')+Math.abs(conv(Math.abs(deltaKg)));
+    const dCls = deltaKg>0?'up':deltaKg<0?'down':'flat';
+    // Sparkline (last up to 6 points)
+    let spark='';
+    if(t.series && t.series.length>=2){
+      const vals = t.series.slice(-6).map(p=>p.e1rm);
+      const mn = Math.min(...vals), mx = Math.max(...vals);
+      const range = (mx-mn) || 1;
+      const sw = 34, sh = 14;
+      const pts = vals.map((v,i)=> (i/(vals.length-1)*sw).toFixed(1)+','+(sh - ((v-mn)/range)*sh).toFixed(1)).join(' ');
+      const color = deltaKg>=0 ? 'var(--grn)' : 'var(--red)';
+      spark = `<svg class="b3-spark" width="${sw}" height="${sh}" viewBox="0 0 ${sw} ${sh}"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    }
+    return `<div class="big3-tile" onclick="goToLiftDetail('${t.key}')">
+      ${t.baseline?'<span class="b3-baseline">BASE</span>':''}
+      <div class="b3-lbl">${t.name}</div>
+      <div><span class="b3-val">${shown}</span><span class="b3-unit">${t.val>0?unitLbl:''}</span></div>
+      <div class="b3-delta ${dCls}">${deltaShown}</div>
+      ${spark}
+    </div>`;
+  }).join('');
+}
+
+function goToLiftDetail(key){
+  go('Progress');
+  // Scroll to e1RM chart after paint
+  setTimeout(()=>{
+    const chart = document.getElementById('e1rmChart');
+    if(chart) chart.scrollIntoView({behavior:'smooth', block:'center'});
+  }, 80);
 }
 
 function renderProgress(){
@@ -1328,11 +1521,20 @@ function renderProgress(){
   document.getElementById('ringLabel').textContent=total>=1000?'Goal Reached':'';
   document.getElementById('ringGap').textContent=total>0&&total<1000?(1000-total)+' lb to go':'';
 
-  // Big 3 breakdown
-  const big3={Squat:0,Bench:0,Dead:0};
-  S.sessions.forEach(s=>{s.exercises.forEach(ex=>{(ex.performed||[]).filter(p=>p.type==='working'&&!p.skipped).forEach(set=>{const e=e1rm(set.weightKg,set.reps);if(ex.name==='Back Squat'&&!ex.name.includes('light')&&e>big3.Squat)big3.Squat=e;if(ex.name==='Deadlift'&&e>big3.Dead)big3.Dead=e;if(ex.name.includes('Incline Bench')&&e>big3.Bench)big3.Bench=e})})});
-  S.program.days.forEach(d=>{d.exercises.forEach(ex=>{const rr=repRange(ex.reps).max||5;const e=e1rm(ex.loadKg,rr);if(ex.name==='Back Squat'&&!ex.name.includes('light')&&e>big3.Squat)big3.Squat=e;if(ex.name==='Deadlift'&&e>big3.Dead)big3.Dead=e;if(ex.name.includes('Incline Bench')&&e>big3.Bench)big3.Bench=e})});
-  document.getElementById('big3Stats').innerHTML=Object.entries(big3).map(([k,v])=>`<div class="stat-item"><div class="stat-val">${v>0?Math.round(v*K2L):'—'}</div><div class="stat-lbl">${k} e1RM</div></div>`).join('');
+  // Big 3 breakdown (respects display unit; bench falls back to baseline if no flat bench logged)
+  const b3 = getBig3E1rm();
+  const disp = S.settings.unit || 'kg';
+  const conv = v => disp==='lb' ? Math.round(v*K2L) : Math.round(v*10)/10;
+  const entries = [
+    ['Squat', b3.squat, false],
+    ['Bench', b3.bench, b3.benchIsBaseline],
+    ['Dead',  b3.dead,  false],
+  ];
+  document.getElementById('big3Stats').innerHTML = entries.map(([k,v,isBase])=>{
+    const shown = v>0 ? conv(v) : '—';
+    const lbl = isBase ? k+' e1RM*' : k+' e1RM';
+    return `<div class="stat-item"><div class="stat-val">${shown}</div><div class="stat-lbl">${lbl}</div></div>`;
+  }).join('');
 
   // E1RM chart
   renderE1rmChart();
@@ -1372,13 +1574,14 @@ function renderE1rmChart(){
   if(S.sessions.length===0){chart.innerHTML='<text x="50%" y="60" text-anchor="middle" fill="var(--tx3)" font-size="12">Complete sessions to see trends</text>';legend.innerHTML='';return}
 
   const lifts={Squat:{color:'var(--acc)',points:[]},Bench:{color:'var(--grn)',points:[]},Deadlift:{color:'var(--blu)',points:[]}};
+  const isFlatBench = n => /^(flat bench|bench press|barbell bench)$/i.test(n);
   S.sessions.forEach((s,si)=>{
     let sq=0,bn=0,dl=0;
     s.exercises.forEach(ex=>{
-      (ex.performed||[]).filter(p=>p.type==='working').forEach(set=>{
+      (ex.performed||[]).filter(p=>p.type==='working'&&!p.skipped&&p.logged).forEach(set=>{
         const e=e1rm(set.weightKg,set.reps);
         if(ex.name==='Back Squat'&&e>sq)sq=e;
-        if(ex.name.includes('Incline Bench')&&e>bn)bn=e;
+        if(isFlatBench(ex.name)&&e>bn)bn=e;
         if(ex.name==='Deadlift'&&e>dl)dl=e;
       });
     });
@@ -1386,6 +1589,13 @@ function renderE1rmChart(){
     if(bn>0)lifts.Bench.points.push({x:si,y:bn});
     if(dl>0)lifts.Deadlift.points.push({x:si,y:dl});
   });
+
+  // If no flat bench logged yet, seed the Bench series with the self-reported baseline
+  // so the trend chart still shows a bench reference point. Position at x=0.
+  const benchBaseline = (S.settings && S.settings.benchBaseline1RM) || 0;
+  if(lifts.Bench.points.length===0 && benchBaseline>0){
+    lifts.Bench.points.push({x:0, y:benchBaseline, baseline:true});
+  }
 
   const allPts=[...lifts.Squat.points,...lifts.Bench.points,...lifts.Deadlift.points];
   if(allPts.length===0){chart.innerHTML='<text x="50%" y="60" text-anchor="middle" fill="var(--tx3)" font-size="12">No big 3 data yet</text>';legend.innerHTML='';return}
@@ -1414,9 +1624,13 @@ function renderE1rmChart(){
   svg+='</svg>';
   chart.innerHTML=svg;
 
+  const _disp=S.settings.unit||'kg';
+  const _lblUnit=_disp==='lb'?'lb':'kg';
+  const _convY=v=>_disp==='lb'?Math.round(v*K2L):Math.round(v);
   legend.innerHTML=Object.entries(lifts).filter(([,l])=>l.points.length>0).map(([name,lift])=>{
     const last=lift.points[lift.points.length-1];
-    return`<div style="display:flex;align-items:center;gap:4px;font-size:11px"><div style="width:8px;height:8px;border-radius:50%;background:${lift.color}"></div><span style="color:var(--tx3)">${name}</span><span class="tm" style="color:var(--tx2)">${Math.round(last.y)} kg</span></div>`;
+    const isBase=last.baseline?' <span style="color:var(--gold);font-size:9px">BASE</span>':'';
+    return`<div style="display:flex;align-items:center;gap:4px;font-size:11px"><div style="width:8px;height:8px;border-radius:50%;background:${lift.color}"></div><span style="color:var(--tx3)">${name}</span><span class="tm" style="color:var(--tx2)">${_convY(last.y)} ${_lblUnit}</span>${isBase}</div>`;
   }).join('');
 }
 
@@ -1498,8 +1712,14 @@ function saveExEdit(){
   const lv=parseFloat(document.getElementById('eLoad').value),lu=document.getElementById('eUnit').value;
   ex.unit=lu;ex.loadKg=lu==='lb'?lv*L2K:lu==='bw'?0:lv;
   ex.cat=document.getElementById('eCat').value;
-  // Move to different day if changed
-  if(ndi!==odi){S.program.days[odi].exercises.splice(ei,1);S.program.days[ndi].exercises.push(ex)}
+  // Move to different day if changed — insert at same ordinal position in the target day
+  // (clamped to the target's length) rather than unconditionally appending at the end.
+  if(ndi!==odi){
+    S.program.days[odi].exercises.splice(ei,1);
+    const targetDay=S.program.days[ndi];
+    const insertAt=Math.min(ei, targetDay.exercises.length);
+    targetDay.exercises.splice(insertAt,0,ex);
+  }
   save();hideModal('editExModal');renderTrain();
 }
 function delEx(){
@@ -1617,7 +1837,12 @@ function syncData(){
 function resetData(){if(confirm('Delete ALL training data? This cannot be undone.')){localStorage.removeItem(STORE);location.reload()}}
 
 // ===== MODAL DISMISS =====
-document.querySelectorAll('.overlay').forEach(o=>{o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('on')})});
+// rpeModal is intentionally NOT tap-outside-dismissable — it's the session commit checkpoint,
+// and accidental dismissals would strand the session with a stopped timer.
+document.querySelectorAll('.overlay').forEach(o=>{
+  if(o.id==='rpeModal')return;
+  o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('on')});
+});
 
 // ===== INIT =====
 function init(){
