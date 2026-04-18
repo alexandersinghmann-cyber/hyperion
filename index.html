@@ -215,6 +215,24 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .bonus-item .bi-name{font-weight:600;font-size:13px;color:var(--tx)}
 .bonus-item .bi-rx{font:11px var(--mono);color:var(--tx3);margin-top:1px}
 .bonus-item .bi-add{color:var(--gold);font:700 16px var(--sans);flex-shrink:0}
+/* Extras library */
+.extras-tabs{display:flex;gap:2px;border-bottom:1px solid var(--s2);margin-bottom:10px;background:var(--s0);border-radius:var(--rs) var(--rs) 0 0}
+.extras-tab{flex:1;padding:10px 4px;background:none;border:none;color:var(--tx3);font:600 11px var(--sans);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;text-transform:uppercase;letter-spacing:.8px}
+.extras-tab:active{transform:scale(.97)}
+.extras-tab.sel{color:var(--gold);border-bottom-color:var(--gold)}
+.extras-tab .ec-count{display:inline-block;margin-left:2px;opacity:.65;font-weight:500}
+.extras-pick-hint{font:500 11px var(--mono);color:var(--tx3);margin-bottom:8px}
+.extras-pick-hint strong{color:var(--gold);font-weight:600}
+.extra-card{padding:12px;margin-bottom:6px;background:var(--s1);border-radius:var(--rs);border:1px solid var(--s2);cursor:pointer;transition:all .12s;position:relative}
+.extra-card:active{transform:scale(.98);opacity:.85}
+.extra-card.top{border-color:var(--gold-dim);background:linear-gradient(180deg,var(--s1),rgba(212,175,55,.04))}
+.ec-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.ec-name{font-weight:600;font-size:14px;color:var(--tx);flex:1}
+.ec-add{color:var(--gold);font:700 20px var(--sans);flex-shrink:0;line-height:1}
+.ec-rx{font:11px var(--mono);color:var(--tx3);margin-top:3px}
+.ec-why{font:11px var(--sans);color:var(--acc);margin-top:4px;opacity:.95}
+.ec-warn{font:10px var(--sans);color:var(--red);margin-top:3px;opacity:.9}
+.ec-equip{font:10px var(--mono);color:var(--tx3);margin-top:2px;opacity:.7}
 
 /* ===== MODALS ===== */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:200;display:none;align-items:flex-end;justify-content:center;padding:0}
@@ -540,6 +558,30 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   </div>
 </div>
 
+<div class="overlay" id="extrasModal">
+  <div class="modal" style="max-height:90vh">
+    <div class="modal-t">Extras Library</div>
+    <div class="extras-pick-hint" id="extrasHint"></div>
+    <div class="extras-tabs" id="extrasTabs">
+      <button class="extras-tab" data-pool="upper" onclick="switchExtrasTab('upper')">Upper<span class="ec-count" id="cnt-upper"></span></button>
+      <button class="extras-tab" data-pool="lower" onclick="switchExtrasTab('lower')">Lower<span class="ec-count" id="cnt-lower"></span></button>
+      <button class="extras-tab" data-pool="core" onclick="switchExtrasTab('core')">Core<span class="ec-count" id="cnt-core"></span></button>
+      <button class="extras-tab" data-pool="rehab" onclick="switchExtrasTab('rehab')">Rehab<span class="ec-count" id="cnt-rehab"></span></button>
+    </div>
+    <div id="extrasBody"></div>
+    <button class="btn btn-s btn-w" style="margin-top:12px" onclick="hideModal('extrasModal')">Close</button>
+  </div>
+</div>
+
+<div class="overlay" id="swapModal">
+  <div class="modal" style="max-height:90vh">
+    <div class="modal-t">Swap Exercise</div>
+    <div class="extras-pick-hint" id="swapHint"></div>
+    <div id="swapBody"></div>
+    <button class="btn btn-s btn-w" style="margin-top:12px" onclick="hideModal('swapModal')">Cancel</button>
+  </div>
+</div>
+
 <div class="overlay" id="dayEditModal">
   <div class="modal">
     <div class="modal-t" id="dayEditTitle">Edit Day</div>
@@ -565,6 +607,10 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       <button class="btn btn-sm btn-g" onclick="hideModal('settingsModal');showModal('importModal')">Import</button>
     </div>
     <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
+      <div><div>Sync Program to Default</div><div style="font:10px var(--mono);color:var(--tx3);margin-top:2px">4 days · history preserved</div></div>
+      <button class="btn btn-sm btn-g" onclick="syncProgram()">Sync</button>
+    </div>
+    <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
       <span style="color:var(--red)">Reset All Data</span>
       <button class="btn btn-sm btn-d" onclick="resetData()">Reset</button>
     </div>
@@ -581,16 +627,27 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 const K2L=2.20462,L2K=0.453592,STORE='hyperion_v2';
 const COMPOUNDS=['squat','hinge','push'];
 
+// Exercise name aliases — used to maintain e1RM / history continuity across renames or swaps.
+// Key: any old name. Value: canonical name. When a swap or rename happens, the old name gets mapped
+// forward on load() so historical sparklines don't break.
+const NAME_ALIASES={
+  'Seated Row':'Cable Low Row',
+  'Seated Row (cable)':'Cable Low Row',
+  'Low Row':'Cable Low Row'
+};
+function canonName(n){return NAME_ALIASES[n]||n}
+
 // ===== DEFAULT PROGRAM =====
 const DEF_PROGRAM={name:"Apr 18–21 Block",active:true,days:[
-{id:1,label:"Upper A: Pull Heavy + Rehab",dayOfWeek:"Saturday",dur:55,exercises:[
+{id:1,label:"Upper A: Pull Heavy + Rehab",dayOfWeek:"Saturday",dur:60,exercises:[
   {id:"d1e1",name:"Lat Pulldown",cat:"pull",sets:4,reps:"8-10",loadKg:65,unit:"kg",rest:120,tags:[]},
-  {id:"d1e2",name:"Seated Row",cat:"pull",sets:4,reps:"8-10",loadKg:54.4,unit:"kg",rest:120,tags:[]},
+  {id:"d1e2",name:"Cable Low Row",cat:"pull",sets:4,reps:"8-10",loadKg:54.4,unit:"kg",rest:120,tags:[]},
   {id:"d1e3",name:"DB Incline Bench",cat:"push",sets:3,reps:"8-10",loadKg:24,unit:"kg",rest:120,tags:["shoulder"]},
   {id:"d1e4",name:"Face Pull",cat:"pull",sets:3,reps:"12-15",loadKg:17.9,unit:"kg",rest:90,tags:[]},
   {id:"d1e5",name:"Lateral Raise",cat:"isolation",sets:3,reps:"12-15",loadKg:7,unit:"kg",rest:60,tags:[]},
   {id:"d1e6",name:"DB Curl",cat:"isolation",sets:3,reps:"10-12",loadKg:12,unit:"kg",rest:90,tags:[]},
-  {id:"d1e7",name:"Ext. Rotation",cat:"rehab",sets:2,reps:"15",loadKg:2.5,unit:"kg",rest:60,tags:["rehab"]}
+  {id:"d1e7",name:"Ext. Rotation",cat:"rehab",sets:2,reps:"15",loadKg:2.5,unit:"kg",rest:60,tags:["rehab"]},
+  {id:"d1e8",name:"Pallof Press",cat:"core",sets:2,reps:"12",loadKg:15.9,unit:"kg",rest:60,tags:["per side"]}
 ],bonus:[
   {id:"d1b1",name:"Band Pull-Apart",cat:"rehab",sets:3,reps:"15-20",loadKg:0,unit:"bw",rest:45,tags:[]},
   {id:"d1b2",name:"Close-Grip Lat Pulldown",cat:"pull",sets:3,reps:"10-12",loadKg:55,unit:"kg",rest:90,tags:[]}
@@ -616,19 +673,78 @@ const DEF_PROGRAM={name:"Apr 18–21 Block",active:true,days:[
   {id:"d3b1",name:"DB Carry",cat:"core",sets:3,reps:"30m",loadKg:24,unit:"kg",rest:60,tags:["per hand"]},
   {id:"d3b2",name:"Incline Walk",cat:"cardio",sets:1,reps:"10 min",loadKg:0,unit:"bw",rest:0,tags:[]}
 ]},
-{id:4,label:"Upper B: Pull Volume + Rehab",dayOfWeek:"Tuesday",dur:50,exercises:[
-  {id:"d4e1",name:"Seated Row",cat:"pull",sets:4,reps:"10-12",loadKg:52.2,unit:"kg",rest:90,tags:[]},
+{id:4,label:"Upper B: Pull Volume + Rehab",dayOfWeek:"Tuesday",dur:55,exercises:[
+  {id:"d4e1",name:"Cable Low Row",cat:"pull",sets:4,reps:"10-12",loadKg:52.2,unit:"kg",rest:90,tags:[]},
   {id:"d4e2",name:"Lat Pulldown",cat:"pull",sets:3,reps:"10-12",loadKg:60,unit:"kg",rest:90,tags:[]},
   {id:"d4e3",name:"DB Incline Bench",cat:"push",sets:3,reps:"10-12",loadKg:20,unit:"kg",rest:120,tags:["shoulder"]},
   {id:"d4e4",name:"Face Pull",cat:"pull",sets:3,reps:"12-15",loadKg:17.9,unit:"kg",rest:60,tags:[]},
   {id:"d4e5",name:"Lateral Raise",cat:"isolation",sets:3,reps:"12-15",loadKg:7,unit:"kg",rest:60,tags:[]},
   {id:"d4e6",name:"DB Curl",cat:"isolation",sets:3,reps:"10-12",loadKg:12,unit:"kg",rest:90,tags:[]},
-  {id:"d4e7",name:"Ext. Rotation",cat:"rehab",sets:2,reps:"15",loadKg:2.5,unit:"kg",rest:60,tags:["rehab"]}
+  {id:"d4e7",name:"Ext. Rotation",cat:"rehab",sets:2,reps:"15",loadKg:2.5,unit:"kg",rest:60,tags:["rehab"]},
+  {id:"d4e8",name:"Hanging Knee Raise",cat:"core",sets:3,reps:"10-12",loadKg:0,unit:"bw",rest:60,tags:[]}
 ],bonus:[
   {id:"d4b1",name:"Prone Y-Raise",cat:"rehab",sets:3,reps:"12-15",loadKg:2,unit:"kg",rest:60,tags:[]},
   {id:"d4b2",name:"Cable Tricep Extension",cat:"isolation",sets:3,reps:"12-15",loadKg:15,unit:"kg",rest:60,tags:[]}
 ]}
 ]};
+
+// ===== EXTRAS LIBRARY =====
+// Opt-in add-ons sorted by "biggest benefit today" per getExtrasContext + scoreExtra.
+// Fields: key, pool (upper|lower|core|rehab), name, cat, sets, reps, loadKg, unit, equip,
+// shoulder ('safe'|'warn'|'rehab-specific'), carryover (0-8, higher = more Big-3 carryover),
+// whyBase (fallback reason string).
+const EXTRAS=[
+  // REHAB (shoulder priority)
+  {key:'R1',pool:'rehab',name:'Band External Rotation',cat:'rehab',sets:2,reps:'15',loadKg:0,unit:'bw',equip:'band',shoulder:'rehab-specific',carryover:5,whyBase:'Rotator cuff isolation'},
+  {key:'R2',pool:'rehab',name:'Side-Lying External Rotation',cat:'rehab',sets:2,reps:'12',loadKg:3,unit:'kg',equip:'DB',shoulder:'rehab-specific',carryover:5,whyBase:'Classic RC isolation'},
+  {key:'R3',pool:'rehab',name:'Prone Y-Raise',cat:'rehab',sets:2,reps:'10',loadKg:2,unit:'kg',equip:'DB',shoulder:'rehab-specific',carryover:5,whyBase:'Lower trap + rear delt'},
+  {key:'R4',pool:'rehab',name:'Prone T-Raise',cat:'rehab',sets:2,reps:'10',loadKg:2,unit:'kg',equip:'DB',shoulder:'rehab-specific',carryover:4,whyBase:'Mid trap'},
+  {key:'R5',pool:'rehab',name:'Prone W-Raise',cat:'rehab',sets:2,reps:'10',loadKg:0,unit:'bw',equip:'bodyweight',shoulder:'rehab-specific',carryover:4,whyBase:'Lower trap emphasis'},
+  {key:'R6',pool:'rehab',name:'Scapular Wall Slide',cat:'rehab',sets:2,reps:'12',loadKg:0,unit:'bw',equip:'wall',shoulder:'rehab-specific',carryover:4,whyBase:'Upward rotation pattern'},
+  {key:'R7',pool:'rehab',name:'Band Pull-Apart',cat:'rehab',sets:2,reps:'15',loadKg:0,unit:'bw',equip:'band',shoulder:'safe',carryover:5,whyBase:'Rear delt + scap retract'},
+  {key:'R8',pool:'rehab',name:'Face Pull (double-dose)',cat:'pull',sets:2,reps:'15',loadKg:17.9,unit:'kg',equip:'cable',shoulder:'safe',carryover:5,whyBase:'Postural volume'},
+  {key:'R9',pool:'rehab',name:'Iso External Rotation Hold',cat:'rehab',sets:2,reps:'20s',loadKg:0,unit:'bw',equip:'band',shoulder:'rehab-specific',carryover:3,whyBase:'Low-threat isometric'},
+  {key:'R10',pool:'rehab',name:'Band Dislocate',cat:'rehab',sets:2,reps:'10',loadKg:0,unit:'bw',equip:'band',shoulder:'warn',carryover:2,whyBase:'Only if overhead pain-free'},
+  // CORE
+  {key:'C1',pool:'core',name:'Hanging Knee Raise',cat:'core',sets:3,reps:'10',loadKg:0,unit:'bw',equip:'pull-up bar',shoulder:'warn',carryover:5,whyBase:'Anti-extension + grip'},
+  {key:'C2',pool:'core',name:'Hanging Leg Raise',cat:'core',sets:3,reps:'8',loadKg:0,unit:'bw',equip:'pull-up bar',shoulder:'warn',carryover:6,whyBase:'Harder anti-extension'},
+  {key:'C3',pool:'core',name:'Ab Wheel Rollout',cat:'core',sets:3,reps:'8',loadKg:0,unit:'bw',equip:'ab wheel',shoulder:'warn',carryover:6,whyBase:'Anti-extension, squat carryover'},
+  {key:'C4',pool:'core',name:'Dead Bug',cat:'core',sets:3,reps:'10',loadKg:0,unit:'bw',equip:'floor',shoulder:'safe',carryover:6,whyBase:'Anti-extension, zero shoulder'},
+  {key:'C5',pool:'core',name:'Bird Dog',cat:'core',sets:3,reps:'10',loadKg:0,unit:'bw',equip:'floor',shoulder:'safe',carryover:5,whyBase:'Stability, zero shoulder'},
+  {key:'C6',pool:'core',name:'Side Plank',cat:'core',sets:3,reps:'30s',loadKg:0,unit:'bw',equip:'floor',shoulder:'warn',carryover:5,whyBase:'Lateral core'},
+  {key:'C7',pool:'core',name:'Copenhagen Plank',cat:'core',sets:3,reps:'20s',loadKg:0,unit:'bw',equip:'bench',shoulder:'safe',carryover:4,whyBase:'Adductor + core, zero shoulder'},
+  {key:'C8',pool:'core',name:'Pallof Press (double-dose)',cat:'core',sets:3,reps:'10',loadKg:15.9,unit:'kg',equip:'cable',shoulder:'safe',carryover:5,whyBase:'Anti-rotation'},
+  {key:'C9',pool:'core',name:'Cable Woodchop',cat:'core',sets:3,reps:'10',loadKg:14,unit:'kg',equip:'cable',shoulder:'safe',carryover:4,whyBase:'Rotational'},
+  {key:'C10',pool:'core',name:'Decline Sit-Up (weighted)',cat:'core',sets:3,reps:'10',loadKg:5,unit:'kg',equip:'decline bench',shoulder:'safe',carryover:4,whyBase:'Loaded flexion'},
+  {key:'C11',pool:'core',name:'L-Sit Hold (tuck)',cat:'core',sets:3,reps:'15s',loadKg:0,unit:'bw',equip:'parallettes',shoulder:'warn',carryover:3,whyBase:'Shoulder isometric'},
+  // LOWER
+  {key:'L1',pool:'lower',name:'Bulgarian Split Squat',cat:'squat',sets:3,reps:'8',loadKg:18,unit:'kg',equip:'DB + bench',shoulder:'safe',carryover:7,whyBase:'Unilateral squat carryover'},
+  {key:'L2',pool:'lower',name:'Walking Lunge',cat:'squat',sets:3,reps:'10',loadKg:16,unit:'kg',equip:'DB',shoulder:'safe',carryover:6,whyBase:'Conditioning + hypertrophy'},
+  {key:'L3',pool:'lower',name:'Reverse Lunge (DB)',cat:'squat',sets:3,reps:'8',loadKg:18,unit:'kg',equip:'DB',shoulder:'safe',carryover:6,whyBase:'Knee-friendly unilateral'},
+  {key:'L4',pool:'lower',name:'Step-Up (tall box)',cat:'squat',sets:3,reps:'8',loadKg:14,unit:'kg',equip:'DB + box',shoulder:'safe',carryover:5,whyBase:'Single-leg strength'},
+  {key:'L5',pool:'lower',name:'Goblet Squat',cat:'squat',sets:3,reps:'10',loadKg:22,unit:'kg',equip:'DB',shoulder:'safe',carryover:5,whyBase:'Squat primer'},
+  {key:'L6',pool:'lower',name:'Single-Leg RDL',cat:'hinge',sets:3,reps:'8',loadKg:18,unit:'kg',equip:'DB',shoulder:'safe',carryover:6,whyBase:'Balance + hamstring'},
+  {key:'L7',pool:'lower',name:'Barbell Glute Bridge',cat:'hinge',sets:3,reps:'10',loadKg:70,unit:'kg',equip:'barbell',shoulder:'safe',carryover:6,whyBase:'Glute volume'},
+  {key:'L8',pool:'lower',name:'Hip Thrust',cat:'hinge',sets:3,reps:'8',loadKg:80,unit:'kg',equip:'barbell + bench',shoulder:'safe',carryover:8,whyBase:'Strong squat + dead driver'},
+  {key:'L9',pool:'lower',name:'Nordic Curl (assisted)',cat:'isolation',sets:3,reps:'6',loadKg:0,unit:'bw',equip:'partner/band',shoulder:'safe',carryover:6,whyBase:'Hamstring eccentric'},
+  {key:'L10',pool:'lower',name:'Standing Calf Raise',cat:'isolation',sets:3,reps:'12',loadKg:40.8,unit:'kg',equip:'machine',shoulder:'safe',carryover:3,whyBase:'Gastroc'},
+  {key:'L11',pool:'lower',name:'Seated Calf Raise',cat:'isolation',sets:3,reps:'15',loadKg:22,unit:'kg',equip:'machine',shoulder:'safe',carryover:3,whyBase:'Soleus bias'},
+  // UPPER
+  {key:'U1',pool:'upper',name:'Chin-Up (neutral)',cat:'pull',sets:3,reps:'6',loadKg:0,unit:'bw',equip:'pull-up bar',shoulder:'safe',carryover:6,whyBase:'Bicep + lat, shoulder-friendly'},
+  {key:'U2',pool:'upper',name:'Pull-Up (pronated)',cat:'pull',sets:3,reps:'6',loadKg:0,unit:'bw',equip:'pull-up bar',shoulder:'warn',carryover:5,whyBase:'May stress shoulder'},
+  {key:'U3',pool:'upper',name:'Chest-Supported Row',cat:'pull',sets:3,reps:'10',loadKg:22,unit:'kg',equip:'DB + incline',shoulder:'safe',carryover:6,whyBase:'Scap retract'},
+  {key:'U4',pool:'upper',name:'DB Row (one-arm)',cat:'pull',sets:3,reps:'10',loadKg:26,unit:'kg',equip:'DB + bench',shoulder:'safe',carryover:6,whyBase:'Lat + mid-back'},
+  {key:'U5',pool:'upper',name:'Cable Row (narrow)',cat:'pull',sets:3,reps:'10',loadKg:55,unit:'kg',equip:'cable',shoulder:'safe',carryover:5,whyBase:'Row variation'},
+  {key:'U6',pool:'upper',name:'Straight-Arm Pulldown',cat:'isolation',sets:3,reps:'12',loadKg:32,unit:'kg',equip:'cable',shoulder:'safe',carryover:4,whyBase:'Lat isolation, low shoulder'},
+  {key:'U7',pool:'upper',name:'Incline DB Curl',cat:'isolation',sets:3,reps:'10',loadKg:10,unit:'kg',equip:'DB + incline',shoulder:'safe',carryover:3,whyBase:'Bicep long head'},
+  {key:'U8',pool:'upper',name:'Hammer Curl',cat:'isolation',sets:3,reps:'10',loadKg:12,unit:'kg',equip:'DB',shoulder:'safe',carryover:3,whyBase:'Brachialis'},
+  {key:'U9',pool:'upper',name:'Cable Curl',cat:'isolation',sets:3,reps:'12',loadKg:27,unit:'kg',equip:'cable',shoulder:'safe',carryover:3,whyBase:'Constant tension'},
+  {key:'U10',pool:'upper',name:'Tricep Rope Pushdown',cat:'isolation',sets:3,reps:'12',loadKg:30,unit:'kg',equip:'cable',shoulder:'safe',carryover:4,whyBase:'Elbow-only, shoulder-safe'},
+  {key:'U11',pool:'upper',name:'Overhead Cable Tricep Ext',cat:'isolation',sets:3,reps:'12',loadKg:22,unit:'kg',equip:'cable',shoulder:'warn',carryover:3,whyBase:'Overhead position'},
+  {key:'U12',pool:'upper',name:'Rear Delt Fly',cat:'isolation',sets:3,reps:'15',loadKg:7,unit:'kg',equip:'DB',shoulder:'safe',carryover:5,whyBase:'Postural, bench support'},
+  {key:'U13',pool:'upper',name:'DB Shrug',cat:'isolation',sets:3,reps:'12',loadKg:26,unit:'kg',equip:'DB',shoulder:'safe',carryover:3,whyBase:'Upper trap'},
+  {key:'U14',pool:'upper',name:'Cable Lateral Raise',cat:'isolation',sets:3,reps:'12',loadKg:6,unit:'kg',equip:'cable',shoulder:'safe',carryover:4,whyBase:'Shoulder width'}
+];
 
 // ===== STATE =====
 const SEED_SESSION={
@@ -684,10 +800,27 @@ function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse
   // Backfill benchBaseline1RM for users whose localStorage predates this feature
   if(S.settings.benchBaseline1RM==null)S.settings.benchBaseline1RM=95;
   // v1→v2 migration
-  if(!S.version||S.version<2){S.version=2;S.sessions.forEach(s=>{if(!s.blockName)s.blockName='Apr 11–16 Block'});save()}}
+  if(!S.version||S.version<2){S.version=2;S.sessions.forEach(s=>{if(!s.blockName)s.blockName='Apr 11–16 Block'});save()}
+  // Apply name aliases to historical sessions + active session for trend continuity
+  (S.sessions||[]).forEach(s=>(s.exercises||[]).forEach(ex=>{ex.name=canonName(ex.name)}));
+  if(S.activeSession)(S.activeSession.exercises||[]).forEach(ex=>{ex.name=canonName(ex.name)});
+  // Apply name aliases to program days
+  (S.program&&S.program.days||[]).forEach(d=>(d.exercises||[]).forEach(ex=>{ex.name=canonName(ex.name)}));
+  }
   // Seed Day 1 session if no sessions exist
   if(S.sessions.length===0){S.sessions.push(JSON.parse(JSON.stringify(SEED_SESSION)));save()}
 }catch(e){}}
+
+// Reset program to the built-in default, preserving sessions + goals + settings.
+function syncProgram(){
+  if(S.activeSession){alert('End your current session before syncing the program.');return}
+  if(!confirm('Replace your current program with the built-in 4-day default?\n\nThis preserves all session history, goals, and settings.\n\nCurrent program: '+(S.program&&S.program.days?S.program.days.length:0)+' days\nDefault: 4 days'))return;
+  S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));
+  save();
+  hideModal('settingsModal');
+  renderTrain();
+  alert('Program synced to default (4 days).');
+}
 
 // ===== HELPERS =====
 function repRange(s){const p=String(s);if(p.includes('-')||p.includes('–')){const a=p.split(/[-–]/).map(Number);return{min:a[0],max:a[1]}}const n=parseInt(p);return{min:n,max:n}}
@@ -1039,6 +1172,7 @@ function renderEx(){
         <div class="ex-actions">
           <button class="btn btn-sm btn-g" onclick="addWu(${i})">+ Warmup</button>
           <button class="btn btn-sm btn-g" onclick="addSet(${i})">+ Set</button>
+          ${!allDone?`<button class="btn btn-sm btn-g" onclick="openSwap(${i})">⇄ Swap</button>`:''}
           <button class="btn btn-sm btn-d" onclick="painExI=${i};document.getElementById('painExName').textContent='${ex.name.replace(/'/g,"\\'")}';showModal('painModal')" style="padding:8px 10px;font-size:11px">Pain</button>
           ${!allDone?`<button class="btn btn-sm btn-g" onclick="skipExercise(${i})">Skip</button>`:''}
           ${!allDone?`<button class="btn btn-sm btn-s" style="margin-left:auto" onclick="logAll(${i})">Log All</button>`:''}
@@ -1076,8 +1210,9 @@ function renderEx(){
     </div>`;
   }
 
-  // Add Exercise button (mid-session)
-  list.innerHTML+=`<button class="btn btn-g btn-w" style="margin-top:12px" onclick="addExMidSession()">+ Add Exercise</button>`;
+  // Extras Library (recommendation-sorted pool) + Custom exercise
+  list.innerHTML+=`<button class="btn btn-gold btn-w" style="margin-top:12px" onclick="openExtras()">+ Add Extra <span style="font:500 11px var(--mono);opacity:.75;margin-left:6px">recommended for today</span></button>`;
+  list.innerHTML+=`<button class="btn btn-g btn-w" style="margin-top:8px" onclick="addExMidSession()">+ Custom Exercise</button>`;
 }
 
 function activateBonus(bi){
@@ -1098,6 +1233,277 @@ function activateBonus(bi){
     ex.performed.push({type:'working',weightKg:bonus.loadKg,reps:repRange(bonus.reps).max||parseInt(bonus.reps)||0,rpe:null,logged:false});
   }
   sess.exercises.push(ex);save();renderEx();
+}
+
+// ===== EXTRAS LIBRARY =====
+// Map an exercise's cat (+ name) to the 4-pool taxonomy used by Extras
+function catToPool(cat,name){
+  if(cat==='rehab')return 'rehab';
+  if(cat==='core')return 'core';
+  if(cat==='squat'||cat==='hinge')return 'lower';
+  if(cat==='push'||cat==='pull')return 'upper';
+  if(cat==='isolation'){
+    if(name&&/calf|hamstring|glute|quad|leg press|adductor|nordic/i.test(name))return 'lower';
+    return 'upper';
+  }
+  return 'upper';
+}
+
+// Snapshot of today's context: day type, pool counts in last 7 days, names in last 2 sessions
+function getExtrasContext(){
+  const sess=S.activeSession;
+  const label=sess?(sess.dayLabel||''):'';
+  const lower=/squat|deadlift/i.test(label);
+  const upper=/upper|pull|push|bench/i.test(label);
+  const heavy=/heavy/i.test(label);
+
+  // Last 7 days of completed sessions (plus today's active, counted in progress)
+  const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-7);
+  const cutoffStr=cutoff.toISOString().slice(0,10);
+  const recent=(S.sessions||[]).filter(s=>s.date>=cutoffStr);
+  const poolCounts={upper:0,lower:0,core:0,rehab:0};
+  recent.forEach(s=>(s.exercises||[]).forEach(ex=>{const p=catToPool(ex.cat,ex.name);if(poolCounts[p]!=null)poolCounts[p]++}));
+  if(sess)(sess.exercises||[]).forEach(ex=>{const p=catToPool(ex.cat,ex.name);if(poolCounts[p]!=null)poolCounts[p]++});
+  const total=poolCounts.upper+poolCounts.lower+poolCounts.core+poolCounts.rehab;
+  const avgPoolCount=total/4;
+
+  // Names from last 2 completed sessions (anti-repetition)
+  const lastTwo=(S.sessions||[]).slice(-2);
+  const lastTwoNames=new Set();
+  lastTwo.forEach(s=>(s.exercises||[]).forEach(ex=>lastTwoNames.add((ex.name||'').toLowerCase())));
+
+  return {isLowerDay:lower,isUpperDay:upper,isHeavyDay:heavy,poolCounts,avgPoolCount,lastTwoNames,dayLabel:label};
+}
+
+// Score an extra against context. Returns {score, reasons[]} (top 2 reasons).
+function scoreExtra(ex,ctx){
+  let s=ex.carryover||0;
+  const reasons=[];
+
+  // Shoulder safety (user has current injury)
+  if(ex.shoulder==='safe')s+=1;
+  else if(ex.shoulder==='warn'){s-=4;}
+  else if(ex.shoulder==='rehab-specific'){s+=1; if(ctx.isUpperDay)s+=2}
+
+  // Day-type boost
+  if(ctx.isLowerDay){
+    if(ex.pool==='upper'){s+=3;reasons.push('Complements lower day')}
+    else if(ex.pool==='core'){s+=2;reasons.push('Core for squat/dead')}
+    else if(ex.pool==='rehab'){s+=2;reasons.push('Rehab priority')}
+    else if(ex.pool==='lower'){s-=3}
+  } else if(ctx.isUpperDay){
+    if(ex.pool==='lower'){s+=3;reasons.push('Missing on upper day')}
+    else if(ex.pool==='core'){s+=3;reasons.push('Core (missing on upper)')}
+    else if(ex.pool==='rehab'){s+=4;reasons.push('Rehab priority')}
+    else if(ex.pool==='upper'){s-=2}
+  } else {
+    if(ex.pool==='core')reasons.push('Core carryover');
+    if(ex.pool==='rehab'){s+=2;reasons.push('Rehab priority')}
+  }
+
+  // Heavy-day: extra rehab boost
+  if(ctx.isHeavyDay&&ex.pool==='rehab')s+=1;
+
+  // Under-represented pool this week
+  const pc=ctx.poolCounts[ex.pool]||0;
+  const avg=ctx.avgPoolCount||1;
+  if(pc<avg*0.5){s+=3;reasons.push('Under-volumed this week')}
+  else if(pc>avg*2)s-=2;
+
+  // Repetition penalty
+  if(ctx.lastTwoNames.has((ex.name||'').toLowerCase())){s-=5;reasons.push('Did recently')}
+
+  // Big-3 carryover annotation if no other reason surfaced
+  if(!reasons.length){
+    if(ex.carryover>=7)reasons.push('Strong Big-3 carryover');
+    else if(ex.carryover>=5)reasons.push('Big-3 carryover');
+    else reasons.push(ex.whyBase||'');
+  }
+
+  return {score:s,reasons:reasons.slice(0,2)};
+}
+
+let _extrasScored=null,_extrasTab='upper';
+
+function openExtras(){
+  if(!S.activeSession)return;
+  const ctx=getExtrasContext();
+  const activeNames=new Set(S.activeSession.exercises.map(e=>(e.name||'').toLowerCase()));
+  const scored=EXTRAS
+    .filter(ex=>!activeNames.has(ex.name.toLowerCase()))
+    .map(ex=>{const r=scoreExtra(ex,ctx);return Object.assign({},ex,r)});
+
+  const byPool={upper:[],lower:[],core:[],rehab:[]};
+  scored.forEach(ex=>{byPool[ex.pool].push(ex)});
+  Object.keys(byPool).forEach(p=>byPool[p].sort((a,b)=>b.score-a.score));
+  _extrasScored=byPool;
+
+  // Default tab = pool with highest top-score
+  const pools=['upper','lower','core','rehab'];
+  const topByPool=pools.map(p=>({pool:p,score:(byPool[p][0]&&byPool[p][0].score)||-999}));
+  const defaultPool=topByPool.slice().sort((a,b)=>b.score-a.score)[0].pool;
+  _extrasTab=defaultPool;
+
+  // Hint line
+  const hint=document.getElementById('extrasHint');
+  if(hint){
+    const labelBit=ctx.dayLabel?`· ${ctx.dayLabel}`:'';
+    hint.innerHTML=`Today's pick: <strong>${defaultPool[0].toUpperCase()+defaultPool.slice(1)}</strong> ${labelBit}`;
+  }
+  // Tab counts
+  pools.forEach(p=>{const el=document.getElementById('cnt-'+p);if(el)el.textContent=' ('+byPool[p].length+')'});
+  // Tab selected state
+  document.querySelectorAll('.extras-tab').forEach(t=>t.classList.toggle('sel',t.dataset.pool===defaultPool));
+
+  renderExtrasPool(defaultPool);
+  showModal('extrasModal');
+}
+
+function switchExtrasTab(pool){
+  _extrasTab=pool;
+  document.querySelectorAll('.extras-tab').forEach(t=>t.classList.toggle('sel',t.dataset.pool===pool));
+  renderExtrasPool(pool);
+}
+
+function renderExtrasPool(pool){
+  const items=(_extrasScored&&_extrasScored[pool])||[];
+  const body=document.getElementById('extrasBody');if(!body)return;
+  if(!items.length){body.innerHTML='<div style="padding:24px;text-align:center;color:var(--tx3);font-size:12px">All '+pool+' extras already added to this session.</div>';return}
+  body.innerHTML=items.map((ex,i)=>{
+    const loadStr=(ex.unit==='bw'||!ex.loadKg)?'BW':fmtW(ex.loadKg,ex.unit);
+    const why=(ex.reasons&&ex.reasons.filter(Boolean).join(' · '))||ex.whyBase||'';
+    const warn=ex.shoulder==='warn'?'<div class="ec-warn">⚠️ '+(ex.whyBase||'')+'</div>':'';
+    return `<div class="extra-card${i===0?' top':''}" onclick="addExtraToSession('${ex.key}')">
+      <div class="ec-head"><div class="ec-name">${ex.name}</div><div class="ec-add">+</div></div>
+      <div class="ec-rx">${ex.sets}×${ex.reps} @ ${loadStr}</div>
+      <div class="ec-equip">${ex.equip||''}</div>
+      ${why?'<div class="ec-why">'+why+'</div>':''}
+      ${warn}
+    </div>`;
+  }).join('');
+}
+
+function addExtraToSession(key){
+  const sess=S.activeSession;if(!sess)return;
+  const src=EXTRAS.find(e=>e.key===key);if(!src)return;
+  if(sess.exercises.some(e=>(e.name||'').toLowerCase()===src.name.toLowerCase())){hideModal('extrasModal');return}
+  const rr=repRange(src.reps);
+  const targetReps=rr.max||parseInt(src.reps)||0;
+  const ex={
+    name:src.name,cat:src.cat,
+    prescribed:{sets:src.sets,reps:src.reps,loadKg:src.loadKg,unit:src.unit||'kg'},
+    performed:[],notes:'',progression:null,nextLoad:null,painEvent:null,
+    tags:['extra',src.pool],rest:COMPOUNDS.includes(src.cat)?150:90
+  };
+  for(let i=0;i<src.sets;i++)ex.performed.push({type:'working',weightKg:src.loadKg,reps:targetReps,rpe:null,logged:false});
+  sess.exercises.push(ex);save();hideModal('extrasModal');renderEx();
+}
+
+// ===== SWAP EXERCISE =====
+let _swapEi=null;
+
+function openSwap(ei){
+  const sess=S.activeSession;if(!sess)return;
+  const ex=sess.exercises[ei];if(!ex)return;
+  _swapEi=ei;
+  document.getElementById('swapHint').textContent=
+    `Swapping "${ex.name}" · load auto-adjusts to the chosen alternative`;
+  renderSwapCandidates(ex);
+  showModal('swapModal');
+}
+
+function getSwapCandidates(ex){
+  // Pool = same category family. Build from 3 sources, dedupe by name.
+  const pool=catToPool(ex.cat,ex.name);
+  const out=[];const seen=new Set();
+  const addCand=(name,cat,loadKg,unit,reps,sets,source,whyBits)=>{
+    const k=name.toLowerCase();
+    if(k===(ex.name||'').toLowerCase())return;
+    if(seen.has(k))return;seen.add(k);
+    out.push({name,cat,loadKg,unit:unit||'kg',reps:reps||ex.prescribed.reps,sets:sets||ex.prescribed.sets,source,why:whyBits});
+  };
+  // 1. EXTRAS library (same pool)
+  EXTRAS.filter(e=>e.pool===pool).forEach(e=>{
+    addCand(e.name,e.cat,e.loadKg,e.unit,e.reps,e.sets,'Extras',
+      'Library default: '+e.loadKg+(e.unit||'kg'));
+  });
+  // 2. Program exercises across all days (same cat)
+  if(S.program&&S.program.days){
+    S.program.days.forEach(d=>{
+      (d.exercises||[]).forEach(pe=>{
+        if(pe.cat!==ex.cat&&catToPool(pe.cat,pe.name)!==pool)return;
+        addCand(pe.name,pe.cat,pe.loadKg,pe.unit,pe.reps,pe.sets,'Program',
+          'Program '+d.label+': '+pe.loadKg+(pe.unit||'kg'));
+      });
+    });
+  }
+  // 3. Historical session exercises (same cat) - use peak working load
+  const histMap={};
+  (S.sessions||[]).slice().reverse().forEach(s=>{
+    (s.exercises||[]).forEach(he=>{
+      if(catToPool(he.cat,he.name)!==pool&&he.cat!==ex.cat)return;
+      const nm=canonName(he.name||'');if(!nm)return;
+      const peak=Math.max(0,...(he.performed||[]).filter(p=>p.logged&&p.type==='working').map(p=>p.weightKg||0));
+      if(!histMap[nm.toLowerCase()]||histMap[nm.toLowerCase()].load<peak){
+        histMap[nm.toLowerCase()]={name:nm,cat:he.cat,load:peak,reps:(he.prescribed||{}).reps,sets:(he.prescribed||{}).sets};
+      }
+    });
+  });
+  Object.values(histMap).forEach(h=>{
+    if(h.load>0)addCand(h.name,h.cat,h.load,'kg',h.reps,h.sets,'History','Last max working: '+h.load+'kg');
+  });
+  // Score: prefer Extras > Program > History; alphabetical within
+  const rank={Extras:3,Program:2,History:1};
+  out.sort((a,b)=>(rank[b.source]-rank[a.source])||a.name.localeCompare(b.name));
+  return out;
+}
+
+function renderSwapCandidates(ex){
+  const cands=getSwapCandidates(ex);
+  const body=document.getElementById('swapBody');
+  if(!cands.length){
+    body.innerHTML='<div class="ec-why" style="padding:12px">No similar exercises found in Extras, Program, or History for category "'+(ex.cat||'')+'".</div>';
+    return;
+  }
+  const dispU=S.settings.unit||'kg';
+  body.innerHTML=cands.map(c=>{
+    const loadDisp=dispU==='lb'?Math.round(c.loadKg*K2L*10)/10+'lb':c.loadKg+'kg';
+    return `<div class="extra-card" onclick="doSwap('${encodeURIComponent(c.name)}')">
+      <div class="ec-head">
+        <div class="ec-name">${c.name}</div>
+        <div class="ec-add">⇄</div>
+      </div>
+      <div class="ec-rx">${c.sets}×${c.reps} · ${loadDisp} <span style="opacity:.55">· ${c.source}</span></div>
+      <div class="ec-why">${c.why}</div>
+    </div>`;
+  }).join('');
+}
+
+function doSwap(encName){
+  const sess=S.activeSession;if(!sess||_swapEi===null)return;
+  const ex=sess.exercises[_swapEi];if(!ex)return;
+  const name=decodeURIComponent(encName);
+  const cands=getSwapCandidates(ex);
+  const c=cands.find(x=>x.name===name);if(!c)return;
+  // Any logged sets?
+  const hasLogged=(ex.performed||[]).some(p=>p.logged);
+  if(hasLogged){
+    if(!confirm('This exercise already has logged sets. Swap anyway? (Unlogged sets will be reset to the new exercise; logged sets stay.)'))return;
+  }
+  // Duplicate guard
+  if(sess.exercises.some((e,i)=>i!==_swapEi&&(e.name||'').toLowerCase()===name.toLowerCase())){
+    alert('"'+name+'" is already in this session.');return;
+  }
+  ex.name=name;ex.cat=c.cat||ex.cat;
+  ex.prescribed={sets:c.sets,reps:c.reps,loadKg:c.loadKg,unit:c.unit||'kg'};
+  // Reset only un-logged sets to new prescription; keep logged ones
+  const rr=repRange(c.reps);const targetReps=rr.max||parseInt(c.reps)||ex.performed[0]?.reps||8;
+  ex.performed=ex.performed.map(p=>p.logged?p:{type:'working',weightKg:c.loadKg,reps:targetReps,rpe:null,logged:false});
+  // If new prescription has more sets than current, pad
+  while(ex.performed.length<c.sets)ex.performed.push({type:'working',weightKg:c.loadKg,reps:targetReps,rpe:null,logged:false});
+  ex.nextLoad=null;ex.progression=null;
+  (ex.tags=ex.tags||[]).indexOf('swapped')<0&&ex.tags.push('swapped');
+  save();hideModal('swapModal');_swapEi=null;renderEx();
 }
 
 function logSet(ei,si){
