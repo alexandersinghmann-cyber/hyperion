@@ -112,20 +112,15 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .big3-tile .b3-ring .b3-ring-bg{fill:none;stroke:var(--s3);stroke-width:7}
 .big3-tile .b3-ring .b3-ring-fg{fill:none;stroke-width:7;stroke-linecap:round;transition:stroke-dashoffset .8s ease,stroke .3s}
 .big3-tile .b3-ring-mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0}
-.big3-tile .b3-ring-pct{font:800 22px var(--mono);color:var(--tx);letter-spacing:-1.5px;line-height:1}
-.big3-tile .b3-ring-pct-sign{font:700 10px var(--mono);color:var(--tx3);vertical-align:top;margin-left:1px}
-.big3-tile .b3-ring-label{font:600 7px var(--mono);color:var(--tx3);letter-spacing:1.2px;margin-top:2px;text-transform:uppercase}
-.big3-tile .b3-cur{font:700 13px var(--mono);color:var(--tx);letter-spacing:-.3px;margin-top:6px;position:relative;z-index:1}
-.big3-tile .b3-cur-sec{font:600 10px var(--mono);color:var(--tx3);letter-spacing:.2px;margin-top:1px;position:relative;z-index:1}
-.big3-tile .b3-gap-wrap{margin-top:8px;padding:5px 4px;background:rgba(239,68,68,0.08);border-top:1px solid rgba(239,68,68,0.2);border-bottom:1px solid rgba(239,68,68,0.2);position:relative;z-index:1}
-.big3-tile .b3-gap-wrap.hit{background:rgba(52,211,153,0.1);border-color:rgba(52,211,153,0.3)}
-.big3-tile .b3-gap{font:800 15px var(--mono);letter-spacing:-.5px;line-height:1}
+.big3-tile .b3-ring-pct{font:800 24px var(--mono);color:var(--tx);letter-spacing:-1.5px;line-height:1}
+.big3-tile .b3-ring-pct-sign{font:700 11px var(--mono);color:var(--tx3);vertical-align:top;margin-left:1px}
+.big3-tile .b3-cur{font:700 12px var(--mono);color:var(--tx);letter-spacing:-.2px;margin-top:8px;position:relative;z-index:1}
+.big3-tile .b3-gap{font:800 16px var(--mono);letter-spacing:-.5px;line-height:1;margin-top:6px;position:relative;z-index:1}
 .big3-tile .b3-gap.short{color:var(--red)}
 .big3-tile .b3-gap.hit{color:var(--grn)}
-.big3-tile .b3-gap-sub{font:600 9px var(--mono);color:var(--tx3);letter-spacing:.4px;margin-top:2px}
-.big3-tile .b3-tgt{font:600 9px var(--mono);color:var(--tx2);margin-top:6px;letter-spacing:.3px;position:relative;z-index:1}
-.big3-tile .b3-tgt-lbl{color:var(--tx3);margin-right:3px}
-.big3-tile .b3-delta{font:600 10px var(--mono);margin-top:4px;display:flex;align-items:center;justify-content:center;gap:3px;height:12px;position:relative;z-index:1}
+.big3-tile .b3-gap.none{color:var(--tx3)}
+.big3-tile .b3-tgt{font:600 9px var(--mono);color:var(--tx3);margin-top:4px;letter-spacing:.3px;position:relative;z-index:1}
+.big3-tile .b3-delta{font:600 9px var(--mono);margin-top:6px;display:flex;align-items:center;justify-content:center;gap:4px;height:12px;position:relative;z-index:1}
 .big3-tile .b3-delta.up{color:var(--grn)}
 .big3-tile .b3-delta.down{color:var(--red)}
 .big3-tile .b3-delta.flat{color:var(--tx3)}
@@ -137,11 +132,13 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .day-card.today{border-color:var(--s3);border-left:3px solid var(--acc);background:linear-gradient(135deg,rgba(34,211,238,.03),transparent)}
 .day-card.done{opacity:.5}
 .day-card.done:active{opacity:.7}
+.day-card.skipped{opacity:.55;border-left:3px solid var(--tx3);background:linear-gradient(135deg,rgba(255,255,255,.015),transparent)}
 .day-row{display:flex;align-items:center;gap:12px}
 .day-num{width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:50%;font:700 12px var(--mono);flex-shrink:0}
 .day-card.today .day-num{background:var(--acc);color:#0A0B0E;box-shadow:0 0 8px var(--acc-glow)}
 .day-card.done .day-num{background:var(--grn-dim);color:var(--grn)}
 .day-card.future .day-num{background:var(--s3);color:var(--tx3)}
+.day-card.skipped .day-num{background:var(--s3);color:var(--tx3);text-decoration:line-through}
 .day-info{flex:1;min-width:0}
 .day-label{font-weight:600;font-size:14px}
 .day-meta{font:400 11px var(--mono);color:var(--tx3);margin-top:2px;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -373,10 +370,13 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       <button class="btn btn-sm btn-g" onclick="editDay(previewDayI)" style="margin-top:4px">Edit Day</button>
     </div>
     <div id="pvDoneInfo" style="display:none;background:var(--grn-dim);border-radius:var(--rs);padding:12px;margin-bottom:12px;font-size:13px;color:var(--grn)"></div>
+    <div id="pvSkipInfo" style="display:none;background:rgba(255,255,255,.02);border:1px solid var(--s3);border-radius:var(--rs);padding:12px;margin-bottom:12px;font-size:13px;color:var(--tx3)"></div>
     <div id="pvExercises"></div>
     <div style="display:flex;gap:8px;margin-top:12px">
       <button class="btn btn-gold btn-w" id="pvStartBtn" onclick="startDay(previewDayI)">Start Session</button>
     </div>
+    <button class="btn btn-s btn-w" id="pvSkipBtn" style="margin-top:8px;display:none" onclick="openSkipDay(previewDayI)">Skip this day</button>
+    <button class="btn btn-g btn-w" id="pvUnskipBtn" style="margin-top:8px;display:none" onclick="unskipDay(previewDayI)">Unskip this day</button>
     <button class="btn btn-g btn-w" style="margin-top:8px" onclick="showAddEx(previewDayI)">+ Add Exercise</button>
   </div>
 
@@ -597,6 +597,16 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <div class="extras-pick-hint" id="swapHint"></div>
     <div id="swapBody"></div>
     <button class="btn btn-s btn-w" style="margin-top:12px" onclick="hideModal('swapModal')">Cancel</button>
+  </div>
+</div>
+
+<div class="overlay" id="skipDayModal">
+  <div class="modal">
+    <div class="modal-t">Skip Day</div>
+    <div class="extras-pick-hint" id="skipDayHint"></div>
+    <div id="skipReasonList" style="display:flex;flex-direction:column;gap:6px;margin-top:8px"></div>
+    <input type="hidden" id="skipDayIdx">
+    <button class="btn btn-s btn-w" style="margin-top:12px" onclick="hideModal('skipDayModal')">Cancel</button>
   </div>
 </div>
 
@@ -832,7 +842,7 @@ const SEED_SESSION={
   painEvents:[]
 };
 
-let S={version:2,program:JSON.parse(JSON.stringify(DEF_PROGRAM)),sessions:[],goals:[{id:'g1',name:'1000 lb Total',current:0,target:1000,unit:'lb',auto:true}],settings:{unit:'kg',benchBaseline1RM:95,big3Targets:{squat:166,bench:102,dead:186}},activeSession:null};
+let S={version:2,program:JSON.parse(JSON.stringify(DEF_PROGRAM)),sessions:[],goals:[{id:'g1',name:'1000 lb Total',current:0,target:1000,unit:'lb',auto:true}],settings:{unit:'kg',benchBaseline1RM:95,big3Targets:{squat:166,bench:102,dead:186}},skips:[],activeSession:null};
 let sessionStart=null,sessionTimer=null,restInt=null,restEnd=null,restDur=0,painExI=null,selRpe=null,viewDayI=0,previewDayI=0;
 
 function save(){try{localStorage.setItem(STORE,JSON.stringify(S))}catch(e){}}
@@ -841,6 +851,8 @@ function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse
   if(S.settings.benchBaseline1RM==null)S.settings.benchBaseline1RM=95;
   // Backfill big3Targets (1000 lb-club default split: 365+225+410 lb ≈ 166/102/186 kg)
   if(!S.settings.big3Targets)S.settings.big3Targets={squat:166,bench:102,dead:186};
+  // Backfill skips array
+  if(!Array.isArray(S.skips))S.skips=[];
   // v1→v2 migration
   if(!S.version||S.version<2){S.version=2;S.sessions.forEach(s=>{if(!s.blockName)s.blockName='Apr 11–16 Block'});save()}
   // Apply name aliases to historical sessions + active session for trend continuity
@@ -958,6 +970,66 @@ function toggleUnit(){S.settings.unit=S.settings.unit==='kg'?'lb':'kg';document.
 // ===== TRAIN VIEW =====
 function getTodayDayIdx(){const dow=todayDow();return S.program.days.findIndex(d=>d.dayOfWeek===dow)}
 function isDayDone(dayIdx){const day=S.program.days[dayIdx];if(!day)return false;const bn=S.program.name;return S.sessions.some(s=>s.dayLabel===day.label&&(s.blockName===bn||(bn==='Apr 11–16 Block'&&!s.blockName)))}
+function isDaySkipped(dayIdx){const day=S.program.days[dayIdx];if(!day)return false;const bn=S.program.name;return (S.skips||[]).some(sk=>sk.dayLabel===day.label&&sk.blockName===bn)}
+function getDaySkip(dayIdx){const day=S.program.days[dayIdx];if(!day)return null;const bn=S.program.name;return (S.skips||[]).find(sk=>sk.dayLabel===day.label&&sk.blockName===bn)||null}
+// Next unfinished (not-done, not-skipped) day starting from today's day-of-week, wrapping forward through the week.
+function getNextAvailableDayIdx(){
+  const n=S.program.days.length;if(!n)return -1;
+  const todayI=getTodayDayIdx();
+  const start=todayI>=0?todayI:0;
+  for(let off=0;off<n;off++){
+    const i=(start+off)%n;
+    if(!isDayDone(i)&&!isDaySkipped(i))return i;
+  }
+  return -1;
+}
+
+// Skip reasons — labels + keys. Used in the skip modal picker.
+const SKIP_REASONS=[
+  {k:'tired',     label:'Too tired / under-recovered', emoji:'😴'},
+  {k:'completed', label:'Already trained today elsewhere', emoji:'✓'},
+  {k:'time',      label:'No time today', emoji:'⏱'},
+  {k:'injury',    label:'Injury / pain flare', emoji:'🤕'},
+  {k:'travel',    label:'Travel / no gym access', emoji:'✈'},
+  {k:'sick',      label:'Sick / unwell', emoji:'🤒'},
+  {k:'other',     label:'Other', emoji:'…'}
+];
+
+function openSkipDay(dayIdx){
+  const day=S.program.days[dayIdx];if(!day)return;
+  document.getElementById('skipDayIdx').value=String(dayIdx);
+  document.getElementById('skipDayHint').textContent=`Skipping "${day.label}" (${day.dayOfWeek}) — pick a reason`;
+  const list=document.getElementById('skipReasonList');
+  list.innerHTML=SKIP_REASONS.map(r=>
+    `<button class="btn btn-sm btn-g" style="text-align:left;padding:10px 12px;display:flex;align-items:center;gap:10px" onclick="confirmSkipDay('${r.k}')">
+      <span style="font-size:16px;line-height:1">${r.emoji}</span>
+      <span style="font:500 12px var(--mono);letter-spacing:.2px">${r.label}</span>
+    </button>`
+  ).join('');
+  showModal('skipDayModal');
+}
+
+function confirmSkipDay(reasonKey){
+  const dayIdx=parseInt(document.getElementById('skipDayIdx').value);
+  const day=S.program.days[dayIdx];if(!day)return;
+  const reason=SKIP_REASONS.find(r=>r.k===reasonKey);
+  // Idempotent: if already skipped, just overwrite
+  const bn=S.program.name;
+  const existingIdx=(S.skips||[]).findIndex(sk=>sk.dayLabel===day.label&&sk.blockName===bn);
+  const rec={dayLabel:day.label,blockName:bn,date:todayStr(),reason:reasonKey,reasonLabel:reason?reason.label:reasonKey};
+  if(existingIdx>=0)S.skips[existingIdx]=rec;else S.skips.push(rec);
+  save();
+  hideModal('skipDayModal');
+  go('Train');
+}
+
+function unskipDay(dayIdx){
+  const day=S.program.days[dayIdx];if(!day)return;
+  if(!confirm(`Remove skip on "${day.label}"? You'll be able to train it again.`))return;
+  const bn=S.program.name;
+  S.skips=(S.skips||[]).filter(sk=>!(sk.dayLabel===day.label&&sk.blockName===bn));
+  save();renderTrain();
+}
 
 function blockDateRange(){
   const days=S.program.days;if(!days.length)return'';
@@ -1018,12 +1090,13 @@ function renderTrain(){
 
   S.program.days.forEach((day,i)=>{
     const done=isDayDone(i);
-    const isToday=i===todayIdx&&!done;
-    const isFuture=!done&&!isToday;
-    const cls=done?'done':isToday?'today':'future';
+    const skipped=!done&&isDaySkipped(i);
+    const isToday=i===todayIdx&&!done&&!skipped;
+    const cls=done?'done':skipped?'skipped':isToday?'today':'future';
     const session=done?S.sessions.find(s=>s.dayLabel===day.label):null;
+    const sk=skipped?getDaySkip(i):null;
 
-    // Build subtitle: main lift with load for upcoming, or top-line result for done
+    // Build subtitle
     let subtitle='';
     if(done&&session){
       const mainEx=session.exercises[0];
@@ -1031,29 +1104,39 @@ function renderTrain(){
       const topSet=w.length?fmtW(w[0].weightKg,mainEx.prescribed?.unit)+'×'+w[0].reps:'';
       const totalSets=session.exercises.reduce((a,e)=>(e.performed||[]).filter(p=>p.type==='working').length+a,0);
       subtitle=`${mainEx?.name}: ${topSet} · ${totalSets} sets · ${session.duration||'—'}m`;
+    } else if(skipped&&sk){
+      subtitle=`Skipped · ${sk.reasonLabel||sk.reason}`;
     } else {
       const mainEx=day.exercises[0];
       const secondEx=day.exercises.length>1?day.exercises[1]:null;
       subtitle=mainEx?`${mainEx.name} ${fmtW(mainEx.loadKg,mainEx.unit)}${secondEx?', '+secondEx.name+' '+fmtW(secondEx.loadKg,secondEx.unit):''}`:'';
     }
 
+    const numGlyph=done?'✓':skipped?'⊘':(i+1);
+    const metaTail=done?' · Completed':skipped?' · Skipped':isToday?' · Today':' · ~'+day.dur+' min';
+    const arrowColor=isToday?'var(--acc)':'var(--tx3)';
+    const arrowGlyph=isToday?'→':'›';
+
     html+=`<div class="day-card ${cls}" onclick="showDayPreview(${i})">
       <div class="day-row">
-        <div class="day-num">${done?'✓':i+1}</div>
+        <div class="day-num">${numGlyph}</div>
         <div class="day-info">
           <div class="day-label">${day.label}</div>
-          <div class="day-meta">${day.dayOfWeek} · ${day.exercises.length} exercises${done?' · Completed':isToday?' · Today':' · ~'+day.dur+' min'}</div>
+          <div class="day-meta">${day.dayOfWeek} · ${day.exercises.length} exercises${metaTail}</div>
         </div>
-        <div class="day-arrow" style="color:${isToday?'var(--acc)':'var(--tx3)'};font-size:14px">${isToday?'→':'›'}</div>
+        <div class="day-arrow" style="color:${arrowColor};font-size:14px">${arrowGlyph}</div>
       </div>
       <div style="margin-top:4px;margin-left:42px;font:11px var(--mono);color:var(--tx3);letter-spacing:.2px">${subtitle}</div>
     </div>`;
   });
 
-  // Start button for today
-  if(todayIdx>=0&&!isDayDone(todayIdx)){
-    const day=S.program.days[todayIdx];
-    html=`<button class="start-btn" onclick="showDayPreview(${todayIdx})">Start — ${day.label}</button><div style="height:8px"></div>`+html;
+  // Gold start button — next available (not done, not skipped) day
+  const startIdx=getNextAvailableDayIdx();
+  if(startIdx>=0){
+    const sDay=S.program.days[startIdx];
+    const isTodayStart=startIdx===todayIdx;
+    const label=isTodayStart?`Start — ${sDay.label}`:`Start — ${sDay.label} (${sDay.dayOfWeek})`;
+    html=`<button class="start-btn" onclick="showDayPreview(${startIdx})">${label}</button><div style="height:8px"></div>`+html;
   }
 
   container.innerHTML=html;
@@ -1118,6 +1201,24 @@ function showDayPreview(i){
   } else {
     startBtn.textContent='Start Session';
     startBtn.className='btn btn-gold btn-w';
+  }
+
+  // Skip state handling
+  const skipInfo=document.getElementById('pvSkipInfo');
+  const skipBtn=document.getElementById('pvSkipBtn');
+  const unskipBtn=document.getElementById('pvUnskipBtn');
+  const sk=getDaySkip(i);
+  if(sk&&!done){
+    skipInfo.style.display='block';
+    skipInfo.innerHTML='⊘ Skipped '+fmtDate(sk.date)+' — '+(sk.reasonLabel||sk.reason);
+    skipBtn.style.display='none';
+    unskipBtn.style.display='block';
+    startBtn.style.display='none';
+  } else {
+    skipInfo.style.display='none';
+    skipBtn.style.display=done?'none':'block';
+    unskipBtn.style.display='none';
+    startBtn.style.display='block';
   }
 
   showView('vPreview');
@@ -2018,15 +2119,11 @@ function renderBig3Tiles(){
         </svg>
         <div class="b3-ring-mid">
           <div><span class="b3-ring-pct">${pctLbl}</span><span class="b3-ring-pct-sign">%</span></div>
-          <div class="b3-ring-label">to goal</div>
         </div>
       </div>
-      <div class="b3-cur">${hasVal?curPrim:'—'}</div>
-      <div class="b3-cur-sec">${hasVal?curSec:''}</div>
-      <div class="b3-gap-wrap ${gapClass}">
-        ${gapHtml}
-      </div>
-      <div class="b3-tgt"><span class="b3-tgt-lbl">goal</span>${tgtLb} lb · ${tgtKg} kg</div>
+      <div class="b3-cur">${hasVal?curKg+' kg · '+curLb+' lb':'—'}</div>
+      <div class="b3-gap ${hasVal?(t.tgtKg-t.val<=0?'hit':'short'):'none'}">${hasVal?(t.tgtKg-t.val<=0?'✓ HIT':'−'+Math.round((t.tgtKg-t.val)*K2L)+' lb'):'—'}</div>
+      <div class="b3-tgt">goal ${tgtLb} lb · ${tgtKg} kg</div>
       <div class="b3-delta ${dCls}">${deltaShown}</div>
       ${spark}
     </div>`;
