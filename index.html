@@ -417,6 +417,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       <div class="sess-progress-text" id="sessProgText">0 / 0</div>
       <div class="sess-progress-bar"><div class="sess-progress-fill" id="sessProgFill" style="width:0%"></div></div>
     </div>
+    <div id="supersetHints" style="display:none;margin:6px 0 10px;padding:8px 10px;background:var(--s1);border:1px solid var(--s2);border-radius:var(--rs);font:11px var(--mono);color:var(--tx2)"></div>
     <div id="exList"></div>
     <div style="margin-top:12px">
       <div class="field"><label>Session Notes</label><textarea id="sessNotes" rows="4" placeholder="How did it feel? Anything to flag..." oninput="saveSessionNotes();this.style.height='auto';this.style.height=this.scrollHeight+'px'" style="font-size:13px"></textarea></div>
@@ -620,6 +621,15 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   </div>
 </div>
 
+<div class="overlay" id="subModal">
+  <div class="modal" style="max-height:85vh">
+    <div class="modal-t">Substitute · Same Pattern</div>
+    <div class="extras-pick-hint" id="subHint"></div>
+    <div id="subBody"></div>
+    <button class="btn btn-s btn-w" style="margin-top:12px" onclick="hideModal('subModal')">Cancel</button>
+  </div>
+</div>
+
 <div class="overlay" id="skipDayModal">
   <div class="modal">
     <div class="modal-t">Skip Day</div>
@@ -688,11 +698,54 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       </div>
       <div style="font:10px var(--mono);color:var(--tx3);margin-top:6px">Default split for 1000 lb club: 365 + 225 + 410 lb</div>
     </div>
+    <div style="padding:10px 0;border-bottom:1px solid var(--s2)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span>Active Gym</span>
+        <select id="sGymSelect" onchange="setActiveGym(this.value)" style="padding:6px 8px;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx);font:600 12px var(--mono)"></select>
+      </div>
+      <div style="font:10px var(--mono);color:var(--tx3)">Substitute picker filters to this gym&apos;s equipment.</div>
+      <button class="btn btn-sm btn-g" style="margin-top:6px;width:100%" onclick="openGymEditor()">Edit Gym Equipment</button>
+    </div>
+    <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
+      <span>Validate Program</span>
+      <button class="btn btn-sm btn-g" onclick="const r=validateProgram();alert(r.length?'Warnings in console ('+r.reduce((a,x)=>a+x.warnings.length,0)+' items).':'All days clean.')">Run Validator</button>
+    </div>
+    <div style="padding:10px 0;border-bottom:1px solid var(--s2)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span>Rotate Accessories</span>
+        <span id="sRotState" style="font:10px var(--mono);color:var(--tx3)"></span>
+      </div>
+      <div style="font:10px var(--mono);color:var(--tx3);margin-bottom:6px">Main lifts stay fixed. Accessories cycle through variants filtered to your active gym.</div>
+      <button class="btn btn-sm btn-g" style="width:100%" onclick="doRotateAccessories()">Rotate Now</button>
+    </div>
+    <div style="padding:10px 0;border-bottom:1px solid var(--s2)">
+      <div style="margin-bottom:4px">Calibrate 1RM</div>
+      <div style="font:10px var(--mono);color:var(--tx3);margin-bottom:6px">Top-single ramp. Use in Block 2 wk 2 — Epley off 5-rep sets under-predicts trained lifters.</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm btn-g" style="flex:1" onclick="hideModal('settingsModal');startCalibrationSession('Back Squat')">Squat</button>
+        <button class="btn btn-sm btn-g" style="flex:1" onclick="hideModal('settingsModal');startCalibrationSession('Bench Press')">Bench</button>
+        <button class="btn btn-sm btn-g" style="flex:1" onclick="hideModal('settingsModal');startCalibrationSession('Deadlift')">Dead</button>
+      </div>
+    </div>
     <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
       <span style="color:var(--red)">Reset All Data</span>
       <button class="btn btn-sm btn-d" onclick="resetData()">Reset</button>
     </div>
     <button class="btn btn-s btn-w" style="margin-top:14px" onclick="hideModal('settingsModal')">Close</button>
+  </div>
+</div>
+
+<div class="overlay" id="gymModal">
+  <div class="modal" style="max-height:90vh">
+    <div class="modal-t">Gym Equipment</div>
+    <div style="font:11px var(--mono);color:var(--tx3);margin-bottom:10px">Toggle what&apos;s available at the selected gym. Used by the substitute picker.</div>
+    <select id="gymEditSelect" onchange="renderGymEditor()" style="width:100%;padding:8px;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx);font:600 13px var(--mono);margin-bottom:10px"></select>
+    <div id="gymEditBody"></div>
+    <div style="display:flex;gap:6px;margin-top:10px">
+      <button class="btn btn-sm btn-g" style="flex:1" onclick="addGym()">+ Add Gym</button>
+      <button class="btn btn-sm btn-d" onclick="delGym()">Delete</button>
+    </div>
+    <button class="btn btn-s btn-w" style="margin-top:10px" onclick="hideModal('gymModal');renderSettings()">Done</button>
   </div>
 </div>
 
@@ -715,15 +768,211 @@ const NAME_ALIASES={
 };
 function canonName(n){return NAME_ALIASES[n]||n}
 
+// ===== EXERCISE METADATA =====
+// Keyed by canonical name. pat=pattern, prim=prime movers, eq=equipment tags,
+// fat=fatigue class, sh=shoulder handling, slot=rotation slot (for variant picker).
+// Validator, substitution picker, superset recommender, and rotation engine all read from here.
+const EX_META={
+  // Vertical pulls
+  'Lat Pulldown':{pat:'vpull',prim:['lat','bi','rhomboid'],eq:['cable','pulldown-station'],fat:'heavy-compound',sh:'safe',slot:'vpull'},
+  'Close-Grip Lat Pulldown':{pat:'vpull',prim:['lat','bi'],eq:['cable','pulldown-station'],fat:'heavy-compound',sh:'safe',slot:'vpull'},
+  'Pull-Up':{pat:'vpull',prim:['lat','bi','rhomboid'],eq:['pull-up-bar'],fat:'heavy-compound',sh:'activation-first',slot:'vpull'},
+  'Chin-Up':{pat:'vpull',prim:['lat','bi'],eq:['pull-up-bar'],fat:'heavy-compound',sh:'activation-first',slot:'vpull'},
+  // Horizontal pulls
+  'Cable Low Row':{pat:'hpull',prim:['lat','rhomboid','bi','mid-trap'],eq:['cable','pulley'],fat:'heavy-compound',sh:'safe',slot:'hpull'},
+  'DB Row':{pat:'hpull',prim:['lat','rhomboid','bi','mid-trap'],eq:['db','bench'],fat:'heavy-compound',sh:'safe',slot:'hpull'},
+  'Chest-Supported DB Row':{pat:'hpull',prim:['lat','rhomboid','mid-trap'],eq:['db','incline-bench'],fat:'heavy-compound',sh:'safe',slot:'hpull'},
+  'Pendlay Row':{pat:'hpull',prim:['lat','rhomboid','erector'],eq:['barbell'],fat:'heavy-compound',sh:'activation-first',slot:'hpull'},
+  'Seal Row':{pat:'hpull',prim:['lat','rhomboid','mid-trap'],eq:['barbell','seal-bench'],fat:'heavy-compound',sh:'safe',slot:'hpull'},
+  // Rear delt / postural
+  'Face Pull':{pat:'rear-delt',prim:['rear-delt','mid-trap','external-rotator'],eq:['cable'],fat:'iso',sh:'safe',slot:'rear-delt'},
+  'Reverse Pec Deck':{pat:'rear-delt',prim:['rear-delt','mid-trap'],eq:['pec-deck'],fat:'iso',sh:'safe',slot:'rear-delt'},
+  // Horizontal push
+  'Bench Press':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['barbell','bench','rack'],fat:'heavy-compound',sh:'activation-first',slot:'hpush'},
+  'DB Incline Bench':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['db','incline-bench'],fat:'heavy-compound',sh:'activation-first',slot:'hpush'},
+  'DB Bench Press':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['db','bench'],fat:'heavy-compound',sh:'activation-first',slot:'hpush'},
+  'Machine Chest Press':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['chest-press'],fat:'heavy-compound',sh:'safe',slot:'hpush'},
+  'Push-Up':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['bodyweight'],fat:'light-compound',sh:'safe',slot:'hpush'},
+  // Biceps iso
+  'DB Curl':{pat:'iso-bi',prim:['bi'],eq:['db'],fat:'iso',sh:'safe',slot:'biceps'},
+  'Hammer Curl':{pat:'iso-bi',prim:['bi','brachialis'],eq:['db'],fat:'iso',sh:'safe',slot:'biceps'},
+  'Preacher Curl':{pat:'iso-bi',prim:['bi'],eq:['preacher-bench','db'],fat:'iso',sh:'safe',slot:'biceps'},
+  'Cable Curl':{pat:'iso-bi',prim:['bi'],eq:['cable'],fat:'iso',sh:'safe',slot:'biceps'},
+  // Triceps iso
+  'Cable Tricep Extension':{pat:'iso-tri',prim:['tri'],eq:['cable'],fat:'iso',sh:'safe',slot:'triceps'},
+  'Rope Pushdown':{pat:'iso-tri',prim:['tri'],eq:['cable'],fat:'iso',sh:'safe',slot:'triceps'},
+  'Overhead Cable Tricep Extension':{pat:'iso-tri',prim:['tri'],eq:['cable'],fat:'iso',sh:'activation-first',slot:'triceps'},
+  'DB Skullcrusher':{pat:'iso-tri',prim:['tri'],eq:['db','bench'],fat:'iso',sh:'activation-first',slot:'triceps'},
+  // Side delt iso
+  'Lateral Raise':{pat:'iso-delt',prim:['side-delt'],eq:['db'],fat:'iso',sh:'activation-first',slot:'side-delt'},
+  'Cable Lateral Raise':{pat:'iso-delt',prim:['side-delt'],eq:['cable'],fat:'iso',sh:'safe',slot:'side-delt'},
+  // Rehab (shoulder)
+  'Ext. Rotation':{pat:'rehab',prim:['rotator-cuff'],eq:['db','cable','band'],fat:'rehab',sh:'safe',slot:'rehab'},
+  'External Rotation':{pat:'rehab',prim:['rotator-cuff'],eq:['db','cable','band'],fat:'rehab',sh:'safe',slot:'rehab'},
+  'Band External Rotation':{pat:'rehab',prim:['rotator-cuff'],eq:['band'],fat:'rehab',sh:'safe',slot:'rehab'},
+  'Side-Lying External Rotation':{pat:'rehab',prim:['rotator-cuff'],eq:['db'],fat:'rehab',sh:'safe',slot:'rehab'},
+  'Band Pull-Apart':{pat:'rehab',prim:['rear-delt','mid-trap','external-rotator'],eq:['band'],fat:'rehab',sh:'safe',slot:'rehab'},
+  'Prone Y-Raise':{pat:'rehab',prim:['lower-trap','rear-delt'],eq:['db'],fat:'rehab',sh:'safe',slot:'rehab'},
+  'Prone T-Raise':{pat:'rehab',prim:['mid-trap','rear-delt'],eq:['db'],fat:'rehab',sh:'safe',slot:'rehab'},
+  'Prone W-Raise':{pat:'rehab',prim:['lower-trap'],eq:['bodyweight'],fat:'rehab',sh:'safe',slot:'rehab'},
+  'Scapular Wall Slide':{pat:'rehab',prim:['scap-stabilizer'],eq:['wall'],fat:'rehab',sh:'safe',slot:'rehab'},
+  'Face Pull (double-dose)':{pat:'rehab',prim:['rear-delt','external-rotator'],eq:['cable'],fat:'rehab',sh:'safe',slot:'rehab'},
+  'Iso External Rotation Hold':{pat:'rehab',prim:['rotator-cuff'],eq:['band'],fat:'rehab',sh:'safe',slot:'rehab'},
+  'Band Dislocate':{pat:'rehab',prim:['shoulder-mobility'],eq:['band'],fat:'rehab',sh:'activation-first',slot:'rehab'},
+  // Core
+  'Pallof Press':{pat:'iso-core',prim:['obliques','transverse'],eq:['cable','band'],fat:'core',sh:'safe',slot:'core-anti-rot'},
+  'Pallof Press (double-dose)':{pat:'iso-core',prim:['obliques','transverse'],eq:['cable'],fat:'core',sh:'safe',slot:'core-anti-rot'},
+  'Hanging Knee Raise':{pat:'iso-core',prim:['hip-flexor','rectus-abdominis'],eq:['pull-up-bar'],fat:'core',sh:'safe',slot:'core-anti-ext'},
+  'Hanging Leg Raise':{pat:'iso-core',prim:['hip-flexor','rectus-abdominis'],eq:['pull-up-bar'],fat:'core',sh:'safe',slot:'core-anti-ext'},
+  'Cable Crunch':{pat:'iso-core',prim:['rectus-abdominis'],eq:['cable'],fat:'core',sh:'safe',slot:'core-anti-ext'},
+  'Ab Wheel Rollout':{pat:'iso-core',prim:['rectus-abdominis','lat'],eq:['ab-wheel'],fat:'core',sh:'activation-first',slot:'core-anti-ext'},
+  'Dead Bug':{pat:'iso-core',prim:['transverse','rectus-abdominis'],eq:['bodyweight'],fat:'core',sh:'safe',slot:'core-anti-ext'},
+  'Bird Dog':{pat:'iso-core',prim:['erector','transverse'],eq:['bodyweight'],fat:'core',sh:'safe',slot:'core-anti-rot'},
+  'Plank':{pat:'iso-core',prim:['transverse','rectus-abdominis'],eq:['bodyweight'],fat:'core',sh:'safe',slot:'core-anti-ext'},
+  'Side Plank':{pat:'iso-core',prim:['obliques'],eq:['bodyweight'],fat:'core',sh:'safe',slot:'core-lateral'},
+  'Copenhagen Plank':{pat:'iso-core',prim:['adductor','obliques'],eq:['bench'],fat:'core',sh:'safe',slot:'core-lateral'},
+  'Farmer Carry':{pat:'carry',prim:['grip','trap','core'],eq:['db'],fat:'core',sh:'safe',slot:'carry'},
+  'DB Carry':{pat:'carry',prim:['grip','trap','core'],eq:['db'],fat:'core',sh:'safe',slot:'carry'},
+  // Squat pattern
+  'Back Squat':{pat:'squat',prim:['quad','glute','hamstring','erector'],eq:['barbell','rack'],fat:'heavy-compound',sh:'safe',slot:'squat-main'},
+  'Back Squat (light)':{pat:'squat',prim:['quad','glute','hamstring','erector'],eq:['barbell','rack'],fat:'light-compound',sh:'safe',slot:'squat-secondary'},
+  'Front Squat':{pat:'squat',prim:['quad','erector'],eq:['barbell','rack'],fat:'heavy-compound',sh:'safe',slot:'squat-main'},
+  'Pause Squat':{pat:'squat',prim:['quad','glute','hamstring','erector'],eq:['barbell','rack'],fat:'heavy-compound',sh:'safe',slot:'squat-main'},
+  'Leg Press':{pat:'squat',prim:['quad','glute','hamstring'],eq:['leg-press'],fat:'heavy-compound',sh:'safe',slot:'squat-secondary'},
+  'Hack Squat':{pat:'squat',prim:['quad','glute'],eq:['hack-squat'],fat:'heavy-compound',sh:'safe',slot:'squat-secondary'},
+  'Bulgarian Split Squat':{pat:'squat',prim:['quad','glute'],eq:['db','bench'],fat:'light-compound',sh:'safe',slot:'squat-secondary'},
+  'Goblet Squat':{pat:'squat',prim:['quad','glute','core'],eq:['db'],fat:'light-compound',sh:'safe',slot:'squat-secondary'},
+  // Hinge
+  'Deadlift':{pat:'hinge',prim:['erector','glute','hamstring','lat','trap'],eq:['barbell','platform'],fat:'heavy-compound',sh:'safe',slot:'deadlift-main'},
+  'Deficit Deadlift':{pat:'hinge',prim:['erector','glute','hamstring','quad'],eq:['barbell','platform'],fat:'heavy-compound',sh:'safe',slot:'deadlift-main'},
+  'Block Pull':{pat:'hinge',prim:['erector','glute','hamstring','trap'],eq:['barbell','blocks'],fat:'heavy-compound',sh:'safe',slot:'deadlift-main'},
+  'Pause Deadlift':{pat:'hinge',prim:['erector','glute','hamstring'],eq:['barbell','platform'],fat:'heavy-compound',sh:'safe',slot:'deadlift-main'},
+  'DB RDL':{pat:'hinge',prim:['hamstring','glute','erector'],eq:['db'],fat:'heavy-compound',sh:'safe',slot:'hinge-secondary'},
+  'Barbell RDL':{pat:'hinge',prim:['hamstring','glute','erector'],eq:['barbell','rack'],fat:'heavy-compound',sh:'safe',slot:'hinge-secondary'},
+  'Good Morning':{pat:'hinge',prim:['erector','glute','hamstring'],eq:['barbell','rack'],fat:'heavy-compound',sh:'safe',slot:'hinge-secondary'},
+  'Back Extension':{pat:'hinge',prim:['erector','glute','hamstring'],eq:['back-extension-bench'],fat:'light-compound',sh:'safe',slot:'hinge-secondary'},
+  'DB Hip Thrust':{pat:'hinge',prim:['glute','hamstring'],eq:['db','bench'],fat:'light-compound',sh:'safe',slot:'hinge-secondary'},
+  'Barbell Hip Thrust':{pat:'hinge',prim:['glute','hamstring'],eq:['barbell','bench'],fat:'heavy-compound',sh:'safe',slot:'hinge-secondary'},
+  // Iso leg
+  'Hamstring Curl':{pat:'iso-ham',prim:['hamstring'],eq:['hamstring-curl'],fat:'iso',sh:'safe',slot:'hamstring'},
+  'Nordic Curl':{pat:'iso-ham',prim:['hamstring'],eq:['bench','pad'],fat:'iso',sh:'safe',slot:'hamstring'},
+  'Leg Extension':{pat:'iso-quad',prim:['quad'],eq:['leg-extension'],fat:'iso',sh:'safe',slot:'quad'},
+  'Calf Raise':{pat:'iso-calf',prim:['calf'],eq:['calf-raise'],fat:'iso',sh:'safe',slot:'calf'},
+  // Cardio
+  'Incline Walk':{pat:'cardio',prim:['cardiovascular'],eq:['treadmill'],fat:'cardio',sh:'safe',slot:'cardio'},
+  'Assault Bike':{pat:'cardio',prim:['cardiovascular'],eq:['assault-bike'],fat:'cardio',sh:'safe',slot:'cardio'},
+  'Row Erg':{pat:'cardio',prim:['cardiovascular','lat','quad'],eq:['row-erg'],fat:'cardio',sh:'safe',slot:'cardio'}
+};
+function getMeta(name){
+  const c=canonName(name);
+  return EX_META[c]||{pat:'iso',prim:[],eq:[],fat:'iso',sh:'safe',slot:null};
+}
+// Estimate minutes for one exercise: sets × (rep_time + rest) + transition.
+function estimateExTime(ex){
+  if(!ex||!ex.sets)return 0;
+  const sets=ex.sets||0;
+  const rest=ex.rest||60;
+  const repStr=(ex.reps||'').toString();
+  let reps=parseInt(repStr.split('-')[0],10); if(isNaN(reps))reps=10;
+  const repTime=reps*3.5+15; // sec for one set
+  return Math.round((sets*(repTime+rest))/60 + 0.5);
+}
+function estimateSessionTime(exList){
+  const bulk=(exList||[]).reduce((a,e)=>a+estimateExTime(e),0);
+  return bulk+10; // add 10 min warmup
+}
+// Validator: returns array of {level,msg,exIdx} objects. level='warn'|'info'. Warnings, not blocks.
+function validateSession(exList){
+  const out=[];
+  if(!exList||!exList.length)return out;
+  // 1. Adjacent same-prime-mover check
+  for(let i=1;i<exList.length;i++){
+    const a=getMeta(exList[i-1].name),b=getMeta(exList[i].name);
+    const shared=(a.prim||[]).filter(p=>(b.prim||[]).includes(p));
+    // Ignore if pattern is identical-but-different-plane (e.g., hpull→vpull is fine)
+    if(shared.length>=2 && a.pat===b.pat){
+      out.push({level:'warn',exIdx:i,msg:exList[i].name+' shares prime movers with '+exList[i-1].name+' — consider interleaving an antagonist'});
+    }
+  }
+  // 2. Isolation before compound
+  let lastCompound=-1;
+  for(let i=0;i<exList.length;i++){
+    const m=getMeta(exList[i].name);
+    if(m.fat==='heavy-compound')lastCompound=i;
+    else if(m.fat==='iso' && lastCompound>=0 && lastCompound<i){/* fine */}
+  }
+  for(let i=1;i<exList.length;i++){
+    const prev=getMeta(exList[i-1].name),cur=getMeta(exList[i].name);
+    if(prev.fat==='iso' && cur.fat==='heavy-compound'){
+      out.push({level:'warn',exIdx:i,msg:exList[i].name+' is a heavy compound placed after isolation — usually put compounds first'});
+    }
+  }
+  // 3. Press before shoulder activation (for activation-first lifts)
+  const actFirstIdx=exList.findIndex(e=>{const m=getMeta(e.name);return m.sh==='activation-first'&&m.fat==='heavy-compound'});
+  if(actFirstIdx===0){
+    const hasEarlyActivation=exList.slice(0,actFirstIdx).some(e=>getMeta(e.name).sh==='safe'&&(getMeta(e.name).pat==='hpull'||getMeta(e.name).pat==='rear-delt'||getMeta(e.name).pat==='rehab'));
+    if(!hasEarlyActivation){
+      out.push({level:'warn',exIdx:actFirstIdx,msg:exList[actFirstIdx].name+' presses cold — add a pull or rear-delt activation set before'});
+    }
+  }
+  // 4. Same-pattern streak >2
+  let streak=1;
+  for(let i=1;i<exList.length;i++){
+    if(getMeta(exList[i].name).pat===getMeta(exList[i-1].name).pat)streak++;
+    else streak=1;
+    if(streak>2){
+      out.push({level:'warn',exIdx:i,msg:'>2 consecutive same-pattern exercises — break up with antagonist or different plane'});
+      streak=1;
+    }
+  }
+  // 5. Time budget
+  const t=estimateSessionTime(exList);
+  if(t>80){
+    out.push({level:'warn',exIdx:-1,msg:'Session estimated at '+t+' min — over 75-min target, consider dropping lowest-priority accessory'});
+  } else if(t<45){
+    out.push({level:'info',exIdx:-1,msg:'Session estimated at '+t+' min — under 60-min floor, consider adding an accessory'});
+  }
+  return out;
+}
+
+// ===== SUPERSET RECOMMENDER =====
+// Rule #15: eligible if no shared prime movers, not both heavy-compound, reasonable equipment compatibility.
+// Typical pairings: iso+iso antagonist, iso+rehab, iso+core.
+function recommendSupersets(exList){
+  const pairs=[];
+  if(!exList||exList.length<2)return pairs;
+  for(let i=0;i<exList.length;i++){
+    for(let j=i+1;j<exList.length;j++){
+      const a=getMeta(exList[i].name),b=getMeta(exList[j].name);
+      // Rule: not both heavy compound
+      if(a.fat==='heavy-compound'&&b.fat==='heavy-compound')continue;
+      // Rule: no shared prime movers
+      const sharedPrime=(a.prim||[]).filter(p=>(b.prim||[]).includes(p));
+      if(sharedPrime.length)continue;
+      // Skip if either is a main fixed lift (don't superset with the Big 3)
+      if(FIXED_MAINS.includes(exList[i].name)||FIXED_MAINS.includes(exList[j].name))continue;
+      // Classify chain type
+      let type=null;
+      if(a.pat==='iso-core'||b.pat==='iso-core')type='core-superset';
+      else if(a.pat==='rehab'||b.pat==='rehab')type='rehab-superset';
+      else if((a.fat==='iso'&&b.fat==='iso'))type='antagonist-iso';
+      else if((a.fat==='iso'&&b.fat!=='heavy-compound')||(b.fat==='iso'&&a.fat!=='heavy-compound'))type='iso-chain';
+      if(!type)continue;
+      pairs.push({aIdx:i,bIdx:j,aName:exList[i].name,bName:exList[j].name,type});
+    }
+  }
+  return pairs;
+}
+
 // ===== DEFAULT PROGRAM =====
 const DEF_PROGRAM={name:"Apr 18–21 Block",active:true,days:[
 {id:1,label:"Upper A: Pull Heavy + Rehab",dayOfWeek:"Saturday",dur:60,exercises:[
   {id:"d1e1",name:"Lat Pulldown",cat:"pull",sets:4,reps:"8-10",loadKg:65,unit:"kg",rest:120,tags:[]},
-  {id:"d1e2",name:"Cable Low Row",cat:"pull",sets:4,reps:"8-10",loadKg:54.4,unit:"kg",rest:120,tags:[]},
-  {id:"d1e3",name:"DB Incline Bench",cat:"push",sets:3,reps:"8-10",loadKg:24,unit:"kg",rest:120,tags:["shoulder"]},
+  {id:"d1e2",name:"DB Incline Bench",cat:"push",sets:3,reps:"8-10",loadKg:24,unit:"kg",rest:120,tags:["shoulder"]},
+  {id:"d1e3",name:"Cable Low Row",cat:"pull",sets:4,reps:"8-10",loadKg:54.4,unit:"kg",rest:120,tags:[]},
   {id:"d1e4",name:"Face Pull",cat:"pull",sets:3,reps:"12-15",loadKg:17.9,unit:"kg",rest:90,tags:[]},
-  {id:"d1e5",name:"Lateral Raise",cat:"isolation",sets:3,reps:"12-15",loadKg:7,unit:"kg",rest:60,tags:[]},
-  {id:"d1e6",name:"DB Curl",cat:"isolation",sets:3,reps:"10-12",loadKg:12,unit:"kg",rest:90,tags:[]},
+  {id:"d1e5",name:"DB Curl",cat:"isolation",sets:3,reps:"10-12",loadKg:12,unit:"kg",rest:90,tags:[]},
+  {id:"d1e6",name:"Lateral Raise",cat:"isolation",sets:3,reps:"12-15",loadKg:7,unit:"kg",rest:60,tags:[]},
   {id:"d1e7",name:"Ext. Rotation",cat:"rehab",sets:2,reps:"15",loadKg:2.5,unit:"kg",rest:60,tags:["rehab"]},
   {id:"d1e8",name:"Pallof Press",cat:"core",sets:2,reps:"12",loadKg:15.9,unit:"kg",rest:60,tags:["per side"]}
 ],bonus:[
@@ -732,9 +981,9 @@ const DEF_PROGRAM={name:"Apr 18–21 Block",active:true,days:[
 ]},
 {id:2,label:"Squat Heavy",dayOfWeek:"Sunday",dur:60,exercises:[
   {id:"d2e1",name:"Back Squat",cat:"squat",sets:4,reps:"5",loadKg:102.5,unit:"kg",rest:150,tags:[]},
-  {id:"d2e2",name:"Leg Press",cat:"squat",sets:3,reps:"10-12",loadKg:172.4,unit:"kg",rest:120,tags:[]},
-  {id:"d2e3",name:"Hamstring Curl",cat:"isolation",sets:3,reps:"10-12",loadKg:36,unit:"kg",rest:90,tags:[]},
-  {id:"d2e4",name:"DB RDL",cat:"hinge",sets:3,reps:"8-10",loadKg:30,unit:"kg",rest:120,tags:["per hand"]},
+  {id:"d2e2",name:"DB RDL",cat:"hinge",sets:3,reps:"8-10",loadKg:30,unit:"kg",rest:120,tags:["per hand"]},
+  {id:"d2e3",name:"Leg Press",cat:"squat",sets:3,reps:"10-12",loadKg:172.4,unit:"kg",rest:120,tags:[]},
+  {id:"d2e4",name:"Hamstring Curl",cat:"isolation",sets:3,reps:"10-12",loadKg:36,unit:"kg",rest:90,tags:[]},
   {id:"d2e5",name:"Calf Raise",cat:"isolation",sets:3,reps:"12-15",loadKg:40.8,unit:"kg",rest:90,tags:[]},
   {id:"d2e6",name:"Pallof Press",cat:"core",sets:2,reps:"12",loadKg:15.9,unit:"kg",rest:60,tags:["per side"]}
 ],bonus:[
@@ -743,12 +992,12 @@ const DEF_PROGRAM={name:"Apr 18–21 Block",active:true,days:[
 ]},
 {id:3,label:"Upper B: Pull Volume + Rehab",dayOfWeek:"Monday",dur:60,exercises:[
   {id:"d3e1",name:"Cable Low Row",cat:"pull",sets:4,reps:"10-12",loadKg:52.2,unit:"kg",rest:90,tags:[]},
-  {id:"d3e2",name:"Lat Pulldown",cat:"pull",sets:3,reps:"10-12",loadKg:60,unit:"kg",rest:90,tags:[]},
-  {id:"d3e3",name:"DB Incline Bench",cat:"push",sets:3,reps:"10-12",loadKg:20,unit:"kg",rest:120,tags:["shoulder"]},
+  {id:"d3e2",name:"DB Incline Bench",cat:"push",sets:3,reps:"10-12",loadKg:20,unit:"kg",rest:120,tags:["shoulder"]},
+  {id:"d3e3",name:"Lat Pulldown",cat:"pull",sets:3,reps:"10-12",loadKg:60,unit:"kg",rest:90,tags:[]},
   {id:"d3e4",name:"Face Pull",cat:"pull",sets:3,reps:"12-15",loadKg:17.9,unit:"kg",rest:60,tags:[]},
-  {id:"d3e5",name:"Lateral Raise",cat:"isolation",sets:3,reps:"12-15",loadKg:7,unit:"kg",rest:60,tags:[]},
-  {id:"d3e6",name:"DB Curl",cat:"isolation",sets:3,reps:"10-12",loadKg:12,unit:"kg",rest:90,tags:[]},
-  {id:"d3e7",name:"Cable Tricep Extension",cat:"isolation",sets:3,reps:"12-15",loadKg:15,unit:"kg",rest:75,tags:[]},
+  {id:"d3e5",name:"DB Curl",cat:"isolation",sets:3,reps:"10-12",loadKg:12,unit:"kg",rest:90,tags:[]},
+  {id:"d3e6",name:"Cable Tricep Extension",cat:"isolation",sets:3,reps:"12-15",loadKg:15,unit:"kg",rest:75,tags:[]},
+  {id:"d3e7",name:"Lateral Raise",cat:"isolation",sets:3,reps:"12-15",loadKg:7,unit:"kg",rest:60,tags:[]},
   {id:"d3e8",name:"Ext. Rotation",cat:"rehab",sets:2,reps:"15",loadKg:2.5,unit:"kg",rest:60,tags:["rehab"]},
   {id:"d3e9",name:"Hanging Knee Raise",cat:"core",sets:3,reps:"10-12",loadKg:0,unit:"bw",rest:60,tags:[]}
 ],bonus:[
@@ -871,10 +1120,171 @@ const SEED_SESSION={
   painEvents:[]
 };
 
-let S={version:2,program:JSON.parse(JSON.stringify(DEF_PROGRAM)),sessions:[],goals:[{id:'g1',name:'1000 lb Total',current:0,target:1000,unit:'lb',auto:true}],settings:{unit:'kg',benchBaseline1RM:95,big3Targets:{squat:166,bench:102,dead:186}},skips:[],activeSession:null};
+// Phase C: accessory rotation library. Keyed by slot; ordered by preference.
+// Main lifts (Back Squat, Bench Press, Deadlift) are NOT rotated (rule #16).
+const VARIANTS={
+  vpull:['Lat Pulldown','Close-Grip Lat Pulldown','Chin-Up','Pull-Up'],
+  hpull:['Cable Low Row','DB Row','Chest-Supported DB Row','Pendlay Row','Seal Row'],
+  'rear-delt':['Face Pull','Reverse Pec Deck'],
+  hpush:['DB Incline Bench','DB Bench Press','Machine Chest Press'],
+  biceps:['DB Curl','Hammer Curl','Cable Curl','Preacher Curl'],
+  triceps:['Cable Tricep Extension','Rope Pushdown','Overhead Cable Tricep Extension','DB Skullcrusher'],
+  'side-delt':['Lateral Raise','Cable Lateral Raise'],
+  rehab:['Ext. Rotation','Band Pull-Apart','Prone Y-Raise','Face Pull (double-dose)'],
+  'core-anti-rot':['Pallof Press','Bird Dog'],
+  'core-anti-ext':['Hanging Knee Raise','Cable Crunch','Ab Wheel Rollout','Dead Bug','Plank','Hanging Leg Raise'],
+  'core-lateral':['Side Plank','Copenhagen Plank'],
+  'squat-secondary':['Leg Press','Hack Squat','Bulgarian Split Squat','Goblet Squat'],
+  'hinge-secondary':['DB RDL','Barbell RDL','Back Extension','DB Hip Thrust','Barbell Hip Thrust','Good Morning'],
+  hamstring:['Hamstring Curl','Nordic Curl'],
+  quad:['Leg Extension'],
+  calf:['Calf Raise'],
+  carry:['Farmer Carry','DB Carry']
+};
+const FIXED_MAINS=['Back Squat','Bench Press','Deadlift'];
+// Rotation threshold (sessions). Rule #17: every ~14 sessions or 4 wks, whichever first.
+const ROTATION_THRESHOLD=14;
+
+let S={version:2,program:JSON.parse(JSON.stringify(DEF_PROGRAM)),sessions:[],goals:[{id:'g1',name:'1000 lb Total',current:0,target:1000,unit:'lb',auto:true}],settings:{unit:'kg',benchBaseline1RM:95,big3Targets:{squat:166,bench:102,dead:186}},skips:[],activeSession:null,block:{sessionsSinceRotate:0,variantCursor:{}}};
 let sessionStart=null,sessionTimer=null,restInt=null,restEnd=null,restDur=0,painExI=null,selRpe=null,viewDayI=0,previewDayI=0;
 
 function save(){try{localStorage.setItem(STORE,JSON.stringify(S))}catch(e){}}
+
+// ===== ACCESSORY ROTATION =====
+// Return the list of available variants for a slot filtered by active gym equipment.
+function getEligibleVariantsForSlot(slot){
+  const all=VARIANTS[slot]||[];
+  ensureGyms();
+  const gym=(S.settings.gyms||[]).find(g=>g.id===S.settings.activeGymId);
+  const equip=gym?gym.equipment:null;
+  if(!equip)return all.slice();
+  return all.filter(name=>{
+    const meta=getMeta(name);
+    const need=meta.eq||[];
+    if(!need.length)return true;
+    // Accept if ALL required equipment is in the gym
+    return need.every(e=>equip.includes(e));
+  });
+}
+// Pick the next variant for a slot, honoring cursor + equipment.
+function getNextVariantForSlot(slot,currentName){
+  const pool=getEligibleVariantsForSlot(slot);
+  if(!pool.length)return currentName;
+  const curIdx=pool.indexOf(currentName);
+  const cursor=(S.block.variantCursor&&S.block.variantCursor[slot])||0;
+  // Advance by 1 from whichever is higher (cursor or current), wrap around
+  let next=((curIdx>=0?curIdx:cursor)+1)%pool.length;
+  if(pool[next]===currentName && pool.length>1)next=(next+1)%pool.length;
+  return pool[next];
+}
+// Rotate accessories: walk every day's exercises. Skip fixed mains, skip exercises whose slot has no alternatives.
+// Returns {rotated:[{day,from,to}], skipped:n}
+function rotateAccessories(){
+  const res={rotated:[],skipped:0};
+  if(!S.program||!S.program.days)return res;
+  S.program.days.forEach(day=>{
+    (day.exercises||[]).forEach(ex=>{
+      if(FIXED_MAINS.includes(ex.name)){res.skipped++;return;}
+      const meta=getMeta(ex.name);
+      const slot=meta.slot;
+      if(!slot||!VARIANTS[slot]||VARIANTS[slot].length<2){res.skipped++;return;}
+      const pool=getEligibleVariantsForSlot(slot);
+      if(pool.length<2){res.skipped++;return;}
+      const next=getNextVariantForSlot(slot,ex.name);
+      if(next && next!==ex.name){
+        res.rotated.push({day:day.label||day.id,from:ex.name,to:next});
+        ex.name=next;
+      }
+    });
+  });
+  // Advance each slot cursor
+  Object.keys(VARIANTS).forEach(slot=>{
+    const pool=getEligibleVariantsForSlot(slot);
+    if(pool.length>1){
+      const cur=(S.block.variantCursor&&S.block.variantCursor[slot])||0;
+      S.block.variantCursor[slot]=(cur+1)%pool.length;
+    }
+  });
+  S.block.sessionsSinceRotate=0;
+  save();
+  return res;
+}
+// ===== CALIBRATION (Block 2 week 2: real 1RM via top-single ramp) =====
+// Round to plate increment (2.5 kg) — bar math friendly.
+function roundPlate(kg){return Math.round(kg/2.5)*2.5;}
+// Build a calibration ramp for a lift given current e1RM.
+// Returns array of performed-set objects ready to slot into an activeSession exercise.
+function buildCalibrationRamp(current1RM){
+  if(!current1RM||current1RM<=0)current1RM=60;
+  const pcts=[
+    {pct:0.40,reps:5,type:'warmup'},
+    {pct:0.60,reps:3,type:'warmup'},
+    {pct:0.75,reps:2,type:'warmup'},
+    {pct:0.85,reps:1,type:'working'},
+    {pct:0.92,reps:1,type:'working'},
+    {pct:0.97,reps:1,type:'working'},
+    {pct:1.00,reps:1,type:'working'}
+  ];
+  return pcts.map(p=>({type:p.type,weightKg:roundPlate(current1RM*p.pct),reps:p.reps,rpe:null,logged:false}));
+}
+function startCalibrationSession(liftName){
+  const lifts={'Back Squat':'squat','Bench Press':'bench','Deadlift':'dead'};
+  const key=lifts[liftName];if(!key){alert('Calibration is for Back Squat / Bench Press / Deadlift.');return;}
+  // Pull the most recent heavy working set to seed current e1RM
+  let cur=S.settings.big3Targets?S.settings.big3Targets[key]:null;
+  // Override with latest achieved Epley estimate if any
+  for(let i=S.sessions.length-1;i>=0;i--){
+    const ex=(S.sessions[i].exercises||[]).find(e=>e.name===liftName);
+    if(!ex)continue;
+    const w=(ex.performed||[]).filter(s=>s.type==='working'&&s.logged&&!s.skipped);
+    if(!w.length)continue;
+    const top=w.reduce((a,b)=>b.weightKg>a.weightKg?b:a,w[0]);
+    const e1=top.weightKg*(1+top.reps/30); // Epley
+    cur=Math.max(cur||0,e1);break;
+  }
+  if(!cur){const p=prompt('Estimated current 1RM for '+liftName+' (kg)?');cur=parseFloat(p);if(!cur)return;}
+  if(!confirm('Start a calibration session for '+liftName+'?\n\nRamp based on current 1RM estimate: '+Math.round(cur)+' kg\nTop single target: '+roundPlate(cur)+' kg\n\nStarts a fresh session. Cap RPE 9.5 on the top single.'))return;
+  const ramp=buildCalibrationRamp(cur);
+  S.activeSession={dayIndex:0,date:todayStr(),dayLabel:'Calibration · '+liftName,startTime:Date.now(),calibration:true,
+    exercises:[{
+      name:liftName,cat:'compound',
+      prescribed:{sets:ramp.filter(r=>r.type==='working').length,reps:'1',loadKg:roundPlate(cur),unit:'kg'},
+      performed:ramp,notes:'',progression:null,nextLoad:null,painEvent:null,tags:['calibration'],rest:180
+    }]
+  };
+  save();sessionStart=Date.now();startTimer();
+  showView('vSession');renderEx();
+  const nb=document.getElementById('navBar');if(nb)nb.style.display='none';
+}
+
+// Called from finishSession — increments counter, prompts if threshold hit.
+function maybePromptRotation(){
+  if(!S.block)S.block={sessionsSinceRotate:0,variantCursor:{}};
+  S.block.sessionsSinceRotate=(S.block.sessionsSinceRotate||0)+1;
+  save();
+  if(S.block.sessionsSinceRotate>=ROTATION_THRESHOLD){
+    // Non-blocking, user-triggered: surface a subtle flag on Train view.
+    // Actual rotation happens via Settings button.
+    console.log('[Hyperion] Accessory rotation recommended — '+S.block.sessionsSinceRotate+' sessions since last rotate.');
+  }
+}
+// Validate every day in the program; log warnings to console. Run from settings or on sync.
+function validateProgram(){
+  if(!S.program||!S.program.days)return [];
+  const report=[];
+  S.program.days.forEach(d=>{
+    const warns=validateSession(d.exercises||[]);
+    if(warns.length){report.push({day:d.label||('Day '+d.id),warnings:warns});}
+  });
+  if(report.length){
+    console.group('[Hyperion] Session validator warnings');
+    report.forEach(r=>{console.group(r.day);r.warnings.forEach(w=>console.warn(w.level.toUpperCase()+': '+w.msg));console.groupEnd();});
+    console.groupEnd();
+  } else {
+    console.log('[Hyperion] Session validator: all days clean.');
+  }
+  return report;
+}
 function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse(r);S={...S,...d};if(!S.goals)S.goals=[{id:'g1',name:'1000 lb Total',current:0,target:1000,unit:'lb',auto:true}];if(!S.settings)S.settings={unit:'kg',benchBaseline1RM:95};
   // Backfill benchBaseline1RM for users whose localStorage predates this feature
   if(S.settings.benchBaseline1RM==null)S.settings.benchBaseline1RM=95;
@@ -891,9 +1301,19 @@ function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse
   (S.program&&S.program.days||[]).forEach(d=>(d.exercises||[]).forEach(ex=>{ex.name=canonName(ex.name)}));
   // B2: category integrity migration — idempotent name→cat corrections.
   migrateCategories();
+  // Phase C: seed gym profiles + active gym
+  try{ensureGyms();}catch(e){}
+  // Phase C: seed block rotation state
+  if(!S.block)S.block={sessionsSinceRotate:0,variantCursor:{}};
+  if(typeof S.block.sessionsSinceRotate!=='number')S.block.sessionsSinceRotate=0;
+  if(!S.block.variantCursor||typeof S.block.variantCursor!=='object')S.block.variantCursor={};
   }
   // Seed Day 1 session if no sessions exist
   if(S.sessions.length===0){S.sessions.push(JSON.parse(JSON.stringify(SEED_SESSION)));save()}
+  // Ensure gyms seeded for fresh installs (no prior state branch above)
+  try{ensureGyms();save();}catch(e){}
+  // Run validator sweep once (non-blocking) to surface any ordering issues in console
+  setTimeout(()=>{try{validateProgram()}catch(e){}},1200);
 }catch(e){}}
 
 // B2: Canonical name→category map. Idempotent: only rewrites if wrong.
@@ -936,7 +1356,9 @@ function syncProgram(){
   save();
   hideModal('settingsModal');
   renderTrain();
-  alert('Program synced to default (4 days).');
+  const warns=validateProgram();
+  const warnCount=warns.reduce((a,r)=>a+r.warnings.length,0);
+  alert('Program synced to default (4 days).'+(warnCount?'\n\n'+warnCount+' validator note(s) in console.':''));
 }
 
 // ===== HELPERS =====
@@ -1003,6 +1425,24 @@ function renderSettings(){
     const inp=document.getElementById('sTgt'+kCap);
     if(inp)inp.value=toDisp(tgts[k]);
   });
+  try{renderGymSelect()}catch(e){}
+  // Rotation status line
+  const rs=document.getElementById('sRotState');
+  if(rs){
+    const since=(S.block&&S.block.sessionsSinceRotate)||0;
+    rs.textContent=since+' / '+ROTATION_THRESHOLD+' sessions';
+    rs.style.color=since>=ROTATION_THRESHOLD?'var(--yel)':'var(--tx3)';
+  }
+}
+
+function doRotateAccessories(){
+  const r=rotateAccessories();
+  if(!r.rotated.length){alert('No rotations applied (equipment may limit variants, or nothing to rotate).');return;}
+  const summary=r.rotated.slice(0,10).map(x=>x.from+' → '+x.to).join('\n');
+  alert('Rotated '+r.rotated.length+' accessories:\n\n'+summary+(r.rotated.length>10?'\n… +'+(r.rotated.length-10)+' more':''));
+  renderSettings();
+  // If Train view is mounted, re-render to show new exercises
+  try{if(document.getElementById('vTrain')&&document.getElementById('vTrain').classList.contains('vis'))renderTrain();}catch(e){}
 }
 
 function saveBig3Targets(){
@@ -1025,6 +1465,71 @@ function resetBig3Targets(){
   save();
   renderSettings();
   if(document.getElementById('big3Tiles'))renderBig3Tiles();
+}
+
+// ===== GYM PROFILES =====
+const EQ_TAGS=['cable','pulldown-station','pulley','pull-up-bar','barbell','rack','platform','bench','incline-bench','seal-bench','db','leg-press','hack-squat','hamstring-curl','leg-extension','calf-raise','back-extension-bench','chest-press','pec-deck','preacher-bench','band','wall','bodyweight','treadmill','row-erg','assault-bike','ab-wheel','blocks'];
+const DEFAULT_GYMS=[
+  {id:'gym-commercial',name:'Commercial Gym (primary)',equipment:EQ_TAGS.slice()},
+  {id:'gym-hotel',name:'Hotel / Travel',equipment:['db','bench','incline-bench','treadmill','bodyweight','band']},
+  {id:'gym-home',name:'Home Gym',equipment:['barbell','rack','bench','db','pull-up-bar','band','bodyweight']}
+];
+function ensureGyms(){
+  if(!S.settings.gyms)S.settings.gyms=JSON.parse(JSON.stringify(DEFAULT_GYMS));
+  if(!S.settings.activeGymId)S.settings.activeGymId='gym-commercial';
+}
+function setActiveGym(id){ensureGyms();S.settings.activeGymId=id||null;save();}
+function renderGymSelect(){
+  ensureGyms();
+  const sel=document.getElementById('sGymSelect');if(!sel)return;
+  const opts=['<option value="">None (no filter)</option>'].concat(S.settings.gyms.map(g=>`<option value="${g.id}" ${g.id===S.settings.activeGymId?'selected':''}>${g.name}</option>`));
+  sel.innerHTML=opts.join('');
+}
+function openGymEditor(){
+  ensureGyms();
+  const sel=document.getElementById('gymEditSelect');
+  sel.innerHTML=S.settings.gyms.map(g=>`<option value="${g.id}" ${g.id===S.settings.activeGymId?'selected':''}>${g.name}</option>`).join('');
+  renderGymEditor();
+  hideModal('settingsModal');
+  showModal('gymModal');
+}
+function renderGymEditor(){
+  ensureGyms();
+  const sel=document.getElementById('gymEditSelect');
+  const gid=sel.value;
+  const g=S.settings.gyms.find(x=>x.id===gid);if(!g)return;
+  const body=document.getElementById('gymEditBody');
+  body.innerHTML=`
+    <input type="text" value="${g.name}" oninput="S.settings.gyms.find(x=>x.id==='${g.id}').name=this.value;save()" style="width:100%;padding:8px;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx);margin-bottom:10px;font:500 13px var(--sans)" placeholder="Gym name">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+      ${EQ_TAGS.map(tag=>`<label style="display:flex;align-items:center;gap:6px;padding:5px 6px;background:var(--s2);border-radius:var(--rs);font:11px var(--mono);cursor:pointer;user-select:none"><input type="checkbox" ${g.equipment.includes(tag)?'checked':''} onchange="toggleGymEquip('${g.id}','${tag}',this.checked)"><span>${tag}</span></label>`).join('')}
+    </div>`;
+}
+function toggleGymEquip(gid,tag,on){
+  const g=S.settings.gyms.find(x=>x.id===gid);if(!g)return;
+  const i=g.equipment.indexOf(tag);
+  if(on&&i<0)g.equipment.push(tag);
+  else if(!on&&i>=0)g.equipment.splice(i,1);
+  save();
+}
+function addGym(){
+  const name=prompt('New gym name:');if(!name)return;
+  ensureGyms();
+  const id='gym-'+Date.now().toString(36);
+  S.settings.gyms.push({id,name,equipment:['db','bench','bodyweight']});
+  save();
+  document.getElementById('gymEditSelect').innerHTML=S.settings.gyms.map(g=>`<option value="${g.id}" ${g.id===id?'selected':''}>${g.name}</option>`).join('');
+  renderGymEditor();
+}
+function delGym(){
+  const sel=document.getElementById('gymEditSelect');const gid=sel.value;
+  if(S.settings.gyms.length<=1){alert('Keep at least one gym profile.');return;}
+  if(!confirm('Delete this gym profile?'))return;
+  S.settings.gyms=S.settings.gyms.filter(g=>g.id!==gid);
+  if(S.settings.activeGymId===gid)S.settings.activeGymId=S.settings.gyms[0].id;
+  save();
+  sel.innerHTML=S.settings.gyms.map(g=>`<option value="${g.id}">${g.name}</option>`).join('');
+  renderGymEditor();
 }
 
 // ===== UNIT =====
@@ -1411,6 +1916,23 @@ function renderEx(){
   const notesEl=document.getElementById('sessNotes');
   if(notesEl&&document.activeElement!==notesEl)notesEl.value=sess.notes||'';
 
+  // Phase C: superset hint (low-density single line)
+  try{
+    const hintEl=document.getElementById('supersetHints');
+    if(hintEl){
+      const pairs=recommendSupersets(sess.exercises);
+      // Dedupe: prefer adjacent pairs, limit to 2 top suggestions
+      const adj=pairs.filter(p=>p.bIdx===p.aIdx+1).slice(0,2);
+      const pick=adj.length?adj:pairs.slice(0,2);
+      if(pick.length){
+        hintEl.style.display='block';
+        hintEl.innerHTML='<span style="color:var(--tx3);margin-right:6px">superset:</span>'+pick.map(p=>`<span style="margin-right:10px">${p.aName} + ${p.bName}</span>`).join('');
+      } else {
+        hintEl.style.display='none';
+      }
+    }
+  }catch(e){}
+
   const list=document.getElementById('exList');
   list.innerHTML=sess.exercises.map((ex,i)=>{
     const allDone=ex.performed.every(s=>s.logged);
@@ -1481,6 +2003,7 @@ function renderEx(){
             <button class="btn btn-sm btn-g" onclick="toggleExMenu(${i})" aria-label="More">⋯</button>
             <div class="ex-menu" id="exMenu${i}">
               <button onclick="addWu(${i});closeExMenus()">+ Warmup</button>
+              ${!allDone?`<button onclick="openSubstitute(${i});closeExMenus()">🔀 Substitute (equip)</button>`:''}
               ${!allDone?`<button onclick="openSwap(${i});closeExMenus()">⇄ Swap</button>`:''}
               ${!allDone?`<button onclick="skipExercise(${i});closeExMenus()">⏭ Skip exercise</button>`:''}
               <button onclick="painExI=${i};document.getElementById('painExName').textContent='${ex.name.replace(/'/g,"\\'")}';closeExMenus();showModal('painModal')" class="danger">⚠ Pain</button>
@@ -1816,6 +2339,95 @@ function doSwap(encName){
   save();hideModal('swapModal');_swapEi=null;renderEx();
 }
 
+// ===== SUBSTITUTE (slot + equipment filtered) =====
+// Quick-pick for mid-session equipment surprises. Filters EX_META by matching slot,
+// optionally by active gym's available equipment. Preserves sets/reps, adjusts load heuristic.
+let _subEi=null;
+function getActiveGymEquip(){
+  const gid=S.settings&&S.settings.activeGymId;
+  const gyms=(S.settings&&S.settings.gyms)||[];
+  const g=gyms.find(x=>x.id===gid);
+  return g?g.equipment:null; // null = no filter
+}
+function getSubstitutes(exName){
+  const meta=getMeta(exName);
+  if(!meta.slot)return [];
+  const gymEq=getActiveGymEquip();
+  const out=[];
+  Object.keys(EX_META).forEach(name=>{
+    if(canonName(name)===canonName(exName))return;
+    const m=EX_META[name];
+    if(m.slot!==meta.slot)return;
+    // If gym filter active, every required equipment must be present
+    if(gymEq){
+      const ok=(m.eq||[]).every(tag=>gymEq.includes(tag)||tag==='bodyweight');
+      if(!ok)return;
+    }
+    out.push({name,meta:m});
+  });
+  return out;
+}
+function loadAdjustForSub(fromName,toName,fromLoadKg){
+  // Heuristic scaling: BB rows heavier than DB rows; leg press heavier than BB squat; etc.
+  // Baseline ratios keyed by (fromEq → toEq). Default 1.0 if unknown.
+  const m1=getMeta(fromName),m2=getMeta(toName);
+  const eq1=(m1.eq||[]).join(','),eq2=(m2.eq||[]).join(',');
+  // Rough multipliers (prescribed load adjustment)
+  if(eq1.includes('cable')&&eq2.includes('db'))return Math.round(fromLoadKg*0.7*2)/2;
+  if(eq1.includes('db')&&eq2.includes('cable'))return Math.round(fromLoadKg*1.3*2)/2;
+  if(eq1.includes('barbell')&&eq2.includes('db'))return Math.round(fromLoadKg*0.55*2)/2;
+  if(eq1.includes('db')&&eq2.includes('barbell'))return Math.round(fromLoadKg*1.8*2)/2;
+  if(eq2.includes('bodyweight'))return 0;
+  return fromLoadKg;
+}
+function openSubstitute(ei){
+  const sess=S.activeSession;if(!sess)return;
+  const ex=sess.exercises[ei];if(!ex)return;
+  _subEi=ei;
+  const gym=getActiveGymEquip();
+  const gymLabel=gym?'filtered by active gym equipment':'no gym filter set — showing all same-slot variants';
+  document.getElementById('subHint').textContent=`Substituting "${ex.name}" (${getMeta(ex.name).pat}) · ${gymLabel}`;
+  const subs=getSubstitutes(ex.name);
+  const body=document.getElementById('subBody');
+  if(!subs.length){
+    body.innerHTML='<div class="ec-why" style="padding:12px">No substitutes found for slot "'+(getMeta(ex.name).slot||'unknown')+'". This exercise may not be in the metadata library yet.</div>';
+  } else {
+    const dispU=S.settings.unit||'kg';
+    body.innerHTML=subs.slice(0,6).map(s=>{
+      const newLoad=loadAdjustForSub(ex.name,s.name,ex.prescribed.loadKg||0);
+      const loadDisp=newLoad===0?'bodyweight':(dispU==='lb'?Math.round(newLoad*K2L*10)/10+' lb':newLoad+' kg');
+      const eqTags=(s.meta.eq||[]).join(' · ');
+      return `<div class="extra-card" onclick="doSubstitute('${encodeURIComponent(s.name)}')">
+        <div class="ec-head"><div class="ec-name">${s.name}</div><div class="ec-add">🔀</div></div>
+        <div class="ec-why">${ex.prescribed.sets}×${ex.prescribed.reps} @ ${loadDisp} · ${eqTags}</div>
+      </div>`;
+    }).join('');
+  }
+  showModal('subModal');
+}
+function doSubstitute(encName){
+  const name=decodeURIComponent(encName);
+  if(_subEi==null)return;
+  const sess=S.activeSession;if(!sess)return;
+  const ex=sess.exercises[_subEi];if(!ex)return;
+  if(sess.exercises.some((e,i)=>i!==_subEi&&(e.name||'').toLowerCase()===name.toLowerCase())){
+    alert('"'+name+'" is already in this session.');return;
+  }
+  const newLoad=loadAdjustForSub(ex.name,name,ex.prescribed.loadKg||0);
+  const m=getMeta(name);
+  ex.name=name;
+  // Map new pattern back to legacy cat for existing progression engine compatibility
+  const patToCat={squat:'squat',hinge:'hinge',hpush:'push',vpush:'push',hpull:'pull',vpull:'pull','rear-delt':'pull','iso-bi':'isolation','iso-tri':'isolation','iso-delt':'isolation','iso-ham':'isolation','iso-quad':'isolation','iso-calf':'isolation','iso-core':'core',carry:'core',rehab:'rehab',cardio:'cardio'};
+  if(patToCat[m.pat])ex.cat=patToCat[m.pat];
+  ex.prescribed.loadKg=newLoad;
+  const rr=repRange(ex.prescribed.reps);const targetReps=rr.max||parseInt(ex.prescribed.reps)||8;
+  ex.performed=ex.performed.map(p=>p.logged?p:{type:'working',weightKg:newLoad,reps:targetReps,rpe:null,logged:false});
+  ex.nextLoad=null;ex.progression=null;
+  (ex.tags=ex.tags||[]).indexOf('substituted')<0&&ex.tags.push('substituted');
+  save();hideModal('subModal');_subEi=null;renderEx();
+  toast('Substituted → '+name);
+}
+
 function logSet(ei,si){
   const ex=S.activeSession.exercises[ei],s=ex.performed[si];
   const wi=document.getElementById(`w${ei}_${si}`),ri=document.getElementById(`r${ei}_${si}`);
@@ -2134,6 +2746,8 @@ function confirmRpe(){
   });
 
   S.activeSession=null;save();
+  // Phase C: increment rotation counter
+  try{maybePromptRotation();}catch(e){}
   renderSummary(rec);showView('vSummary');
   document.getElementById('navBar').style.display='flex';
   // Auto-copy report to clipboard
