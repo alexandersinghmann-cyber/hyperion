@@ -276,6 +276,20 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .set-skip{min-width:36px;height:36px;padding:0 6px;border-radius:var(--rs);background:var(--s2);border:1px solid var(--s3);color:var(--tx3);font:500 10px var(--mono);cursor:pointer;display:flex;align-items:center;justify-content:center}
 .set-skip:active{background:var(--s3)}
 .set-row.st-skip{border-left-color:var(--tx3);opacity:.5}
+
+/* S1: low-density session view */
+.set-row.compact{padding:6px 0 6px 10px}
+.set-row.compact .set-summary{flex:1;font:600 14px var(--mono);color:var(--tx);letter-spacing:.2px}
+.set-row.compact.st-done .set-summary{color:var(--tx)}
+.set-row.compact.st-skip .set-summary{font:500 11px var(--mono);letter-spacing:.5px}
+.ex-cat{display:inline-block;padding:1px 6px;border-radius:3px;background:var(--s3);color:var(--tx3);font:600 9px var(--mono);text-transform:uppercase;letter-spacing:.8px;margin-right:6px;vertical-align:1px}
+.ex-prog-ind{font-size:15px;font-weight:600;padding:0 4px}
+.ex-menu{position:absolute;right:0;top:100%;margin-top:4px;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);box-shadow:0 6px 20px rgba(0,0,0,.35);z-index:50;min-width:160px;display:none;overflow:hidden}
+.ex-menu.on{display:block}
+.ex-menu button{display:block;width:100%;text-align:left;padding:10px 14px;background:none;border:none;color:var(--tx);font:500 13px var(--sans);cursor:pointer;border-bottom:1px solid var(--s3)}
+.ex-menu button:last-child{border-bottom:none}
+.ex-menu button:hover{background:var(--s3)}
+.ex-menu button.danger{color:var(--red)}
 .prog-skip{background:var(--s2);color:var(--tx3)}
 
 /* Last hint expanded */
@@ -305,6 +319,15 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .preview-ex .pe-name{flex:1;font-weight:500;font-size:14px}
 .preview-ex .pe-detail{font:12px var(--mono);color:var(--tx3)}
 .preview-ex .pe-arrow{color:var(--tx3);font-size:14px}
+.preview-ex .pe-reorder{display:flex;flex-direction:column;gap:2px;flex-shrink:0}
+.pe-move{background:var(--s2);border:1px solid var(--s3);color:var(--tx2);width:22px;height:18px;border-radius:4px;font-size:9px;line-height:1;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;transition:all .12s}
+.pe-move:hover:not(:disabled){background:var(--s3);color:var(--acc)}
+.pe-move:active:not(:disabled){transform:scale(.92)}
+.pe-move:disabled{opacity:.25;cursor:not-allowed}
+.day-card .dc-reorder{display:flex;flex-direction:column;gap:2px;margin-right:6px}
+.dc-move{background:var(--s2);border:1px solid var(--s3);color:var(--tx2);width:22px;height:18px;border-radius:4px;font-size:9px;line-height:1;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center}
+.dc-move:disabled{opacity:.25;cursor:not-allowed}
+.dc-move:active:not(:disabled){transform:scale(.92)}
 </style>
 </head>
 <body>
@@ -607,6 +630,14 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   </div>
 </div>
 
+<div class="overlay" id="skipSetModal">
+  <div class="modal">
+    <div class="modal-t">Skip Set · Reason</div>
+    <div id="skipSetList" style="display:flex;flex-direction:column;gap:6px;margin-top:8px"></div>
+    <button class="btn btn-s btn-w" style="margin-top:12px" onclick="cancelSkipSet()">Cancel</button>
+  </div>
+</div>
+
 <div class="overlay" id="dayEditModal">
   <div class="modal">
     <div class="modal-t" id="dayEditTitle">Edit Day</div>
@@ -857,10 +888,44 @@ function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse
   if(S.activeSession)(S.activeSession.exercises||[]).forEach(ex=>{ex.name=canonName(ex.name)});
   // Apply name aliases to program days
   (S.program&&S.program.days||[]).forEach(d=>(d.exercises||[]).forEach(ex=>{ex.name=canonName(ex.name)}));
+  // B2: category integrity migration — idempotent name→cat corrections.
+  migrateCategories();
   }
   // Seed Day 1 session if no sessions exist
   if(S.sessions.length===0){S.sessions.push(JSON.parse(JSON.stringify(SEED_SESSION)));save()}
 }catch(e){}}
+
+// B2: Canonical name→category map. Idempotent: only rewrites if wrong.
+// Expand as new miscategorizations surface. Silently correct, log count for toast.
+const CAT_MAP={
+  'Back Extension':'hinge',
+  'Cable Crunch':'core',
+  'Hanging Leg Raise':'core',
+  'Pallof Press':'core',
+  'Plank':'core',
+  'Face Pull':'pull',
+  'Cable Tricep Extension':'isolation',
+  'Farmer Carry':'core',
+};
+function migrateCategories(){
+  let fixed=0;
+  const walk=(ex)=>{if(!ex||!ex.name)return;const want=CAT_MAP[ex.name];if(want&&ex.cat!==want){ex.cat=want;fixed++}};
+  (S.program&&S.program.days||[]).forEach(d=>(d.exercises||[]).forEach(walk));
+  (S.sessions||[]).forEach(s=>(s.exercises||[]).forEach(walk));
+  if(S.activeSession)(S.activeSession.exercises||[]).forEach(walk);
+  if(fixed>0){save();setTimeout(()=>toast('Fixed '+fixed+' exercise categor'+(fixed===1?'y':'ies')),400);}
+  return fixed;
+}
+
+// Lightweight toast (no deps, auto-dismiss). Safe to call before DOM is ready.
+function toast(msg,ms){
+  if(typeof document==='undefined'||!document.body)return;
+  ms=ms||2200;
+  let el=document.getElementById('_toast');
+  if(!el){el=document.createElement('div');el.id='_toast';el.style.cssText='position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:var(--s3,#282C34);color:var(--tx,#E8ECF1);padding:10px 16px;border-radius:8px;font:500 13px var(--sans,system-ui);z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.4);opacity:0;transition:opacity .2s;pointer-events:none;max-width:80vw;text-align:center';document.body.appendChild(el)}
+  el.textContent=msg;el.style.opacity='1';
+  clearTimeout(toast._t);toast._t=setTimeout(()=>{el.style.opacity='0'},ms);
+}
 
 // Reset program to the built-in default, preserving sessions + goals + settings.
 function syncProgram(){
@@ -1114,8 +1179,17 @@ function renderTrain(){
     const arrowColor=isToday?'var(--acc)':'var(--tx3)';
     const arrowGlyph=isToday?'→':'›';
 
+    // R2: reorder arrows. Locked when this day OR the neighbour is done (preserves history alignment).
+    const nDays=S.program.days.length;
+    const upLocked=i===0||done||isDayDone(i-1);
+    const downLocked=i===nDays-1||done||isDayDone(i+1);
+
     html+=`<div class="day-card ${cls}" onclick="showDayPreview(${i})">
       <div class="day-row">
+        <div class="dc-reorder">
+          <button class="dc-move" ${upLocked?'disabled':''} onclick="event.stopPropagation();moveDay(${i},-1)" title="Move up">▲</button>
+          <button class="dc-move" ${downLocked?'disabled':''} onclick="event.stopPropagation();moveDay(${i},1)" title="Move down">▼</button>
+        </div>
         <div class="day-num">${numGlyph}</div>
         <div class="day-info">
           <div class="day-label">${day.label}</div>
@@ -1123,7 +1197,7 @@ function renderTrain(){
         </div>
         <div class="day-arrow" style="color:${arrowColor};font-size:14px">${arrowGlyph}</div>
       </div>
-      <div style="margin-top:4px;margin-left:42px;font:11px var(--mono);color:var(--tx3);letter-spacing:.2px">${subtitle}</div>
+      <div style="margin-top:4px;margin-left:${42+28}px;font:11px var(--mono);color:var(--tx3);letter-spacing:.2px">${subtitle}</div>
     </div>`;
   });
 
@@ -1177,15 +1251,21 @@ function showDayPreview(i){
       </div>`;
     }).join('');
   } else {
-    // Show prescribed
+    // Show prescribed with R1 reorder arrows.
+    const nEx=day.exercises.length;
     exContainer.innerHTML=day.exercises.map((ex,ei)=>{
-      return`<div class="preview-ex" onclick="showEditEx(${i},${ei})">
-        <div class="pe-dot"></div>
-        <div style="flex:1">
+      const upDisabled=ei===0?'disabled':'';
+      const downDisabled=ei===nEx-1?'disabled':'';
+      return`<div class="preview-ex">
+        <div class="pe-reorder">
+          <button class="pe-move" ${upDisabled} onclick="event.stopPropagation();moveExercise(${i},${ei},-1)" title="Move up">▲</button>
+          <button class="pe-move" ${downDisabled} onclick="event.stopPropagation();moveExercise(${i},${ei},1)" title="Move down">▼</button>
+        </div>
+        <div style="flex:1;cursor:pointer" onclick="showEditEx(${i},${ei})">
           <div class="pe-name">${ex.name}${ex.tags?.includes('per side')?' <span class="td" style="font-size:11px">/side</span>':''}${ex.tags?.includes('per hand')?' <span class="td" style="font-size:11px">/hand</span>':''}</div>
           <div class="pe-detail">${ex.sets}×${ex.reps} @ ${fmtW(ex.loadKg,ex.unit)}</div>
         </div>
-        <div class="pe-arrow">›</div>
+        <div class="pe-arrow" onclick="showEditEx(${i},${ei})">›</div>
       </div>`;
     }).join('');
   }
@@ -1222,6 +1302,37 @@ function showDayPreview(i){
 }
 
 function toggleHist(el){el.querySelector('.day-done-summary')?.classList.toggle('open')}
+
+// R1: reorder exercises within a program day (arrows). Boundary-safe.
+function moveExercise(dayIdx,exIdx,dir){
+  const day=S.program.days[dayIdx];if(!day||!day.exercises)return;
+  const ni=exIdx+dir;
+  if(ni<0||ni>=day.exercises.length)return;
+  const tmp=day.exercises[exIdx];
+  day.exercises[exIdx]=day.exercises[ni];
+  day.exercises[ni]=tmp;
+  save();
+  showDayPreview(dayIdx);
+}
+
+// R2: reorder days within the program (arrows). Completed-today days are locked.
+function moveDay(dayIdx,dir){
+  if(!S.program||!S.program.days)return;
+  const ni=dayIdx+dir;
+  if(ni<0||ni>=S.program.days.length)return;
+  // Lock check: cannot move a day that's been completed (preserves history alignment).
+  if(isDayDone(dayIdx)||isDayDone(ni)){
+    toast('Completed days are locked');
+    return;
+  }
+  const tmp=S.program.days[dayIdx];
+  S.program.days[dayIdx]=S.program.days[ni];
+  S.program.days[ni]=tmp;
+  // Reassign IDs to reflect new order (id:1..n corresponds to array index).
+  S.program.days.forEach((d,idx)=>{d.id=idx+1});
+  save();
+  renderTrain();
+}
 
 function editDay(i){
   const day=S.program.days[i];
@@ -1306,13 +1417,18 @@ function renderEx(){
     const stCls=allDone?'done':anyDone?'partial':'pending';
     const autoOpen=!allDone&&(i===0||sess.exercises.slice(0,i).every(e=>e.performed.every(s=>s.logged)));
 
+    // S1: progression indicator in header when allDone.
+    const progArrow=allDone&&ex.progression==='increase'?'<span class="ex-prog-ind tg">↑</span>':allDone&&ex.progression==='flag'?'<span class="ex-prog-ind tr">⚠</span>':allDone&&ex.progression==='stall'?'<span class="ex-prog-ind" style="color:var(--warn)">⏸</span>':allDone&&ex.progression==='hold'?'<span class="ex-prog-ind td">→</span>':'';
+    const catChip=ex.cat?`<span class="ex-cat">${ex.cat}</span>`:'';
+
     return`<div class="ex-card ${autoOpen?'open':''} ${autoOpen&&!allDone?'active':''}" id="ex${i}">
       <div class="ex-head" onclick="document.getElementById('ex${i}').classList.toggle('open')">
         <div class="ex-status ${stCls}">${allDone?'✓':anyDone?'◐':'○'}</div>
         <div class="ex-info">
           <div class="ex-name">${(ex.tags||[]).includes('bonus')?'<span style="color:var(--gold);font-size:10px;margin-right:4px">★</span>':''}${ex.name}${ex.tags.includes('per side')?' <span class="td" style="font-size:11px">/side</span>':''}${ex.tags.includes('per hand')?' <span class="td" style="font-size:11px">/hand</span>':''}${ex.tags.includes('per leg')?' <span class="td" style="font-size:11px">/leg</span>':''}</div>
-          <div class="ex-rx">${ex.prescribed.sets}×${ex.prescribed.reps} @ ${fmtW(ex.prescribed.loadKg,ex.prescribed.unit)}</div>
+          <div class="ex-rx">${catChip}${ex.prescribed.sets}×${ex.prescribed.reps} @ ${fmtW(ex.prescribed.loadKg,ex.prescribed.unit)}</div>
         </div>
+        ${progArrow}
       </div>
       <div class="ex-body">
         ${getLastHint(ex.name)}
@@ -1323,32 +1439,52 @@ function renderEx(){
           const dw=s.weightKg===0?'':(dispU==='lb'?Math.round(s.weightKg*K2L):s.weightKg);
           const isSkipped=s.skipped;
           const stCl=isSkipped?'st-skip':s.logged?'st-done':wu?'st-warmup':'st-working';
+
+          // S1: logged → compact summary line. Unlogged → editable fields.
+          if(s.logged&&!isSkipped){
+            return`<div class="set-row ${stCl} compact">
+              <div class="set-num ${wu?'wu':''}">${wn}</div>
+              <div class="set-summary">${fmtW(s.weightKg,ex.prescribed.unit)} <span class="td">×</span> ${s.reps}</div>
+              <button class="set-rpe ${s.rpe?'has':''}" onclick="showRpePicker(this,${i},${si})" style="position:relative">${s.rpe?'@'+s.rpe:'RPE'}</button>
+              <button class="set-edit" onclick="editSet(${i},${si})" title="Edit">✎</button>
+            </div>`;
+          }
+          if(isSkipped){
+            return`<div class="set-row ${stCl} compact">
+              <div class="set-num ${wu?'wu':''}">${wn}</div>
+              <div class="set-summary td">SKIPPED${s.skipReason?' · '+s.skipReason:''}</div>
+              <button class="set-edit" onclick="editSet(${i},${si})" title="Unskip">✎</button>
+            </div>`;
+          }
           // Preserve user's current input if they're mid-typing (render can fire during logSet)
           const wInputEl=document.getElementById(`w${i}_${si}`);
           const rInputEl=document.getElementById(`r${i}_${si}`);
-          const wVal = (wInputEl&&document.activeElement===wInputEl) ? wInputEl.value : (isSkipped?'':dw);
-          const rVal = (rInputEl&&document.activeElement===rInputEl) ? rInputEl.value : (isSkipped?'':s.reps||'');
+          const wVal = (wInputEl&&document.activeElement===wInputEl) ? wInputEl.value : dw;
+          const rVal = (rInputEl&&document.activeElement===rInputEl) ? rInputEl.value : (s.reps||'');
           return`<div class="set-row ${stCl}">
             <div class="set-num ${wu?'wu':''}">${wn}</div>
             <div class="set-fields">
-              <input type="number" step="0.5" value="${wVal}" placeholder="wt" id="w${i}_${si}" ${s.logged?'disabled':''}>
+              <input type="number" step="0.5" value="${wVal}" placeholder="wt" id="w${i}_${si}">
               <span class="x">×</span>
-              <input type="number" value="${rVal}" placeholder="rps" id="r${i}_${si}" ${s.logged?'disabled':''}>
+              <input type="number" value="${rVal}" placeholder="rps" id="r${i}_${si}">
             </div>
-            ${isSkipped?'<span style="font:500 10px var(--mono);color:var(--tx3)">SKIP</span>':s.logged?`<button class="set-log done" onclick="logSet(${i},${si})">✓</button>`:`<button class="set-log ready" onclick="logSet(${i},${si})">Log</button>`}
-            ${s.logged&&!isSkipped?`<button class="set-edit" onclick="editSet(${i},${si})">✎</button>`:''}
-            ${s.logged&&!isSkipped?`<button class="set-rpe ${s.rpe?'has':''}" onclick="showRpePicker(this,${i},${si})" style="position:relative">${s.rpe||'—'}</button>`:''}
-            ${!s.logged?`<button class="set-skip" onclick="skipSet(${i},${si})">skip</button>`:''}
-            ${!s.logged&&(wu||si>=ex.prescribed.sets)?`<button class="set-del" onclick="delSet(${i},${si})">×</button>`:''}
+            <button class="set-log ready" onclick="logSet(${i},${si})">Log</button>
+            <button class="set-skip" onclick="skipSet(${i},${si})">skip</button>
+            ${wu||si>=ex.prescribed.sets?`<button class="set-del" onclick="delSet(${i},${si})">×</button>`:''}
           </div>`;
         }).join('')}
         <div class="ex-actions">
-          <button class="btn btn-sm btn-g" onclick="addWu(${i})">+ Warmup</button>
+          ${!allDone?`<button class="btn btn-sm btn-p" onclick="logAll(${i})">Log All</button>`:''}
           <button class="btn btn-sm btn-g" onclick="addSet(${i})">+ Set</button>
-          ${!allDone?`<button class="btn btn-sm btn-g" onclick="openSwap(${i})">⇄ Swap</button>`:''}
-          <button class="btn btn-sm btn-d" onclick="painExI=${i};document.getElementById('painExName').textContent='${ex.name.replace(/'/g,"\\'")}';showModal('painModal')" style="padding:8px 10px;font-size:11px">Pain</button>
-          ${!allDone?`<button class="btn btn-sm btn-g" onclick="skipExercise(${i})">Skip</button>`:''}
-          ${!allDone?`<button class="btn btn-sm btn-s" style="margin-left:auto" onclick="logAll(${i})">Log All</button>`:''}
+          <div class="ex-more-wrap" style="position:relative;margin-left:auto">
+            <button class="btn btn-sm btn-g" onclick="toggleExMenu(${i})" aria-label="More">⋯</button>
+            <div class="ex-menu" id="exMenu${i}">
+              <button onclick="addWu(${i});closeExMenus()">+ Warmup</button>
+              ${!allDone?`<button onclick="openSwap(${i});closeExMenus()">⇄ Swap</button>`:''}
+              ${!allDone?`<button onclick="skipExercise(${i});closeExMenus()">⏭ Skip exercise</button>`:''}
+              <button onclick="painExI=${i};document.getElementById('painExName').textContent='${ex.name.replace(/'/g,"\\'")}';closeExMenus();showModal('painModal')" class="danger">⚠ Pain</button>
+            </div>
+          </div>
         </div>
         ${ex.painEvent?`<div style="margin-top:8px;padding:8px 10px;border-radius:var(--rs);background:var(--red-dim);font-size:12px;color:var(--red)">⚠ ${ex.painEvent.severity} pain${ex.painEvent.action?' — '+ex.painEvent.action:''}</div>`:''}
         ${allDone&&ex.progression?`<div class="prog-badge prog-${ex.progression==='increase'?'up':ex.progression==='flag'?'flag':ex.progression==='stall'?'stall':ex.progression==='skipped'?'skip':'hold'}">
@@ -1724,9 +1860,58 @@ function delSet(ei,si){S.activeSession.exercises[ei].performed.splice(si,1);save
 // Fix 1: Edit logged set
 function editSet(ei,si){const s=S.activeSession.exercises[ei].performed[si];s.logged=false;s.skipped=false;save();renderEx()}
 
-// Fix 2: Skip set / exercise
-function skipSet(ei,si){const ex=S.activeSession.exercises[ei];const s=ex.performed[si];s.logged=true;s.skipped=true;s.reps=0;s.weightKg=0;save();if(ex.performed.every(x=>x.logged))evalProg(ei);renderEx()}
-function skipExercise(ei){const ex=S.activeSession.exercises[ei];ex.performed.forEach(s=>{if(!s.logged){s.logged=true;s.skipped=true;s.reps=0;s.weightKg=0}});ex.progression='skipped';save();renderEx()}
+// B3: skip-set reason picker. Reasons match day-skip vocab where applicable,
+// plus set-specific ones (equipment, form-check, substitute).
+const SKIP_SET_REASONS=[
+  {key:'equipment',label:'Equipment taken'},
+  {key:'form',label:'Form check'},
+  {key:'time',label:'Time'},
+  {key:'injury',label:'Injury / pain'},
+  {key:'tired',label:'Too tired'},
+  {key:'sub',label:'Substituted'},
+  {key:'other',label:'Other'},
+];
+let _skipSetCtx=null;
+function skipSet(ei,si){
+  // Open reason picker. The set is written by confirmSkipSet().
+  _skipSetCtx={ei,si};
+  const list=document.getElementById('skipSetList');
+  if(!list){
+    // Fallback if modal not mounted (older cached shell) — write with 'other'.
+    confirmSkipSet('other');return;
+  }
+  list.innerHTML=SKIP_SET_REASONS.map(r=>`<button class="btn btn-sm btn-g" style="text-align:left;padding:10px 12px;font:500 12px var(--mono);letter-spacing:.2px" onclick="confirmSkipSet('${r.key}')">${r.label}</button>`).join('');
+  showModal('skipSetModal');
+}
+function confirmSkipSet(reasonKey){
+  if(!_skipSetCtx)return;
+  const {ei,si}=_skipSetCtx;
+  const ex=S.activeSession.exercises[ei];const s=ex.performed[si];
+  s.logged=true;s.skipped=true;s.reps=0;s.weightKg=0;
+  s.skipReason=reasonKey||'other';
+  save();
+  if(ex.performed.every(x=>x.logged))evalProg(ei);
+  _skipSetCtx=null;
+  hideModal('skipSetModal');
+  renderEx();
+}
+function cancelSkipSet(){_skipSetCtx=null;hideModal('skipSetModal');}
+
+// S1: overflow menu for exercise secondary actions
+function toggleExMenu(i){
+  const menu=document.getElementById('exMenu'+i);if(!menu)return;
+  const wasOn=menu.classList.contains('on');
+  closeExMenus();
+  if(!wasOn){
+    menu.classList.add('on');
+    setTimeout(()=>{
+      const h=ev=>{if(!menu.contains(ev.target)){closeExMenus();document.removeEventListener('click',h,true)}};
+      document.addEventListener('click',h,true);
+    },10);
+  }
+}
+function closeExMenus(){document.querySelectorAll('.ex-menu.on').forEach(m=>m.classList.remove('on'))}
+function skipExercise(ei){const ex=S.activeSession.exercises[ei];ex.performed.forEach(s=>{if(!s.logged){s.logged=true;s.skipped=true;s.reps=0;s.weightKg=0;s.skipReason=s.skipReason||'other'}});ex.progression='skipped';save();renderEx()}
 
 // Fix 14: RPE inline picker
 function showRpePicker(btn,ei,si){
@@ -1813,6 +1998,9 @@ function addRest(s){if(restEnd){restEnd+=s*1000;restDur+=s;// reschedule beep to
 function startTimer(){if(sessionTimer)clearInterval(sessionTimer);sessionTimer=setInterval(()=>{if(!sessionStart)return;const e=Math.floor((Date.now()-sessionStart)/1000);document.getElementById('sDur').textContent=Math.floor(e/60)+':'+String(e%60).padStart(2,'0')},1000)}
 
 // ===== PROGRESSION =====
+// B1: base decisions on achieved top working set, not prescribed load.
+// RPE-driven: ≤7 → +inc; 8 → +half; 9 → hold; 10/missed → -5%.
+// Fallback when RPE missing: reps-only rules (allMax → up, bigMiss → flag).
 function evalProg(ei){
   const ex=S.activeSession.exercises[ei];
   if(ex.progression==='skipped')return;
@@ -1822,17 +2010,49 @@ function evalProg(ei){
   const allMax=working.every(s=>s.reps>=rr.max);
   const bigMiss=working.some(s=>s.reps<rr.min-2);
   const inc={squat:2.5,hinge:2.5,push:2,pull:2,isolation:1,core:1,rehab:0}[ex.cat]||1;
+  const half=Math.max(1,inc/2);
 
-  if(ex.painEvent&&ex.painEvent.severity!=='none'){ex.progression='flag';ex.nextLoad=ex.prescribed.loadKg}
-  else if(allMax){ex.progression='increase';ex.nextLoad=Math.round((ex.prescribed.loadKg+inc)*10)/10}
-  else if(bigMiss){ex.progression='flag';ex.nextLoad=ex.prescribed.loadKg}
-  else{ex.progression='hold';ex.nextLoad=ex.prescribed.loadKg}
+  // Achieved top set: highest weight among successfully logged, non-skipped working sets.
+  const topW=working.reduce((m,s)=>s.weightKg>m?s.weightKg:m,0);
+  // Top-set RPE = highest RPE recorded on any set at the top weight (signal of effort ceiling).
+  const topRpes=working.filter(s=>s.weightKg===topW&&s.rpe!=null).map(s=>s.rpe);
+  const topRpe=topRpes.length?Math.max(...topRpes):null;
+  const hitTop=working.filter(s=>s.weightKg===topW).every(s=>s.reps>=rr.max);
 
-  // Stall check
+  const rnd=v=>Math.round(v*10)/10;
+
+  if(ex.painEvent&&ex.painEvent.severity!=='none'){
+    ex.progression='flag';ex.nextLoad=topW||ex.prescribed.loadKg;
+  } else if(topRpe!=null){
+    // RPE-driven path
+    if(topRpe>=10||bigMiss){ex.progression='flag';ex.nextLoad=rnd(topW*0.95);}
+    else if(topRpe>=9){ex.progression='hold';ex.nextLoad=topW;}
+    else if(topRpe>=8){
+      if(hitTop){ex.progression='increase';ex.nextLoad=rnd(topW+half);}
+      else{ex.progression='hold';ex.nextLoad=topW;}
+    } else { // ≤7
+      if(hitTop){ex.progression='increase';ex.nextLoad=rnd(topW+inc);}
+      else{ex.progression='hold';ex.nextLoad=topW;}
+    }
+  } else {
+    // Reps-only fallback (no RPE logged)
+    if(allMax){ex.progression='increase';ex.nextLoad=rnd(topW+inc);}
+    else if(bigMiss){ex.progression='flag';ex.nextLoad=topW;}
+    else{ex.progression='hold';ex.nextLoad=topW;}
+  }
+
+  // Stall check — compare against last 2 sessions' top achieved weight (not prescribed).
   const hist=S.sessions.filter(s=>s.exercises.some(e=>e.name===ex.name));
   if(hist.length>=2&&ex.progression==='hold'){
     const rec=hist.slice(-2);
-    const same=rec.every(s=>{const e=s.exercises.find(e=>e.name===ex.name);return e&&(e.performed||[]).filter(p=>p.type==='working').every(p=>p.weightKg===ex.prescribed.loadKg)});
+    const same=rec.every(s=>{
+      const e=s.exercises.find(e=>e.name===ex.name);
+      if(!e)return false;
+      const w=(e.performed||[]).filter(p=>p.type==='working'&&p.logged&&!p.skipped);
+      if(!w.length)return false;
+      const prevTop=w.reduce((m,x)=>x.weightKg>m?x.weightKg:m,0);
+      return prevTop===topW;
+    });
     if(same)ex.progression='stall';
   }
   save();
@@ -2186,10 +2406,12 @@ function renderProgress(){
   // History
   const sorted=[...S.sessions].reverse();
   document.getElementById('histList').innerHTML=sorted.length===0?'<div style="text-align:center;padding:20px;color:var(--tx3)">No sessions yet</div>':sorted.map(s=>{
-    const vol=s.exercises.reduce((a,e)=>(e.performed||[]).filter(p=>p.type==='working').reduce((b,p)=>b+p.weightKg*p.reps,a),0);
+    // B3: volume excludes skipped sets. Track skipped count for footnote.
+    const vol=s.exercises.reduce((a,e)=>(e.performed||[]).filter(p=>p.type==='working'&&!p.skipped).reduce((b,p)=>b+p.weightKg*p.reps,a),0);
+    const skippedN=s.exercises.reduce((a,e)=>a+(e.performed||[]).filter(p=>p.type==='working'&&p.skipped).length,0);
     return`<div class="history-item" onclick="this.classList.toggle('open')">
-      <div class="h-row"><div><div style="font-weight:600;font-size:14px">${s.dayLabel}</div><div style="font-size:12px;color:var(--tx3)">${fmtDate(s.date)} · ${s.duration||'—'}m · ${Math.round(vol)} kg vol</div></div><span class="chip chip-a" style="font-size:10px">${s.rpe?'RPE '+s.rpe:'✓'}</span></div>
-      <div class="h-detail">${s.exercises.map(ex=>{const w=(ex.performed||[]).filter(p=>p.type==='working');const pi=ex.progression==='increase'?'<span class="tg">↑</span>':ex.progression==='flag'?'<span class="tr">⚠</span>':'<span class="td">→</span>';return`<div class="h-line"><span class="nm">${ex.name}</span><span class="val">${w.map(s=>fmtW(s.weightKg,ex.prescribed?.unit)+'×'+s.reps).join(' / ')} ${pi}</span></div>`}).join('')}
+      <div class="h-row"><div><div style="font-weight:600;font-size:14px">${s.dayLabel}</div><div style="font-size:12px;color:var(--tx3)">${fmtDate(s.date)} · ${s.duration||'—'}m · ${Math.round(vol)} kg vol${skippedN?' · '+skippedN+' skipped':''}</div></div><span class="chip chip-a" style="font-size:10px">${s.rpe?'RPE '+s.rpe:'✓'}</span></div>
+      <div class="h-detail">${s.exercises.map(ex=>{const w=(ex.performed||[]).filter(p=>p.type==='working');const pi=ex.progression==='increase'?'<span class="tg">↑</span>':ex.progression==='flag'?'<span class="tr">⚠</span>':'<span class="td">→</span>';return`<div class="h-line"><span class="nm">${ex.name}</span><span class="val">${w.map(s=>s.skipped?'<span class="td">SKIP'+(s.skipReason?'·'+s.skipReason:'')+'</span>':fmtW(s.weightKg,ex.prescribed?.unit)+'×'+s.reps).join(' / ')} ${pi}</span></div>`}).join('')}
       ${s.sessionNotes?'<div style="margin-top:8px;font-size:12px;color:var(--tx3);font-style:italic">'+s.sessionNotes+'</div>':''}</div>
     </div>`;
   }).join('');
@@ -2399,24 +2621,28 @@ function generateCoachReport(){
 
   let r=`## COACH REPORT — ${blockName}\nGenerated: ${fmtDate(todayStr())}\nSessions: ${blockSessions.length} / ${S.program.days.length}\n\n`;
 
-  // Per-session summary
+  // Per-session summary — B3: skipped sets render as SKIPPED · reason and are excluded from volume.
   blockSessions.forEach(s=>{
-    const vol=s.exercises.reduce((a,e)=>(e.performed||[]).filter(p=>p.type==='working').reduce((b,p)=>b+p.weightKg*p.reps,a),0);
+    const vol=s.exercises.reduce((a,e)=>(e.performed||[]).filter(p=>p.type==='working'&&!p.skipped).reduce((b,p)=>b+p.weightKg*p.reps,a),0);
+    const skippedN=s.exercises.reduce((a,e)=>a+(e.performed||[]).filter(p=>p.type==='working'&&p.skipped).length,0);
     r+=`### ${s.dayLabel} — ${fmtDate(s.date)} — ${s.duration||'?'}m — RPE ${s.rpe||'?'}\n`;
     s.exercises.forEach(ex=>{
       const w=(ex.performed||[]).filter(p=>p.type==='working');
       const wu=(ex.performed||[]).filter(p=>p.type==='warmup');
       const pi=ex.progression==='increase'?'↑':ex.progression==='flag'?'⚠':ex.progression==='stall'?'⏸':'→';
       const bonus=(ex.tags||[]).includes('bonus')?' [BONUS]':'';
-      r+=`  ${pi} ${ex.name}${bonus}: ${w.map(s=>fmtW(s.weightKg,ex.prescribed?.unit)+'×'+s.reps).join(' / ')}`;
+      const setStr=w.map(s=>s.skipped?('SKIPPED'+(s.skipReason?' · '+s.skipReason:'')):(fmtW(s.weightKg,ex.prescribed?.unit)+'×'+s.reps+(s.rpe?' @ RPE '+s.rpe:''))).join(' / ');
+      r+=`  ${pi} ${ex.name}${bonus}: ${setStr}`;
       if(ex.progression==='increase'&&ex.nextLoad)r+=` → next ${ex.nextLoad} kg`;
+      else if(ex.progression==='hold'&&ex.nextLoad)r+=` → hold ${ex.nextLoad} kg`;
+      else if(ex.progression==='flag'&&ex.nextLoad)r+=` → deload to ${ex.nextLoad} kg`;
       r+='\n';
       if(wu.length)r+=`    Warmup: ${wu.map(s=>fmtW(s.weightKg,ex.prescribed?.unit)+'×'+s.reps).join(', ')}\n`;
       if(ex.notes)r+=`    Note: ${ex.notes}\n`;
     });
     if(s.painEvents&&s.painEvents.length>0)r+=`  ⚠ Pain: ${s.painEvents.map(p=>p.exercise+' ('+p.severity+')').join(', ')}\n`;
     if(s.sessionNotes)r+=`  Notes: ${s.sessionNotes}\n`;
-    r+=`  Volume: ${Math.round(vol)} kg\n\n`;
+    r+=`  Volume: ${Math.round(vol)} kg${skippedN?' (skipped: '+skippedN+' set'+(skippedN===1?'':'s')+')':''}\n\n`;
   });
 
   // Progression summary
