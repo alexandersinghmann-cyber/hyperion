@@ -48,7 +48,7 @@ b3 = getBig3E1rm();
 const seedSquat = e1rm(100,5);
 assert(Math.abs(b3.squat - seedSquat) < 0.1, 'Squat e1RM from seed session: got ' + b3.squat + ' expected ' + seedSquat);
 assert(b3.bench === 95, 'Bench still baseline (seed has no flat bench)');
-const expDead = e1rm(117.5, 5);
+const expDead = e1rm(110, 5);
 assert(Math.abs(b3.dead - expDead) < 0.1, 'Dead from program fallback: got ' + b3.dead + ' expected ' + expDead);
 
 S.sessions.push({
@@ -172,38 +172,43 @@ assert(canonName('Seated Row') === 'Cable Low Row', 'canonName: Seated Row → C
 assert(canonName('Low Row') === 'Cable Low Row', 'canonName: Low Row → Cable Low Row');
 assert(canonName('Bench Press') === 'Bench Press', 'canonName: pass-through unknowns');
 
-// ===== PROGRAM: Block reshuffle — D3 = Upper B (Mon), D4 = Deadlift (Tue) =====
+// ===== PROGRAM: May 3-10 Re-Entry Block structure =====
+// D1 Sun Squat+Deadlift opener · D2 Mon Upper A · D3 Wed Deadlift Heavy · D4 Fri Upper B
 const d1 = DEF_PROGRAM.days.find(d => d.id === 1);
 const d2 = DEF_PROGRAM.days.find(d => d.id === 2);
 const d3 = DEF_PROGRAM.days.find(d => d.id === 3);
 const d4 = DEF_PROGRAM.days.find(d => d.id === 4);
-assert(d1 && d1.exercises.length === 8, 'D1 (Sat Upper A) has 8 exercises: got ' + (d1 && d1.exercises.length));
-assert(d3 && /upper b/i.test(d3.label), 'D3 label is Upper B (Mon): got ' + (d3 && d3.label));
-assert(d3 && d3.dayOfWeek === 'Monday', 'D3 dayOfWeek is Monday: got ' + (d3 && d3.dayOfWeek));
-assert(d4 && /deadlift/i.test(d4.label), 'D4 label is Deadlift (Tue): got ' + (d4 && d4.label));
-assert(d4 && d4.dayOfWeek === 'Tuesday', 'D4 dayOfWeek is Tuesday: got ' + (d4 && d4.dayOfWeek));
-assert(d3 && d3.exercises.length === 9, 'D3 (Upper B) has 9 exercises (added Cable Tricep Extension): got ' + (d3 && d3.exercises.length));
-assert(d4 && d4.exercises.length === 5, 'D4 (Deadlift) has 5 exercises: got ' + (d4 && d4.exercises.length));
+assert(d1 && /squat heavy.*deadlift opener/i.test(d1.label), 'D1 label is Squat Heavy + Deadlift Opener: got ' + (d1 && d1.label));
+assert(d1 && d1.dayOfWeek === 'Sunday', 'D1 dayOfWeek is Sunday: got ' + (d1 && d1.dayOfWeek));
+assert(d1 && d1.exercises.length === 5, 'D1 has 5 exercises: got ' + (d1 && d1.exercises.length));
+assert(d2 && /upper a.*pull heavy.*bench/i.test(d2.label), 'D2 label is Upper A: Pull Heavy + Bench: got ' + (d2 && d2.label));
+assert(d2 && d2.dayOfWeek === 'Monday', 'D2 dayOfWeek is Monday: got ' + (d2 && d2.dayOfWeek));
+assert(d2 && d2.exercises.length === 9, 'D2 has 9 exercises: got ' + (d2 && d2.exercises.length));
+assert(d3 && /deadlift heavy/i.test(d3.label), 'D3 label is Deadlift Heavy: got ' + (d3 && d3.label));
+assert(d3 && d3.dayOfWeek === 'Wednesday', 'D3 dayOfWeek is Wednesday: got ' + (d3 && d3.dayOfWeek));
+assert(d3 && d3.exercises.length === 5, 'D3 has 5 exercises: got ' + (d3 && d3.exercises.length));
+assert(d4 && /upper b.*pull volume.*bench light/i.test(d4.label), 'D4 label is Upper B: Pull Volume + Bench Light: got ' + (d4 && d4.label));
+assert(d4 && d4.dayOfWeek === 'Friday', 'D4 dayOfWeek is Friday: got ' + (d4 && d4.dayOfWeek));
+assert(d4 && d4.exercises.length === 9, 'D4 has 9 exercises: got ' + (d4 && d4.exercises.length));
 const d1Core = d1.exercises.filter(e => e.cat === 'core');
 const d3Core = d3.exercises.filter(e => e.cat === 'core');
 assert(d1Core.length >= 1 && d1Core.some(e => /pallof/i.test(e.name)), 'D1 contains a Pallof Press core entry');
-assert(d3Core.length >= 1 && d3Core.some(e => /hanging/i.test(e.name)), 'D3 (Upper B) contains a Hanging Knee Raise core entry');
+assert(d3Core.length >= 1 && d3Core.some(e => /hanging/i.test(e.name)), 'D3 contains a Hanging Knee Raise core entry');
 
-// ===== TRICEP PROMOTION: Cable Tricep Extension in D3 main block (was D4 bonus) =====
-const d3Tri = d3.exercises.find(e => /cable tricep extension/i.test(e.name));
-assert(d3Tri, 'D3 (Upper B) has Cable Tricep Extension in main block');
-assert(d3Tri && d3Tri.cat === 'isolation', 'D3 Cable Tricep Extension cat = isolation: got ' + (d3Tri && d3Tri.cat));
-assert(d3Tri && d3Tri.sets === 3 && d3Tri.loadKg === 15, 'D3 Cable Tricep Extension 3x12-15 @ 15kg');
-assert(!(d3.bonus||[]).some(e => /cable tricep/i.test(e.name)), 'Cable Tricep Extension no longer in D3 bonus');
-assert(!(d4.bonus||[]).some(e => /cable tricep/i.test(e.name)), 'Cable Tricep Extension no longer in D4 bonus');
+// ===== TRICEP: Cable Tricep Extension lives in D4 main block =====
+const d4Tri = d4.exercises.find(e => /cable tricep extension/i.test(e.name));
+assert(d4Tri, 'D4 has Cable Tricep Extension in main block');
+assert(d4Tri && d4Tri.cat === 'isolation', 'D4 Cable Tricep Extension cat = isolation: got ' + (d4Tri && d4Tri.cat));
+assert(d4Tri && d4Tri.sets === 3 && d4Tri.loadKg === 32, 'D4 Cable Tricep Extension 3x12 @ 32kg');
+assert(!(d3.bonus||[]).some(e => /cable tricep/i.test(e.name)), 'Cable Tricep Extension not in D3 bonus');
+assert(!(d4.bonus||[]).some(e => /cable tricep/i.test(e.name)), 'Cable Tricep Extension not in D4 bonus');
 
-// ===== PROGRAM: Seated Row renamed to Cable Low Row =====
-const d1Row = d1.exercises.find(e => /cable low row/i.test(e.name));
-const d3Row = d3.exercises.find(e => /cable low row/i.test(e.name));
-assert(d1Row, 'D1 has Cable Low Row (renamed from Seated Row)');
-assert(d3Row, 'D3 (Upper B) has Cable Low Row (renamed from Seated Row)');
-assert(!d1.exercises.some(e => /^seated row$/i.test(e.name)), 'D1 no longer has bare "Seated Row"');
-assert(!d3.exercises.some(e => /^seated row$/i.test(e.name)), 'D3 no longer has bare "Seated Row"');
+// ===== Cable Low Row placement (Seated Row alias) =====
+const d2Row = d2.exercises.find(e => /cable low row/i.test(e.name));
+const d4Row = d4.exercises.find(e => /cable low row/i.test(e.name));
+assert(d2Row, 'D2 (Upper A) has Cable Low Row');
+assert(d4Row, 'D4 (Upper B) has Cable Low Row');
+assert(!DEF_PROGRAM.days.some(d => (d.exercises||[]).some(e => /^seated row$/i.test(e.name))), 'No day has bare "Seated Row"');
 
 // ===== SYNC PROGRAM function exists =====
 assert(typeof syncProgram === 'function', 'syncProgram() defined');
@@ -599,24 +604,32 @@ assert(skipCount === 1, 'B3: 1 skipped set counted');
 // Restore DEF_PROGRAM-backed days (tests above mutated S.program)
 S.program = JSON.parse(JSON.stringify(DEF_PROGRAM));
 const pa_d1 = S.program.days.find(d => d.id === 1);
-const pa_d3 = S.program.days.find(d => d.id === 3);
 const pa_d2 = S.program.days.find(d => d.id === 2);
+const pa_d3 = S.program.days.find(d => d.id === 3);
+const pa_d4 = S.program.days.find(d => d.id === 4);
 
-// D1 Upper A: first accessory should be vpull not hpull (pulldown before row)
-assert(/lat pulldown/i.test(pa_d1.exercises[0].name), 'Phase A: D1 begins with Lat Pulldown (vpull). Got: ' + pa_d1.exercises[0].name);
-assert(/db incline bench|incline bench/i.test(pa_d1.exercises[1].name), 'Phase A: D1 second is DB Incline Bench (hpush). Got: ' + pa_d1.exercises[1].name);
-assert(/cable low row|db row|chest.supported/i.test(pa_d1.exercises[2].name), 'Phase A: D1 third is hpull. Got: ' + pa_d1.exercises[2].name);
+// D1 Squat Heavy + Deadlift Opener: heavy lifts first (rule 10 — Big 3 first).
+// Squat → Deadlift adjacency is an INTENTIONAL coach override for re-entry —
+// validator will warn, see the warning-scope assertion in Phase B below.
+assert(/back squat/i.test(pa_d1.exercises[0].name), 'Phase A: D1 begins with Back Squat. Got: ' + pa_d1.exercises[0].name);
+assert(/deadlift/i.test(pa_d1.exercises[1].name), 'Phase A: D1 second is Deadlift (intentional adjacency). Got: ' + pa_d1.exercises[1].name);
 
-// D3 Upper B: row first (hpull), then incline bench (hpush), then pulldown (vpull) — no adjacent row→pulldown
-const d3Names = pa_d3.exercises.map(e=>e.name);
-assert(/cable low row|db row/i.test(d3Names[0]), 'Phase A: D3 begins with hpull Row. Got: ' + d3Names[0]);
-assert(/incline bench/i.test(d3Names[1]), 'Phase A: D3 second is Incline Bench. Got: ' + d3Names[1]);
-assert(/lat pulldown/i.test(d3Names[2]), 'Phase A: D3 third is Lat Pulldown. Got: ' + d3Names[2]);
+// D2 Upper A: Pull Heavy + Bench — activation-first (rule 7 — scap stabilizer
+// before pressing), then vpull, then hpush, then hpull.
+const pa_d2Names = pa_d2.exercises.map(e=>e.name);
+assert(/band pull-apart/i.test(pa_d2Names[0]), 'Phase A: D2 begins with Band Pull-Apart (activation-first per rule 7). Got: ' + pa_d2Names[0]);
+assert(/lat pulldown/i.test(pa_d2Names[1]), 'Phase A: D2 second is Lat Pulldown (vpull). Got: ' + pa_d2Names[1]);
+assert(/bench press/i.test(pa_d2Names[2]), 'Phase A: D2 third is Bench Press (hpush after activation). Got: ' + pa_d2Names[2]);
+assert(/cable low row/i.test(pa_d2Names[3]), 'Phase A: D2 fourth is Cable Low Row (hpull). Got: ' + pa_d2Names[3]);
 
-// D2 Squat Heavy: DB RDL inserted between Squat and Leg Press (antagonist to pure quad)
-const d2Names = pa_d2.exercises.map(e=>e.name);
-assert(/back squat/i.test(d2Names[0]), 'Phase A: D2 begins Back Squat');
-assert(/db rdl|rdl/i.test(d2Names[1]), 'Phase A: D2 second is DB RDL (hinge). Got: ' + d2Names[1]);
+// D3 Deadlift Heavy: deadlift first.
+assert(/deadlift/i.test(pa_d3.exercises[0].name), 'Phase A: D3 begins with Deadlift. Got: ' + pa_d3.exercises[0].name);
+
+// D4 Upper B: Pull Volume + Bench Light — hpull → hpush → vpull alternation.
+const pa_d4Names = pa_d4.exercises.map(e=>e.name);
+assert(/cable low row/i.test(pa_d4Names[0]), 'Phase A: D4 begins with Cable Low Row (hpull). Got: ' + pa_d4Names[0]);
+assert(/db incline bench|incline bench/i.test(pa_d4Names[1]), 'Phase A: D4 second is DB Incline Bench (hpush). Got: ' + pa_d4Names[1]);
+assert(/lat pulldown/i.test(pa_d4Names[2]), 'Phase A: D4 third is Lat Pulldown (vpull). Got: ' + pa_d4Names[2]);
 
 // ===== PHASE B: Exercise metadata + validator =====
 assert(typeof getMeta === 'function', 'Phase B: getMeta() defined');
@@ -635,10 +648,23 @@ const badPair = [{name:'Cable Low Row'},{name:'Lat Pulldown'}];
 const warnBad = validateSession(badPair);
 assert(warnBad.length > 0, 'Phase B: Cable Low Row → Lat Pulldown triggers warning');
 
-// Same program (clean) → validator passes (checked implicitly above by validateProgram but assert here)
+// Validator scope on the May 3-10 re-entry block.
+// Note: Day 1's Squat→Deadlift adjacency does NOT trip the validator —
+// rule #1's same-prime-movers check requires same pattern (squat vs hinge ≠).
+// What does trip is Day 3 (Deadlift Heavy): Deadlift → Back Extension share
+// pat='hinge' AND erector/glute/hamstring (≥2 movers). That is a known,
+// coach-accepted adjacency for any deadlift-heavy day. No other day should warn.
 const progWarns = validateProgram();
-const warnTotal = progWarns.reduce((a,r)=>a+r.warnings.filter(w=>w.level==='warn').length,0);
-assert(warnTotal === 0, 'Phase B: Default program has 0 validator warnings. Got: ' + warnTotal);
+const warnsByLabel = {};
+progWarns.forEach(r => {
+  const k = r.day || r.label || r.dayId || '';
+  warnsByLabel[k] = (r.warnings||[]).filter(w => w.level === 'warn').length;
+});
+const totalWarns = Object.values(warnsByLabel).reduce((a,n)=>a+n, 0);
+const deadliftHeavyWarns = warnsByLabel['Deadlift Heavy'] || 0;
+const otherWarns = totalWarns - deadliftHeavyWarns;
+assert(deadliftHeavyWarns > 0, 'Phase B: Deadlift Heavy day flags ≥1 validator warning (Deadlift → Back Extension hinge adjacency). Got: ' + deadliftHeavyWarns);
+assert(otherWarns === 0, 'Phase B: Validator warnings come ONLY from Deadlift Heavy. Other days warn count: ' + otherWarns + ' (labels: ' + Object.keys(warnsByLabel).filter(k=>k!=='Deadlift Heavy').join(',') + ')');
 
 // Time estimator
 assert(typeof estimateSessionTime === 'function', 'Phase B: estimateSessionTime() defined');
@@ -679,21 +705,21 @@ assert(Array.isArray(FIXED_MAINS) && FIXED_MAINS.includes('Back Squat') && FIXED
 assert(typeof rotateAccessories === 'function', 'Phase C: rotateAccessories() defined');
 assert(typeof getEligibleVariantsForSlot === 'function', 'Phase C: getEligibleVariantsForSlot() defined');
 
-// Run rotation: Big 3 must NOT change
+// Run rotation: Big 3 must NOT change. May 3-10 block: Squat lives in D1,
+// Deadlift in D3 (and again as opener in D1), Bench Press in D2.
 S.program = JSON.parse(JSON.stringify(DEF_PROGRAM));
 S.block = {sessionsSinceRotate:14, variantCursor:{}};
 const preMain = {
-  squat: S.program.days.find(d=>d.id===2).exercises[0].name,
-  bench: S.program.days.find(d=>d.id===1).exercises.find(e=>/bench/i.test(e.name)),
-  dead: S.program.days.find(d=>d.id===4).exercises[0].name
+  squat: S.program.days.find(d=>d.id===1).exercises[0].name,
+  dead: S.program.days.find(d=>d.id===3).exercises[0].name
 };
-assert(preMain.squat === 'Back Squat', 'Phase C: Pre-rotate D2[0] = Back Squat');
-assert(preMain.dead === 'Deadlift', 'Phase C: Pre-rotate D4[0] = Deadlift');
+assert(preMain.squat === 'Back Squat', 'Phase C: Pre-rotate D1[0] = Back Squat');
+assert(preMain.dead === 'Deadlift', 'Phase C: Pre-rotate D3[0] = Deadlift');
 
 const rotRes = rotateAccessories();
 assert(rotRes.rotated.length > 0, 'Phase C: Rotation swapped at least 1 accessory. Got: ' + rotRes.rotated.length);
-assert(S.program.days.find(d=>d.id===2).exercises[0].name === 'Back Squat', 'Phase C: Back Squat unchanged after rotation');
-assert(S.program.days.find(d=>d.id===4).exercises[0].name === 'Deadlift', 'Phase C: Deadlift unchanged after rotation');
+assert(S.program.days.find(d=>d.id===1).exercises[0].name === 'Back Squat', 'Phase C: Back Squat unchanged after rotation');
+assert(S.program.days.find(d=>d.id===3).exercises[0].name === 'Deadlift', 'Phase C: Deadlift unchanged after rotation');
 // Bench stays fixed (Upper A has DB Incline Bench as hpush main, not flat Bench Press — so we test that rotation doesn't TOUCH 'Bench Press' if it's anywhere)
 const benchStill = S.program.days.some(d => d.exercises.some(e => e.name === 'Bench Press'));
 const benchWas = DEF_PROGRAM.days.some(d => d.exercises.some(e => e.name === 'Bench Press'));
