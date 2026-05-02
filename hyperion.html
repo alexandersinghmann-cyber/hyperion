@@ -2599,7 +2599,7 @@ function startRest(sec){
     }
   },250);
 }
-function stopRest(){if(restInt)clearInterval(restInt);restInt=null;document.getElementById('restBar').classList.remove('on')}
+function stopRest(){cancelBeep();if(restInt)clearInterval(restInt);restInt=null;document.getElementById('restBar').classList.remove('on')}
 function skipRest(){cancelBeep();stopRest()}
 function addRest(s){if(restEnd){restEnd+=s*1000;restDur+=s;// reschedule beep to new end
   if(_restBeepTimer)clearTimeout(_restBeepTimer);
@@ -2711,6 +2711,7 @@ function cancelSession(){
 function endSession(){
   // NOTE: do not stop the session timer yet — if the RPE modal is cancelled we
   // need the session to remain live and the timer to keep counting up.
+  stopRest();
   selRpe=null;
   const grid=document.getElementById('rpeRow');grid.innerHTML='';
   for(let i=6;i<=10;i++){const b=document.createElement('div');b.className='rpe-opt';b.textContent=i;b.onclick=()=>{selRpe=i;grid.querySelectorAll('.rpe-opt').forEach(x=>x.classList.remove('sel'));b.classList.add('sel')};grid.appendChild(b)}

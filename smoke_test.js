@@ -23,6 +23,7 @@ const patched = js
   .replace(/\blet _skipSetCtx\s*=/g, 'var _skipSetCtx =')
   .replace(/\blet _extrasScored\s*=/g, 'var _extrasScored =')
   .replace(/\blet _swapEi\s*=/g, 'var _swapEi =')
+  .replace(/\blet _restBeepTimer\s*=/g, 'var _restBeepTimer =')
   .replace(/\bconst VARIANTS\s*=/g, 'var VARIANTS =')
   .replace(/\bconst FIXED_MAINS\s*=/g, 'var FIXED_MAINS =')
   .replace(/\bconst ROTATION_THRESHOLD\s*=/g, 'var ROTATION_THRESHOLD =')
@@ -727,5 +728,15 @@ assert(working[working.length-1].weightKg === 100, 'Phase C: Top set = 100kg (10
 assert(working.every(s => s.reps === 1), 'Phase C: All working sets are singles');
 // Plate rounding
 assert(buildCalibrationRamp(77).every(s => s.weightKg % 2.5 === 0), 'Phase C: All weights round to 2.5 kg plates');
+
+// ===== BEEP CLEANUP =====
+// stopRest() must cancel any beep previously scheduled by playBeepLater(),
+// otherwise a cancelled-mid-rest session leaves the audio cue to fire after
+// the session is dead. logSet() schedules the beep via playBeepLater(ex.rest);
+// stopRest() is the entry point from cancelSession() and (after the fix) endSession().
+playBeepLater(120);
+assert(_restBeepTimer !== null, 'Beep cleanup precondition: playBeepLater scheduled a timer');
+stopRest();
+assert(_restBeepTimer === null, 'Beep cleanup: stopRest must cancel the scheduled beep');
 
 console.log('\n=== All tests passed ===');
