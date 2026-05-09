@@ -2858,7 +2858,10 @@ function getBig3E1rm(){
   S.sessions.forEach(s=>{
     let sq=0, bn=0, dl=0;
     s.exercises.forEach(ex=>{
-      (ex.performed||[]).filter(p=>p.type==='working'&&!p.skipped&&p.logged).forEach(set=>{
+      // Defensive: count sets that are working+not-skipped if EITHER explicitly
+      // logged OR have valid weight+reps. Catches mid-session crash / migration
+      // where the logged flag dropped but the data is intact.
+      (ex.performed||[]).filter(p=>p.type==='working'&&!p.skipped&&(p.logged===true||(p.weightKg>0&&p.reps>0))).forEach(set=>{
         const e = e1rm(set.weightKg, set.reps);
         if(isSquat(ex.name) && e>sq) sq=e;
         if(isDead(ex.name)  && e>dl) dl=e;
@@ -3156,7 +3159,10 @@ function renderE1rmChart(){
   S.sessions.forEach((s,si)=>{
     let sq=0,bn=0,dl=0;
     s.exercises.forEach(ex=>{
-      (ex.performed||[]).filter(p=>p.type==='working'&&!p.skipped&&p.logged).forEach(set=>{
+      // Defensive: count sets that are working+not-skipped if EITHER explicitly
+      // logged OR have valid weight+reps. Catches mid-session crash / migration
+      // where the logged flag dropped but the data is intact.
+      (ex.performed||[]).filter(p=>p.type==='working'&&!p.skipped&&(p.logged===true||(p.weightKg>0&&p.reps>0))).forEach(set=>{
         const e=e1rm(set.weightKg,set.reps);
         if(ex.name==='Back Squat'&&e>sq)sq=e;
         if(isFlatBench(ex.name)&&e>bn)bn=e;

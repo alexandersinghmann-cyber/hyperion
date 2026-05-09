@@ -889,4 +889,40 @@ assert(getBig3DiagnosticData('squat').rows.length === 0, 'Diagnostic: squat matc
 S.sessions = [{date:'2026-04-27', exercises:[{name:'Bench Press', performed:[{type:'working', weightKg:80, reps:5, logged:true}]}]}];
 assert(getBig3DiagnosticData('bench').rows.length === 1, 'Diagnostic: bench matcher includes "Bench Press"');
 
+// ===== DEFENSIVE WORKING-SET FILTER =====
+// Catches the case where a session's set has type=working + valid weight/reps
+// but the logged flag was never set (mid-session crash, migration drop, etc.).
+S.sessions = [{
+  date:'2026-04-30', dayLabel:'X',
+  exercises:[{name:'Deadlift', performed:[
+    {type:'working', weightKg:110, reps:5}  // logged flag absent
+  ]}]
+}];
+const b3def = getBig3E1rm();
+assert(b3def.dead > 0, 'Defensive: working set with weightKg+reps but missing logged flag still counts. Got dead=' + b3def.dead);
+// Skipped sets stay excluded even when weight+reps are present
+S.sessions = [{
+  date:'2026-04-30', dayLabel:'X',
+  exercises:[{name:'Deadlift', performed:[
+    {type:'working', weightKg:200, reps:5, skipped:true}
+  ]}]
+}];
+assert(getBig3E1rm().dead === 0, 'Defensive: skipped sets still excluded even with weightKg+reps');
+// Zero weight or zero reps still excluded
+S.sessions = [{
+  date:'2026-04-30', dayLabel:'X',
+  exercises:[{name:'Deadlift', performed:[
+    {type:'working', weightKg:0, reps:0}
+  ]}]
+}];
+assert(getBig3E1rm().dead === 0, 'Defensive: zero weight or zero reps still excluded');
+// Logged-true path still works
+S.sessions = [{
+  date:'2026-04-30', dayLabel:'X',
+  exercises:[{name:'Deadlift', performed:[
+    {type:'working', weightKg:120, reps:3, logged:true}
+  ]}]
+}];
+assert(getBig3E1rm().dead > 0, 'Defensive: explicit logged:true still counts (no regression)');
+
 console.log('\n=== All tests passed ===');
