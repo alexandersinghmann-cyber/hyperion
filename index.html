@@ -2592,6 +2592,7 @@ function beep(){
   }catch(e){}
 }
 let _restBeepTimer=null;
+let _restAutoStopTimer=null;
 function playBeepLater(sec){
   if(_restBeepTimer)clearTimeout(_restBeepTimer);
   _restBeepTimer=setTimeout(()=>{beep();setTimeout(beep,220)}, sec*1000);
@@ -2612,11 +2613,18 @@ function startRest(sec){
       document.getElementById('restDisp').classList.add('go');
       document.getElementById('restDisp').textContent='GO';
       if(navigator.vibrate)navigator.vibrate([200,100,200]);
-      setTimeout(stopRest,3000);
+      // Schedule a single auto-stop. The interval keeps firing every 250ms
+      // while rem<=0; without the guard we'd queue ~12 deferred stops per
+      // 3-second GO window. The handle is also cleared in stopRest() so a
+      // new rest started within the window cannot be killed by a stale
+      // auto-stop from the prior rest.
+      if(!_restAutoStopTimer){
+        _restAutoStopTimer=setTimeout(()=>{_restAutoStopTimer=null;stopRest();},3000);
+      }
     }
   },250);
 }
-function stopRest(){cancelBeep();if(restInt)clearInterval(restInt);restInt=null;document.getElementById('restBar').classList.remove('on')}
+function stopRest(){cancelBeep();if(_restAutoStopTimer){clearTimeout(_restAutoStopTimer);_restAutoStopTimer=null}if(restInt)clearInterval(restInt);restInt=null;document.getElementById('restBar').classList.remove('on')}
 function skipRest(){cancelBeep();stopRest()}
 function addRest(s){if(restEnd){restEnd+=s*1000;restDur+=s;// reschedule beep to new end
   if(_restBeepTimer)clearTimeout(_restBeepTimer);

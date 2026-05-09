@@ -24,6 +24,7 @@ const patched = js
   .replace(/\blet _extrasScored\s*=/g, 'var _extrasScored =')
   .replace(/\blet _swapEi\s*=/g, 'var _swapEi =')
   .replace(/\blet _restBeepTimer\s*=/g, 'var _restBeepTimer =')
+  .replace(/\blet _restAutoStopTimer\s*=/g, 'var _restAutoStopTimer =')
   .replace(/\bconst VARIANTS\s*=/g, 'var VARIANTS =')
   .replace(/\bconst FIXED_MAINS\s*=/g, 'var FIXED_MAINS =')
   .replace(/\bconst ROTATION_THRESHOLD\s*=/g, 'var ROTATION_THRESHOLD =')
@@ -800,5 +801,16 @@ playBeepLater(120);
 assert(_restBeepTimer !== null, 'Beep cleanup precondition: playBeepLater scheduled a timer');
 stopRest();
 assert(_restBeepTimer === null, 'Beep cleanup: stopRest must cancel the scheduled beep');
+
+// ===== REST AUTO-STOP CLEANUP =====
+// When the rest tick reaches 0, the bar shows "GO" for 3s then stopRest fires.
+// That setTimeout was previously unhandled — if the user logged another set
+// within the 3s window, the new rest started and the deferred stopRest from
+// the prior rest killed it (timer disappears). Fix tracks the handle and
+// clears it in stopRest so a new rest is never killed by a stale auto-stop.
+_restAutoStopTimer = setTimeout(()=>{}, 5000);  // simulate a pending auto-stop
+assert(_restAutoStopTimer !== null, 'Auto-stop cleanup precondition: timer scheduled');
+stopRest();
+assert(_restAutoStopTimer === null, 'Auto-stop cleanup: stopRest must clear the deferred auto-stop timer');
 
 console.log('\n=== All tests passed ===');
