@@ -936,4 +936,14 @@ let renderThrew = false;
 try { renderBig3Tiles(); } catch(e) { renderThrew = true; }
 assert(renderThrew === false, 'Render-timing: renderBig3Tiles must not throw on empty S.sessions');
 
+// ===== CACHE-CONTROL META TAGS + FORCE REFRESH =====
+// GitHub Pages serves index.html with default long-lived caching headers, so
+// Chrome / iOS Safari hold onto stale HTML across deploys. We can't set HTTP
+// headers, but meta hints reduce how aggressively the browser caches, and
+// the Force Refresh button in Settings is a one-tap escape hatch.
+assert(/http-equiv="Cache-Control"[^>]*no-cache/i.test(html), 'Cache: meta Cache-Control no-cache present in head');
+assert(/http-equiv="Pragma"[^>]*no-cache/i.test(html), 'Cache: meta Pragma no-cache present in head');
+assert(/http-equiv="Expires"[^>]*0/i.test(html), 'Cache: meta Expires 0 present in head');
+assert(typeof forceRefresh === 'function', 'Cache: forceRefresh() defined');
+
 console.log('\n=== All tests passed ===');

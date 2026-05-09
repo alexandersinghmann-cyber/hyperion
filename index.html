@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#08090C">
@@ -664,6 +667,13 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 <div class="overlay" id="settingsModal">
   <div class="modal">
     <div class="modal-t">Settings</div>
+    <div style="padding:10px 0;border-bottom:1px solid var(--s2)">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span>Force Refresh</span>
+        <button class="btn btn-sm btn-g" onclick="forceRefresh()">Reload</button>
+      </div>
+      <div style="font:10px var(--mono);color:var(--tx3);margin-top:4px">Bypass browser cache. Use after a deploy if the page looks stale.</div>
+    </div>
     <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
       <span>Display Unit</span>
       <button class="btn btn-sm btn-g tm" onclick="toggleUnit();renderSettings()" id="sUnitBtn">KG</button>
@@ -2968,6 +2978,13 @@ function formatBig3Diagnostic(data){
     </div>`;
   }).join('');
   return header + body;
+}
+// One-tap escape hatch when Chrome / iOS PWA serves stale HTML. Appends a
+// unique query string and hard-reloads, bypassing whatever cache layer is
+// sticky. The meta Cache-Control hints in <head> reduce how often this is
+// needed but cannot guarantee a fresh fetch on their own.
+function forceRefresh(){
+  location.href = location.href.split('?')[0] + '?_=' + Date.now();
 }
 function openBig3Diagnostic(liftKey){
   const data = getBig3DiagnosticData(liftKey);
