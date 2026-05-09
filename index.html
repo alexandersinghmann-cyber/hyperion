@@ -861,6 +861,7 @@ const EX_META={
   'Nordic Curl':{pat:'iso-ham',prim:['hamstring'],eq:['bench','pad'],fat:'iso',sh:'safe',slot:'hamstring'},
   'Leg Extension':{pat:'iso-quad',prim:['quad'],eq:['leg-extension'],fat:'iso',sh:'safe',slot:'quad'},
   'Calf Raise':{pat:'iso-calf',prim:['calf'],eq:['calf-raise'],fat:'iso',sh:'safe',slot:'calf'},
+  'DB Single-Leg Calf Raise':{pat:'iso-calf',prim:['calf'],eq:['db'],fat:'iso',sh:'safe',slot:'calf'},
   // Cardio
   'Incline Walk':{pat:'cardio',prim:['cardiovascular'],eq:['treadmill'],fat:'cardio',sh:'safe',slot:'cardio'},
   'Assault Bike':{pat:'cardio',prim:['cardiovascular'],eq:['assault-bike'],fat:'cardio',sh:'safe',slot:'cardio'},
@@ -968,52 +969,28 @@ function recommendSupersets(exList){
 }
 
 // ===== DEFAULT PROGRAM =====
-const DEF_PROGRAM={name:"May 3-10 Re-Entry Block",active:true,days:[
-{id:1,label:"Squat Heavy + Deadlift Opener",dayOfWeek:"Sunday",dur:60,exercises:[
-  {id:"d1e1",name:"Back Squat",cat:"squat",sets:4,reps:"5",loadKg:80,unit:"kg",rest:150,tags:[]},
-  {id:"d1e2",name:"Deadlift",cat:"hinge",sets:3,reps:"3",loadKg:95,unit:"kg",rest:180,tags:["opener","RPE6-cap"]},
-  {id:"d1e3",name:"Hamstring Curl",cat:"isolation",sets:3,reps:"10-12",loadKg:30,unit:"kg",rest:90,tags:[]},
-  {id:"d1e4",name:"Calf Raise",cat:"isolation",sets:3,reps:"12-15",loadKg:36,unit:"kg",rest:90,tags:[]},
-  {id:"d1e5",name:"Pallof Press",cat:"core",sets:2,reps:"12",loadKg:13.6,unit:"kg",rest:60,tags:["per side"]}
-],bonus:[
-  {id:"d1b1",name:"Band Pull-Apart",cat:"rehab",sets:2,reps:"15-20",loadKg:0,unit:"bw",rest:45,tags:[]}
-]},
-{id:2,label:"Upper A: Pull Heavy + Bench",dayOfWeek:"Monday",dur:65,exercises:[
-  {id:"d2e1",name:"Band Pull-Apart",cat:"rehab",sets:2,reps:"15",loadKg:0,unit:"bw",rest:45,tags:["activation"]},
-  {id:"d2e2",name:"Lat Pulldown",cat:"pull",sets:4,reps:"8",loadKg:55,unit:"kg",rest:120,tags:[]},
-  {id:"d2e3",name:"Bench Press",cat:"push",sets:4,reps:"6",loadKg:75,unit:"kg",rest:150,tags:["shoulder"]},
-  {id:"d2e4",name:"Cable Low Row",cat:"pull",sets:3,reps:"10",loadKg:45,unit:"kg",rest:90,tags:[]},
-  {id:"d2e5",name:"Face Pull",cat:"pull",sets:3,reps:"12-15",loadKg:22,unit:"kg",rest:60,tags:[]},
-  {id:"d2e6",name:"DB Curl",cat:"isolation",sets:3,reps:"10",loadKg:10,unit:"kg",rest:75,tags:[]},
-  {id:"d2e7",name:"Lateral Raise",cat:"isolation",sets:3,reps:"12",loadKg:6,unit:"kg",rest:60,tags:[]},
-  {id:"d2e8",name:"Ext. Rotation",cat:"rehab",sets:2,reps:"15",loadKg:3.5,unit:"kg",rest:60,tags:["rehab"]},
-  {id:"d2e9",name:"Pallof Press",cat:"core",sets:2,reps:"12",loadKg:13.6,unit:"kg",rest:60,tags:["per side"]}
-],bonus:[
-  {id:"d2b1",name:"Hanging Knee Raise",cat:"core",sets:3,reps:"10",loadKg:0,unit:"bw",rest:60,tags:[]}
-]},
-{id:3,label:"Deadlift Heavy",dayOfWeek:"Wednesday",dur:55,exercises:[
-  {id:"d3e1",name:"Deadlift",cat:"hinge",sets:4,reps:"5",loadKg:110,unit:"kg",rest:180,tags:[]},
-  {id:"d3e2",name:"Back Extension",cat:"hinge",sets:3,reps:"10",loadKg:0,unit:"bw",rest:90,tags:[]},
-  {id:"d3e3",name:"Chest-Supported DB Row",cat:"pull",sets:3,reps:"10",loadKg:22,unit:"kg",rest:90,tags:[]},
-  {id:"d3e4",name:"Hanging Knee Raise",cat:"core",sets:3,reps:"10",loadKg:0,unit:"bw",rest:60,tags:[]},
-  {id:"d3e5",name:"Calf Raise",cat:"isolation",sets:3,reps:"12-15",loadKg:36,unit:"kg",rest:90,tags:[]}
-],bonus:[
-  {id:"d3b1",name:"DB Carry",cat:"core",sets:2,reps:"30m",loadKg:24,unit:"kg",rest:60,tags:["per hand"]}
-]},
-{id:4,label:"Upper B: Pull Volume + Bench Light",dayOfWeek:"Friday",dur:65,exercises:[
-  {id:"d4e1",name:"Cable Low Row",cat:"pull",sets:4,reps:"10",loadKg:45,unit:"kg",rest:90,tags:[]},
-  {id:"d4e2",name:"DB Incline Bench",cat:"push",sets:3,reps:"10",loadKg:22,unit:"kg",rest:120,tags:["shoulder"]},
-  {id:"d4e3",name:"Lat Pulldown",cat:"pull",sets:3,reps:"10",loadKg:55,unit:"kg",rest:90,tags:[]},
-  {id:"d4e4",name:"Face Pull",cat:"pull",sets:3,reps:"12-15",loadKg:22,unit:"kg",rest:60,tags:[]},
-  {id:"d4e5",name:"DB Curl",cat:"isolation",sets:3,reps:"12",loadKg:10,unit:"kg",rest:75,tags:[]},
-  {id:"d4e6",name:"Cable Tricep Extension",cat:"isolation",sets:3,reps:"12",loadKg:32,unit:"kg",rest:75,tags:[]},
-  {id:"d4e7",name:"Lateral Raise",cat:"isolation",sets:3,reps:"12",loadKg:6,unit:"kg",rest:60,tags:[]},
-  {id:"d4e8",name:"Ext. Rotation",cat:"rehab",sets:2,reps:"15",loadKg:3.5,unit:"kg",rest:60,tags:["rehab"]},
-  {id:"d4e9",name:"Hanging Knee Raise",cat:"core",sets:3,reps:"10",loadKg:0,unit:"bw",rest:60,tags:[]}
-],bonus:[
-  {id:"d4b1",name:"Prone Y-Raise",cat:"rehab",sets:2,reps:"12",loadKg:2,unit:"kg",rest:60,tags:[]},
-  {id:"d4b2",name:"Band Pull-Apart",cat:"rehab",sets:2,reps:"15",loadKg:0,unit:"bw",rest:45,tags:[]}
-]}
+const DEF_PROGRAM={name:"May 9-10 Push Test",active:true,days:[
+{id:1,label:"Upper Body Hard",dayOfWeek:"Saturday",dur:70,exercises:[
+  {id:"d1e1",name:"Band Pull-Apart",cat:"rehab",sets:2,reps:"15",loadKg:0,unit:"bw",rest:45,tags:["activation"]},
+  {id:"d1e2",name:"Bench Press",cat:"push",sets:4,reps:"5",loadKg:85,unit:"kg",rest:180,tags:["shoulder","AMRAP-last-if-easy"]},
+  {id:"d1e3",name:"Lat Pulldown",cat:"pull",sets:4,reps:"8",loadKg:70,unit:"kg",rest:120,tags:[]},
+  {id:"d1e4",name:"Cable Low Row",cat:"pull",sets:4,reps:"8",loadKg:52,unit:"kg",rest:120,tags:[]},
+  {id:"d1e5",name:"Cable Tricep Extension",cat:"isolation",sets:4,reps:"10",loadKg:36,unit:"kg",rest:75,tags:[]},
+  {id:"d1e6",name:"DB Curl",cat:"isolation",sets:3,reps:"8",loadKg:14,unit:"kg",rest:75,tags:[]},
+  {id:"d1e7",name:"Lateral Raise",cat:"isolation",sets:3,reps:"12",loadKg:8,unit:"kg",rest:60,tags:[]},
+  {id:"d1e8",name:"Ext. Rotation",cat:"rehab",sets:2,reps:"15",loadKg:5,unit:"kg",rest:60,tags:["rehab"]},
+  {id:"d1e9",name:"Face Pull",cat:"pull",sets:3,reps:"15",loadKg:36,unit:"kg",rest:60,tags:[]},
+  {id:"d1e10",name:"Cable Crunch",cat:"core",sets:4,reps:"12",loadKg:65,unit:"kg",rest:60,tags:[]}
+],bonus:[]},
+{id:2,label:"Lower Body Hard",dayOfWeek:"Sunday",dur:70,exercises:[
+  {id:"d2e1",name:"Back Squat",cat:"squat",sets:4,reps:"5",loadKg:92.5,unit:"kg",rest:180,tags:["AMRAP-last-if-easy"]},
+  {id:"d2e2",name:"Bulgarian Split Squat",cat:"squat",sets:4,reps:"8",loadKg:22,unit:"kg",rest:120,tags:["per leg","weak-leg-focus"]},
+  {id:"d2e3",name:"DB RDL",cat:"hinge",sets:4,reps:"8",loadKg:36,unit:"kg",rest:120,tags:["per hand"]},
+  {id:"d2e4",name:"Hamstring Curl",cat:"isolation",sets:3,reps:"10",loadKg:36,unit:"kg",rest:90,tags:[]},
+  {id:"d2e5",name:"DB Single-Leg Calf Raise",cat:"isolation",sets:3,reps:"12",loadKg:26,unit:"kg",rest:60,tags:["per leg"]},
+  {id:"d2e6",name:"Cable Crunch",cat:"core",sets:3,reps:"12",loadKg:60,unit:"kg",rest:60,tags:[]},
+  {id:"d2e7",name:"Bird Dog",cat:"core",sets:2,reps:"8",loadKg:0,unit:"bw",rest:45,tags:["per side","3-sec hold"]}
+],bonus:[]}
 ]};
 
 // ===== EXTRAS LIBRARY =====
