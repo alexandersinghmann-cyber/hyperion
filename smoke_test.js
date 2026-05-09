@@ -813,4 +813,22 @@ assert(_restAutoStopTimer !== null, 'Auto-stop cleanup precondition: timer sched
 stopRest();
 assert(_restAutoStopTimer === null, 'Auto-stop cleanup: stopRest must clear the deferred auto-stop timer');
 
+// ===== DISTANCE / TIME-AWARE REPS =====
+// Sled Push, DB Carry, Plank, Incline Walk are prescribed in non-rep units.
+// repsUnit(reps) reads the suffix and returns 'm' / 's' / 'min' / null so the
+// set logger can relabel the input and the summary line shows '8 m' not '8'.
+// Schema unchanged — the numeric value still lives in s.reps.
+assert(typeof repsUnit === 'function', 'Reps unit: repsUnit() helper defined');
+assert(repsUnit('10m') === 'm', 'Reps unit: "10m" → m (distance)');
+assert(repsUnit('30s') === 's', 'Reps unit: "30s" → s (time)');
+assert(repsUnit('10 min') === 'min', 'Reps unit: "10 min" → min');
+assert(repsUnit('5 mins') === 'min', 'Reps unit: "5 mins" → min');
+assert(repsUnit('8-10') === null, 'Reps unit: "8-10" → null (rep count range)');
+assert(repsUnit('5') === null, 'Reps unit: "5" → null (rep count)');
+assert(repsUnit('') === null, 'Reps unit: empty string → null');
+assert(repsUnit(null) === null, 'Reps unit: null → null');
+// Pre-fill must still parse as a number — schema unchanged.
+assert(parseInt('10m') === 10, 'Reps unit: parseInt extracts numeric from "10m"');
+assert(parseInt('30s') === 30, 'Reps unit: parseInt extracts numeric from "30s"');
+
 console.log('\n=== All tests passed ===');
