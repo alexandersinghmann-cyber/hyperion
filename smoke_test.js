@@ -843,4 +843,50 @@ assert(/Deadlift Heavy/.test(sampleHtml), 'Validator UI: renders day label');
 assert(/Back Extension shares prime movers/.test(sampleHtml), 'Validator UI: renders warning message body');
 assert(typeof runValidatorAndShow === 'function', 'Validator UI: runValidatorAndShow() defined (DOM glue)');
 
+// ===== BIG 3 DIAGNOSTIC MODAL =====
+// User reported the deadlift tile shows "no data yet" on the phone but their
+// export contains logged Deadlift sets. Tap-able empty tile opens a read-only
+// diagnostic listing every matching session with logged/working/skipped counts
+// and the max raw set — ground truth from actual phone-side localStorage.
+assert(typeof getBig3DiagnosticData === 'function', 'Diagnostic: getBig3DiagnosticData() defined');
+assert(typeof formatBig3Diagnostic === 'function', 'Diagnostic: formatBig3Diagnostic() defined');
+assert(typeof openBig3Diagnostic === 'function', 'Diagnostic: openBig3Diagnostic() defined (DOM glue)');
+
+// Empty sessions → empty rows + helpful no-match render
+S.sessions = [];
+const emptyData = getBig3DiagnosticData('dead');
+assert(emptyData.rows.length === 0, 'Diagnostic: no sessions → empty rows');
+assert(emptyData.label === 'Deadlift', 'Diagnostic: liftKey "dead" labels Deadlift');
+assert(/No historical sessions found/.test(formatBig3Diagnostic(emptyData)), 'Diagnostic: empty render shows "no historical sessions found"');
+
+// One deadlift session with mixed sets — captures all the diagnostic counts
+S.sessions = [{
+  date:'2026-04-25', dayLabel:'D Test',
+  exercises:[{
+    name:'Deadlift',
+    performed:[
+      {type:'warmup', weightKg:60, reps:5, logged:true},
+      {type:'working', weightKg:110, reps:5, logged:true},
+      {type:'working', weightKg:110, reps:5, logged:true},
+      {type:'working', weightKg:110, reps:5, logged:false, skipped:true, skipReason:'fatigue'}
+    ]
+  }]
+}];
+const dlData = getBig3DiagnosticData('dead');
+assert(dlData.rows.length === 1, 'Diagnostic: 1 row for matching deadlift session. Got: ' + dlData.rows.length);
+assert(dlData.rows[0].name === 'Deadlift', 'Diagnostic: row name preserved raw (pre-canonName)');
+assert(dlData.rows[0].performedLen === 4, 'Diagnostic: performed array len = 4');
+assert(dlData.rows[0].loggedCount === 3, 'Diagnostic: logged count = 3 (skipped set has logged:false)');
+assert(dlData.rows[0].workingCount === 3, 'Diagnostic: working count = 3');
+assert(dlData.rows[0].skippedCount === 1, 'Diagnostic: skipped count = 1');
+assert(dlData.rows[0].maxSet && dlData.rows[0].maxSet.w === 110 && dlData.rows[0].maxSet.r === 5, 'Diagnostic: max set captured from raw weightKg+reps regardless of logged flag');
+
+// Squat matcher is exact-name (matches getBig3E1rm's isSquat) — light variant excluded
+S.sessions = [{date:'2026-04-26', exercises:[{name:'Back Squat (light)', performed:[{type:'working', weightKg:60, reps:8, logged:true}]}]}];
+assert(getBig3DiagnosticData('squat').rows.length === 0, 'Diagnostic: squat matcher excludes "Back Squat (light)" (exact-name only)');
+
+// Bench matcher is regex — Bench Press counts
+S.sessions = [{date:'2026-04-27', exercises:[{name:'Bench Press', performed:[{type:'working', weightKg:80, reps:5, logged:true}]}]}];
+assert(getBig3DiagnosticData('bench').rows.length === 1, 'Diagnostic: bench matcher includes "Bench Press"');
+
 console.log('\n=== All tests passed ===');

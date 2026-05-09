@@ -738,6 +738,14 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   </div>
 </div>
 
+<div class="overlay" id="big3DiagnosticModal">
+  <div class="modal" style="max-height:85vh">
+    <div class="modal-t" id="big3DiagnosticTitle">Big 3 diagnostic</div>
+    <div id="big3DiagnosticBody"></div>
+    <button class="btn btn-s btn-w" style="margin-top:14px" onclick="hideModal('big3DiagnosticModal')">Close</button>
+  </div>
+</div>
+
 <div class="overlay" id="gymModal">
   <div class="modal" style="max-height:90vh">
     <div class="modal-t">Gym Equipment</div>
@@ -2905,6 +2913,68 @@ function getBig3E1rm(){
   };
 }
 
+// ===== BIG 3 DIAGNOSTIC =====
+// User-tappable from an empty Big 3 tile: surfaces every session that contains
+// a matching exercise so we can see what's actually in localStorage on the
+// device (vs. whatever export we have). Read-only — no mutation.
+function getBig3DiagnosticData(liftKey){
+  const matchers = {
+    squat: { label:'Squat',      desc:'"Back Squat" exact match',                            test:n => n === 'Back Squat' },
+    bench: { label:'Flat Bench', desc:'/^(flat bench|bench press|barbell bench)$/i',          test:n => /^(flat bench|bench press|barbell bench)$/i.test(n) },
+    dead:  { label:'Deadlift',   desc:'"Deadlift" exact match',                              test:n => n === 'Deadlift' }
+  };
+  const m = matchers[liftKey];
+  if(!m) return {liftKey, label:String(liftKey), desc:'unknown', rows:[]};
+  const rows = [];
+  (S.sessions||[]).forEach(s => {
+    (s.exercises||[]).forEach(ex => {
+      if(!m.test(ex.name)) return;
+      const perf = ex.performed || [];
+      let maxSet = null;
+      perf.forEach(p => {
+        const w = +p.weightKg || 0, r = +p.reps || 0;
+        if(w>0 && r>0 && (!maxSet || w>maxSet.w || (w===maxSet.w && r>maxSet.r))){
+          maxSet = {w, r};
+        }
+      });
+      rows.push({
+        date: s.date || '?',
+        name: ex.name,
+        performedLen: perf.length,
+        loggedCount: perf.filter(p => p.logged === true).length,
+        workingCount: perf.filter(p => p.type === 'working').length,
+        skippedCount: perf.filter(p => p.skipped).length,
+        maxSet
+      });
+    });
+  });
+  return {liftKey, label:m.label, desc:m.desc, rows};
+}
+function formatBig3Diagnostic(data){
+  if(!data.rows.length){
+    return `<div style="padding:12px;font-size:13px;color:var(--tx2);line-height:1.5">No historical sessions found for <strong>${data.label}</strong>.<br><span style="font:11px var(--mono);color:var(--tx3)">Exercise name checked against ${data.desc}.</span></div>`;
+  }
+  const header = `<div style="font:11px var(--mono);color:var(--tx3);margin-bottom:8px;letter-spacing:.5px">Matcher: ${data.desc} &middot; ${data.rows.length} session${data.rows.length===1?'':'s'} matched</div>`;
+  const body = data.rows.map(r => {
+    const counts = `logged:${r.loggedCount} &middot; working:${r.workingCount} &middot; skipped:${r.skippedCount} &middot; sets:${r.performedLen}`;
+    const max = r.maxSet ? `max set: ${r.maxSet.w}kg &times; ${r.maxSet.r}` : 'no set with weightKg &amp; reps';
+    return `<div style="margin-top:6px;padding:8px 10px;background:var(--s2);border-left:2px solid var(--acc);border-radius:var(--rs);font-size:12px;line-height:1.5">
+      <div style="font:600 11px var(--mono);color:var(--tx);letter-spacing:.5px">${r.date} &middot; ${r.name}</div>
+      <div style="color:var(--tx2);margin-top:2px">${counts}</div>
+      <div style="color:var(--tx2)">${max}</div>
+    </div>`;
+  }).join('');
+  return header + body;
+}
+function openBig3Diagnostic(liftKey){
+  const data = getBig3DiagnosticData(liftKey);
+  const box = document.getElementById('big3DiagnosticBody');
+  if(box) box.innerHTML = formatBig3Diagnostic(data);
+  const title = document.getElementById('big3DiagnosticTitle');
+  if(title) title.textContent = data.label + ' · diagnostic';
+  showModal('big3DiagnosticModal');
+}
+
 function calcTotal(){
   const b3 = getBig3E1rm();
   const total = Math.round(b3.squat*K2L) + Math.round(b3.bench*K2L) + Math.round(b3.dead*K2L);
@@ -2972,7 +3042,11 @@ function renderBig3Tiles(){
       ? `${lbFmt(t.val)} / ${lbFmt(t.tgtKg)} lb`
       : `goal ${lbFmt(t.tgtKg)} lb`;
 
-    return `<div class="big3-tile" onclick="goToLiftDetail('${t.key}')">
+    // Empty tile is tap-able into the diagnostic modal so the user can see
+    // exactly what S.sessions holds for this lift on the device. Populated
+    // tile keeps its existing tap-into-Progress-detail behavior.
+    const tileClick = hasVal ? `goToLiftDetail('${t.key}')` : `openBig3Diagnostic('${t.key}')`;
+    return `<div class="big3-tile" onclick="${tileClick}">
       <div class="b3-lbl">${t.name}</div>
       <div class="b3-ring">
         <svg viewBox="0 0 88 88">
