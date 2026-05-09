@@ -706,9 +706,12 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       <div style="font:10px var(--mono);color:var(--tx3)">Substitute picker filters to this gym&apos;s equipment.</div>
       <button class="btn btn-sm btn-g" style="margin-top:6px;width:100%" onclick="openGymEditor()">Edit Gym Equipment</button>
     </div>
-    <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
-      <span>Validate Program</span>
-      <button class="btn btn-sm btn-g" onclick="const r=validateProgram();alert(r.length?'Warnings in console ('+r.reduce((a,x)=>a+x.warnings.length,0)+' items).':'All days clean.')">Run Validator</button>
+    <div style="padding:10px 0;border-bottom:1px solid var(--s2)">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span>Validate Program</span>
+        <button class="btn btn-sm btn-g" onclick="runValidatorAndShow()">Run Validator</button>
+      </div>
+      <div id="validatorResults" style="margin-top:4px"></div>
     </div>
     <div style="padding:10px 0;border-bottom:1px solid var(--s2)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
@@ -1281,6 +1284,25 @@ function validateProgram(){
     console.log('[Hyperion] Session validator: all days clean.');
   }
   return report;
+}
+// Pure renderer for validator output — separated from runValidatorAndShow so
+// the rendering logic is unit-testable without a DOM.
+function formatValidatorResults(results){
+  if(!results||!results.length){
+    return '<div style="color:var(--grn);font:600 11px var(--mono);letter-spacing:1px;padding:6px 0">&#10003; ALL DAYS CLEAN</div>';
+  }
+  return results.map(d=>{
+    const items=(d.warnings||[]).map(w=>`<div style="font-size:12px;line-height:1.5;color:var(--tx2);margin-top:2px">${w.level==='warn'?'&#9888;':'&#8505;'} ${w.msg}</div>`).join('');
+    const accent=(d.warnings||[]).some(w=>w.level==='warn')?'var(--warn)':'var(--tx3)';
+    return `<div style="margin-top:6px;padding:8px 10px;background:var(--s2);border-left:2px solid ${accent};border-radius:var(--rs)">
+      <div style="font:600 11px var(--mono);color:var(--tx);letter-spacing:.5px">${d.day||d.label||'Day'}</div>
+      ${items}
+    </div>`;
+  }).join('');
+}
+function runValidatorAndShow(){
+  const box=document.getElementById('validatorResults');if(!box)return;
+  box.innerHTML=formatValidatorResults(validateProgram());
 }
 function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse(r);S={...S,...d};if(!S.goals)S.goals=[{id:'g1',name:'1000 lb Total',current:0,target:1000,unit:'lb',auto:true}];if(!S.settings)S.settings={unit:'kg',benchBaseline1RM:95};
   // Backfill benchBaseline1RM for users whose localStorage predates this feature

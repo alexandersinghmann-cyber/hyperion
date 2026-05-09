@@ -831,4 +831,18 @@ assert(repsUnit(null) === null, 'Reps unit: null → null');
 assert(parseInt('10m') === 10, 'Reps unit: parseInt extracts numeric from "10m"');
 assert(parseInt('30s') === 30, 'Reps unit: parseInt extracts numeric from "30s"');
 
+// ===== VALIDATOR INLINE MODAL =====
+// "Run Validator" in Settings used to alert("see console") — moved the
+// rendering inline. formatValidatorResults() is the pure function that
+// turns validateProgram() output into an HTML fragment; runValidatorAndShow()
+// is the DOM glue. Test the pure function.
+assert(typeof formatValidatorResults === 'function', 'Validator UI: formatValidatorResults() defined');
+const cleanHtml = formatValidatorResults([]);
+assert(/ALL DAYS CLEAN/.test(cleanHtml), 'Validator UI: empty list renders ALL DAYS CLEAN');
+const sampleResults = [{day:'Deadlift Heavy', warnings:[{level:'warn', msg:'Back Extension shares prime movers with Deadlift'}]}];
+const sampleHtml = formatValidatorResults(sampleResults);
+assert(/Deadlift Heavy/.test(sampleHtml), 'Validator UI: renders day label');
+assert(/Back Extension shares prime movers/.test(sampleHtml), 'Validator UI: renders warning message body');
+assert(typeof runValidatorAndShow === 'function', 'Validator UI: runValidatorAndShow() defined (DOM glue)');
+
 console.log('\n=== All tests passed ===');
