@@ -925,4 +925,15 @@ S.sessions = [{
 }];
 assert(getBig3E1rm().dead > 0, 'Defensive: explicit logged:true still counts (no regression)');
 
+// ===== RENDER-TIMING AUDIT: renderBig3Tiles =====
+// Audit (documented in code at renderBig3Tiles): all call sites fire after
+// load() completes. localStorage is sync, so init() -> load() -> renderTrain()
+// has no race. saveBig3Targets / resetBig3Targets are user actions post-init.
+// This test guards against a regression where renderBig3Tiles throws when
+// S.sessions is empty (the worst-case state if a race ever did appear).
+S.sessions = [];
+let renderThrew = false;
+try { renderBig3Tiles(); } catch(e) { renderThrew = true; }
+assert(renderThrew === false, 'Render-timing: renderBig3Tiles must not throw on empty S.sessions');
+
 console.log('\n=== All tests passed ===');

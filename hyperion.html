@@ -2987,6 +2987,14 @@ function calcTotal(){
 }
 
 // Render Big 3 e1RM tiles on Train view. Tap → Progress view (scrolls to chart).
+// CALL-SITE AUDIT (re: empty-tile bug investigation):
+//   1. renderTrain() (init flow) — runs after load() completes; localStorage
+//      is sync so there is no race between load() and the first render.
+//   2. saveBig3Targets() — user action, post-init.
+//   3. resetBig3Targets() — user action, post-init.
+// All three are guaranteed-post-load. If a future call site is added, it must
+// also fire post-load or read S.sessions could be empty. The empty-tile
+// diagnostic modal (openBig3Diagnostic) makes that state user-visible.
 function renderBig3Tiles(){
   const el = document.getElementById('big3Tiles'); if(!el) return;
   const b3 = getBig3E1rm();
