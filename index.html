@@ -2351,19 +2351,25 @@ function getSubstitutes(exName){
   if(!meta.slot)return [];
   const gymEq=getActiveGymEquip();
   const out=[];
+  // Core-family broadening: a Pallof Press user mid-session may want any core
+  // option (Cable Crunch, Hanging Knee Raise, Dead Bug, etc.) even though
+  // anti-rot ≠ anti-ext functionally. Surface them as alternatives, not as
+  // recommended. Limited to core slots to avoid generalizing across patterns.
+  const isCoreFamily=meta.slot.startsWith('core-');
   Object.keys(EX_META).forEach(name=>{
     if(canonName(name)===canonName(exName))return;
     const m=EX_META[name];
-    if(m.slot!==meta.slot)return;
+    const slotMatch=m.slot===meta.slot;
+    const familyMatch=isCoreFamily && (m.slot||'').startsWith('core-');
+    if(!slotMatch && !familyMatch)return;
     // If gym filter active, every required equipment must be present
     if(gymEq){
       const ok=(m.eq||[]).every(tag=>gymEq.includes(tag)||tag==='bodyweight');
       if(!ok)return;
     }
-    // Recommended: same shoulder-safety class as the source. Without that match,
-    // swapping a 'safe' lift for an 'activation-first' one is a quiet downgrade
-    // for a user with a shoulder on the injury list.
-    const recommended=m.sh===meta.sh;
+    // Recommended: same SLOT and same shoulder-safety class as the source.
+    // Cross-slot core-family matches are alternatives only.
+    const recommended=slotMatch && m.sh===meta.sh;
     out.push({name,meta:m,recommended});
   });
   // Recommended first; within a tier, EX_META insertion order is preserved.

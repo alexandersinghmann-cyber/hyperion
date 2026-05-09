@@ -715,6 +715,24 @@ if (firstAlt !== -1 && lastReco !== undefined) {
 // Reset to commercial
 S.settings.activeGymId = 'gym-commercial';
 
+// ===== SUBSTITUTE PICKER: cross-slot core family =====
+// User pain: doing Cable Crunch as off-program sub for Pallof Press because
+// "no ab cable pull in core options." Pallof slot=core-anti-rot, Cable Crunch
+// slot=core-anti-ext — strict slot match excludes it. Cross-slot core family
+// surfaces it as an alternative (not recommended, since slot doesn't match).
+const subsPallof = getSubstitutes('Pallof Press');
+const cabCrunchSub = subsPallof.find(s => s.name === 'Cable Crunch');
+assert(cabCrunchSub, 'Sub family: Pallof Press substitutes include Cable Crunch (cross-slot core family) on commercial gym');
+assert(cabCrunchSub && cabCrunchSub.recommended === false, 'Sub family: Cable Crunch is alternative tier (slot mismatch with Pallof). Got recommended=' + (cabCrunchSub && cabCrunchSub.recommended));
+// Same-slot cores should still be recommended over cross-slot
+const birdDogSub = subsPallof.find(s => s.name === 'Bird Dog');
+if (birdDogSub) {
+  assert(birdDogSub.recommended === true, 'Sub family: Bird Dog (same slot core-anti-rot) is recommended over cross-slot');
+}
+// Non-core slots should NOT pull in cross-slot results (don't broaden squat→hinge etc.)
+const subsBenchPress = getSubstitutes('Bench Press');
+assert(!subsBenchPress.some(s => /lat pulldown|cable low row/i.test(s.name)), 'Sub family: cross-slot broadening is core-only, not generalized to all slots');
+
 // ===== PHASE C: Rotation engine =====
 assert(typeof VARIANTS === 'object', 'Phase C: VARIANTS library defined');
 assert(Array.isArray(VARIANTS.vpull) && VARIANTS.vpull.length >= 3, 'Phase C: vpull variants >=3');
