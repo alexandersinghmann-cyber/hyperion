@@ -741,10 +741,24 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       </div>
     </div>
     <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
+      <span>Restore from JSON</span>
+      <button class="btn btn-sm btn-g" onclick="hideModal('settingsModal');showModal('restoreModal')">Restore</button>
+    </div>
+    <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
       <span style="color:var(--red)">Reset All Data</span>
       <button class="btn btn-sm btn-d" onclick="resetData()">Reset</button>
     </div>
     <button class="btn btn-s btn-w" style="margin-top:14px" onclick="hideModal('settingsModal')">Close</button>
+  </div>
+</div>
+
+<div class="overlay" id="restoreModal">
+  <div class="modal" style="max-height:90vh">
+    <div class="modal-t">Restore from JSON</div>
+    <p style="font-size:12px;color:var(--red);margin-bottom:10px;line-height:1.5"><strong>This OVERWRITES all current data.</strong> Paste a previously-exported Hyperion JSON below. Used for recovery when the phone-side state has diverged from a known-good export.</p>
+    <div class="field"><label>Hyperion export JSON</label><textarea id="restoreArea" rows="10" placeholder='{"sessions":[...],"program":{...},"settings":{...}}'></textarea></div>
+    <button class="btn btn-d btn-w" onclick="doRestore()">Restore (overwrite)</button>
+    <button class="btn btn-s btn-w" style="margin-top:8px" onclick="hideModal('restoreModal')">Cancel</button>
   </div>
 </div>
 
@@ -2985,6 +2999,31 @@ function formatBig3Diagnostic(data){
 // needed but cannot guarantee a fresh fetch on their own.
 function forceRefresh(){
   location.href = location.href.split('?')[0] + '?_=' + Date.now();
+}
+
+// Restore from a previously-exported JSON. Pure validator (parseRestorePayload)
+// is unit-tested without touching state; doRestore is the DOM glue + confirm +
+// localStorage write + reload.
+function parseRestorePayload(jsonStr){
+  let parsed;
+  try { parsed = JSON.parse(jsonStr); }
+  catch(e){ return {ok:false, err:'Invalid JSON: ' + (e && e.message || e)}; }
+  if(!parsed || typeof parsed !== 'object' || Array.isArray(parsed)){
+    return {ok:false, err:'Payload must be a JSON object'};
+  }
+  if(parsed.sessions === undefined && parsed.program === undefined && parsed.settings === undefined){
+    return {ok:false, err:'Missing sessions / program / settings keys — does not look like a Hyperion export'};
+  }
+  return {ok:true, parsed, sessCount:(parsed.sessions || []).length};
+}
+function doRestore(){
+  const ta = document.getElementById('restoreArea'); if(!ta) return;
+  const r = parseRestorePayload(ta.value || '');
+  if(!r.ok){ alert('Restore failed: ' + r.err); return; }
+  if(!confirm('Restore will OVERWRITE all current data with the pasted JSON ('+r.sessCount+' sessions). Continue?')) return;
+  try { localStorage.setItem(STORE, JSON.stringify(r.parsed)); }
+  catch(e){ alert('Restore failed to save: ' + (e && e.message || e)); return; }
+  location.reload();
 }
 function openBig3Diagnostic(liftKey){
   const data = getBig3DiagnosticData(liftKey);

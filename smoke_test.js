@@ -946,4 +946,22 @@ assert(/http-equiv="Pragma"[^>]*no-cache/i.test(html), 'Cache: meta Pragma no-ca
 assert(/http-equiv="Expires"[^>]*0/i.test(html), 'Cache: meta Expires 0 present in head');
 assert(typeof forceRefresh === 'function', 'Cache: forceRefresh() defined');
 
+// ===== RESTORE FROM JSON =====
+// Recovery path when phone-side localStorage diverges from a known-good export
+// (the deadlift-tile bug bottoming out as actual data loss). User pastes a
+// previously-exported JSON; app overwrites localStorage and reloads.
+// parseRestorePayload is pure — validates shape without touching state.
+assert(typeof parseRestorePayload === 'function', 'Restore: parseRestorePayload() defined');
+assert(typeof doRestore === 'function', 'Restore: doRestore() defined (DOM glue)');
+const badJson = parseRestorePayload('not-json');
+assert(badJson.ok === false && /Invalid JSON/i.test(badJson.err), 'Restore: invalid JSON returns ok:false with message. Got: ' + badJson.err);
+const wrongShape = parseRestorePayload('{"unrelated":true}');
+assert(wrongShape.ok === false && /sessions|program|settings/i.test(wrongShape.err), 'Restore: object missing sessions/program/settings returns ok:false. Got: ' + wrongShape.err);
+const goodPayload = parseRestorePayload(JSON.stringify({sessions:[{date:'2026-04-11'},{date:'2026-05-03'}], program:{name:'X'}, settings:{unit:'kg'}}));
+assert(goodPayload.ok === true, 'Restore: valid payload returns ok:true');
+assert(goodPayload.sessCount === 2, 'Restore: sessCount = 2. Got: ' + goodPayload.sessCount);
+assert(goodPayload.parsed && goodPayload.parsed.program && goodPayload.parsed.program.name === 'X', 'Restore: parsed payload preserved');
+const justSettings = parseRestorePayload('{"settings":{"unit":"lb"}}');
+assert(justSettings.ok === true, 'Restore: settings-only payload accepted (partial data is still restorable)');
+
 console.log('\n=== All tests passed ===');
