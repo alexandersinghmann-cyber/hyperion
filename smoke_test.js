@@ -694,6 +694,24 @@ S.settings.activeGymId = 'gym-hotel';
 const subsHotel = getSubstitutes('Cable Low Row').map(s => s.name || s);
 assert(!subsHotel.some(s => /cable low row/i.test(s)), 'Phase C: Cable Low Row excluded from its own subs');
 assert(subsHotel.some(s => /db row|chest.supported/i.test(s)), 'Phase C: Hotel gym can substitute to DB-based rows. Got: ' + subsHotel.join(','));
+
+// ===== SUBSTITUTE PICKER: ranked recommended vs alternatives =====
+// User pain: mid-session, the prescribed machine is unavailable. The picker
+// returns a flat list, easy to pick wrong. Ranking puts 'recommended' (slot
+// match + same shoulder-safety class) before generic 'alternatives'.
+S.settings.activeGymId = 'gym-hotel';
+const subsHotelRanked = getSubstitutes('Cable Low Row');
+assert(subsHotelRanked.length > 0, 'Sub ranking: hotel gym returns options for Cable Low Row');
+assert(subsHotelRanked[0].recommended === true, 'Sub ranking: top result is recommended (sh-match). Got recommended=' + subsHotelRanked[0].recommended + ' name=' + subsHotelRanked[0].name);
+const recoNames = subsHotelRanked.filter(s => s.recommended).map(s => s.name);
+assert(recoNames.includes('DB Row') || recoNames.includes('Chest-Supported DB Row'), 'Sub ranking: DB Row / Chest-Supported DB Row are recommended on hotel. Got: ' + recoNames.join(','));
+// Recommended block precedes alternatives — first non-recommended index must be after all recommended
+const firstAlt = subsHotelRanked.findIndex(s => !s.recommended);
+const lastReco = subsHotelRanked.map((s,i)=>s.recommended?i:-1).filter(i=>i>=0).pop();
+if (firstAlt !== -1 && lastReco !== undefined) {
+  assert(firstAlt > lastReco, 'Sub ranking: recommended come before alternatives');
+}
+
 // Reset to commercial
 S.settings.activeGymId = 'gym-commercial';
 

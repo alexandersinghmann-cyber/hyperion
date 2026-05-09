@@ -2360,8 +2360,14 @@ function getSubstitutes(exName){
       const ok=(m.eq||[]).every(tag=>gymEq.includes(tag)||tag==='bodyweight');
       if(!ok)return;
     }
-    out.push({name,meta:m});
+    // Recommended: same shoulder-safety class as the source. Without that match,
+    // swapping a 'safe' lift for an 'activation-first' one is a quiet downgrade
+    // for a user with a shoulder on the injury list.
+    const recommended=m.sh===meta.sh;
+    out.push({name,meta:m,recommended});
   });
+  // Recommended first; within a tier, EX_META insertion order is preserved.
+  out.sort((a,b)=>(b.recommended?1:0)-(a.recommended?1:0));
   return out;
 }
 function loadAdjustForSub(fromName,toName,fromLoadKg){
@@ -2390,15 +2396,23 @@ function openSubstitute(ei){
     body.innerHTML='<div class="ec-why" style="padding:12px">No substitutes found for slot "'+(getMeta(ex.name).slot||'unknown')+'". This exercise may not be in the metadata library yet.</div>';
   } else {
     const dispU=S.settings.unit||'kg';
-    body.innerHTML=subs.slice(0,6).map(s=>{
+    const renderCard=(s,isReco)=>{
       const newLoad=loadAdjustForSub(ex.name,s.name,ex.prescribed.loadKg||0);
       const loadDisp=newLoad===0?'bodyweight':(dispU==='lb'?Math.round(newLoad*K2L*10)/10+' lb':newLoad+' kg');
       const eqTags=(s.meta.eq||[]).join(' · ');
+      const badge=isReco?'<span style="color:var(--gold);font:600 9px var(--mono);letter-spacing:1px;margin-right:6px">★ BEST MATCH</span>':'';
       return `<div class="extra-card" onclick="doSubstitute('${encodeURIComponent(s.name)}')">
-        <div class="ec-head"><div class="ec-name">${s.name}</div><div class="ec-add">🔀</div></div>
+        <div class="ec-head"><div class="ec-name">${badge}${s.name}</div><div class="ec-add">🔀</div></div>
         <div class="ec-why">${ex.prescribed.sets}×${ex.prescribed.reps} @ ${loadDisp} · ${eqTags}</div>
       </div>`;
-    }).join('');
+    };
+    const reco=subs.filter(s=>s.recommended).slice(0,3);
+    const alts=subs.filter(s=>!s.recommended).slice(0, Math.max(0, 6-reco.length));
+    const sectionHdr=(label)=>`<div style="font:600 10px var(--mono);color:var(--tx3);letter-spacing:1.5px;text-transform:uppercase;margin:10px 4px 6px">${label}</div>`;
+    let html='';
+    if(reco.length){html+=sectionHdr('Recommended')+reco.map(s=>renderCard(s,true)).join('');}
+    if(alts.length){html+=sectionHdr('Alternatives')+alts.map(s=>renderCard(s,false)).join('');}
+    body.innerHTML=html;
   }
   showModal('subModal');
 }
