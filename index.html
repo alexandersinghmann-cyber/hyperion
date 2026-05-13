@@ -2068,7 +2068,7 @@ function renderEx(){
         ${allDone&&ex.progression?`<div class="prog-badge prog-${ex.progression==='increase'?'up':ex.progression==='flag'?'flag':ex.progression==='stall'?'stall':ex.progression==='skipped'?'skip':'hold'}">
           <span>${ex.progression==='increase'?'↑ Increase':ex.progression==='flag'?'⚠ Flagged':ex.progression==='stall'?'⏸ Stall':ex.progression==='skipped'?'⏭ Skipped':'→ Hold'}</span>
           ${ex.nextLoad&&ex.progression==='increase'?`<span class="tm">${fmtW(ex.nextLoad,ex.prescribed.unit)}</span>`:''}
-        </div>`:''}
+        </div>${ex.progression==='flag'&&ex.progressionReason?`<div style="margin-top:6px;padding:7px 10px;background:var(--s2);border-left:2px solid var(--warn);border-radius:var(--rs);font:500 11px var(--mono);color:var(--tx2);line-height:1.4">${ex.progressionReason}</div>`:''}`:''}
       </div>
     </div>`;
   }).join('');
@@ -2699,6 +2699,9 @@ function startTimer(){if(sessionTimer)clearInterval(sessionTimer);sessionTimer=s
 function evalProg(ei){
   const ex=S.activeSession.exercises[ei];
   if(ex.progression==='skipped')return;
+  // Clear any prior reason so a re-eval doesn't carry stale text into a
+  // non-flag outcome.
+  ex.progressionReason=null;
   const working=ex.performed.filter(s=>s.type==='working'&&s.logged&&!s.skipped);
   if(!working.length)return;
   const rr=repRange(ex.prescribed.reps);
@@ -2718,9 +2721,15 @@ function evalProg(ei){
 
   if(ex.painEvent&&ex.painEvent.severity!=='none'){
     ex.progression='flag';ex.nextLoad=topW||ex.prescribed.loadKg;
+    ex.progressionReason='Pain event ('+ex.painEvent.severity+') — hold load, manual coach review';
   } else if(topRpe!=null){
     // RPE-driven path
-    if(topRpe>=10||bigMiss){ex.progression='flag';ex.nextLoad=rnd(topW*0.95);}
+    if(topRpe>=10||bigMiss){
+      ex.progression='flag';ex.nextLoad=rnd(topW*0.95);
+      ex.progressionReason=(topRpe>=10)
+        ? ('Top set RPE '+topRpe+' — load too heavy, deload 5%')
+        : ('Top set under target reps — load too heavy, deload 5%');
+    }
     else if(topRpe>=9){ex.progression='hold';ex.nextLoad=topW;}
     else if(topRpe>=8){
       if(hitTop){ex.progression='increase';ex.nextLoad=rnd(topW+half);}
@@ -2732,7 +2741,10 @@ function evalProg(ei){
   } else {
     // Reps-only fallback (no RPE logged)
     if(allMax){ex.progression='increase';ex.nextLoad=rnd(topW+inc);}
-    else if(bigMiss){ex.progression='flag';ex.nextLoad=topW;}
+    else if(bigMiss){
+      ex.progression='flag';ex.nextLoad=topW;
+      ex.progressionReason='Top set under target reps — hold and review';
+    }
     else{ex.progression='hold';ex.nextLoad=topW;}
   }
 
@@ -2854,6 +2866,7 @@ function renderSummary(rec){
         <div class="${pc}" style="font-weight:700;font-size:16px">${pi}</div>
       </div>
       ${ex.nextLoad&&ex.progression==='increase'?`<div style="font-size:11px;color:var(--grn);margin-top:3px">Next: ${fmtW(ex.nextLoad,ex.prescribed?.unit)}</div>`:''}
+      ${ex.progression==='flag'&&ex.progressionReason?`<div style="font-size:11px;color:var(--warn);margin-top:3px;line-height:1.4">${ex.progressionReason}</div>`:''}
     </div>`;
   }).join('');
 

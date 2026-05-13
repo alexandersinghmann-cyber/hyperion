@@ -104,6 +104,60 @@ assert(EXTRAS.some(e => e.name === 'Leg Press' && e.pool === 'lower'), 'Extras: 
 assert(EXTRAS.some(e => e.name === 'Bench Press' && e.pool === 'upper'), 'Extras: Bench Press present in upper pool');
 assert(EXTRAS.some(e => e.name === 'Pendlay Row' && e.pool === 'upper'), 'Extras: Pendlay Row present in upper pool');
 assert(EXTRAS.some(e => e.name === 'DB Bench Press' && e.pool === 'upper'), 'Extras: DB Bench Press present in upper pool');
+
+// ===== PROGRESSION FLAG REASON =====
+// User: "Got a flagged notification - but no explanation?" — evalProg() now
+// writes a short ex.progressionReason whenever it sets progression='flag'
+// so the UI can render WHY the flag fired (RPE 10, missed reps, pain event).
+const __flagSavedSess = S.activeSession;
+S.activeSession = {dayLabel:'Test', exercises:[{
+  name:'Bench Press', cat:'push', prescribed:{sets:4,reps:'5',loadKg:22,unit:'kg'},
+  performed:[
+    {type:'working',weightKg:22,reps:5,rpe:10,logged:true}
+  ]
+}]};
+evalProg(0);
+assert(S.activeSession.exercises[0].progression === 'flag', 'Flag reason: RPE 10 triggers flag');
+const fr_rpe = S.activeSession.exercises[0].progressionReason;
+assert(typeof fr_rpe === 'string' && fr_rpe.length > 0, 'Flag reason: RPE 10 sets non-empty reason');
+assert(/rpe/i.test(fr_rpe), 'Flag reason: RPE 10 reason mentions RPE. Got: ' + fr_rpe);
+
+// Reps-only big miss
+S.activeSession = {dayLabel:'Test', exercises:[{
+  name:'Bench Press', cat:'push', prescribed:{sets:4,reps:'5',loadKg:22,unit:'kg'},
+  performed:[
+    {type:'working',weightKg:22,reps:1,logged:true}
+  ]
+}]};
+evalProg(0);
+assert(S.activeSession.exercises[0].progression === 'flag', 'Flag reason: reps-only big miss triggers flag');
+const fr_miss = S.activeSession.exercises[0].progressionReason;
+assert(typeof fr_miss === 'string' && /reps|miss|target/i.test(fr_miss), 'Flag reason: big miss reason mentions reps. Got: ' + fr_miss);
+
+// RPE-path big miss (not RPE-10 but reps under min-2)
+S.activeSession = {dayLabel:'Test', exercises:[{
+  name:'Bench Press', cat:'push', prescribed:{sets:4,reps:'5',loadKg:22,unit:'kg'},
+  performed:[
+    {type:'working',weightKg:22,reps:1,rpe:9,logged:true}
+  ]
+}]};
+evalProg(0);
+assert(S.activeSession.exercises[0].progression === 'flag', 'Flag reason: RPE-path big miss triggers flag');
+const fr_rpe_miss = S.activeSession.exercises[0].progressionReason;
+assert(typeof fr_rpe_miss === 'string' && /reps|target/i.test(fr_rpe_miss), 'Flag reason: RPE-path big miss mentions reps. Got: ' + fr_rpe_miss);
+
+// Non-flag path: increase → reason cleared
+S.activeSession = {dayLabel:'Test', exercises:[{
+  name:'Bench Press', cat:'push', prescribed:{sets:4,reps:'5',loadKg:22,unit:'kg'},
+  progressionReason:'stale value from prior eval',
+  performed:[
+    {type:'working',weightKg:22,reps:5,rpe:7,logged:true}
+  ]
+}]};
+evalProg(0);
+assert(S.activeSession.exercises[0].progression === 'increase', 'Flag reason: increase path no flag');
+assert(!S.activeSession.exercises[0].progressionReason, 'Flag reason: increase path clears any prior reason');
+S.activeSession = __flagSavedSess;
 // All required fields
 const needed = ['key','pool','name','cat','sets','reps','loadKg','unit','equip','shoulder','carryover','whyBase'];
 const missing = EXTRAS.filter(e => needed.some(k => e[k] === undefined));
