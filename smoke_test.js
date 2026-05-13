@@ -947,6 +947,22 @@ assert(renderThrew === false, 'Render-timing: renderBig3Tiles must not throw on 
 assert(/\.ex-card\s*{[^}]*overflow\s*:\s*visible/.test(html), 'Overflow menu: .ex-card overflow:visible (not hidden) so the menu can escape the card');
 assert(/\.ex-menu\s*{[^}]*z-index\s*:\s*9[5-9]|\.ex-menu\s*{[^}]*z-index\s*:\s*1[0-9][0-9]/.test(html), 'Overflow menu: .ex-menu z-index >=95 so it sits above the rest-bar (z-index:90)');
 
+// ===== BACK EXTENSION AS A SUBSTITUTE ACROSS GYMS =====
+// User: "Why is back extension not an option?!" — Back Extension was tagged
+// with eq:['back-extension-bench'] (a specialized tag that only the commercial
+// gym profile has). Hotel/home users got no Back Extension in the hinge-
+// secondary substitute pool. Loosened to eq:['bench'] since a back extension
+// can be done off any bench (with feet anchored or held).
+S.settings.activeGymId = 'gym-commercial';
+const subsRDLCommercial = getSubstitutes('DB RDL').map(s => s.name);
+assert(subsRDLCommercial.includes('Back Extension'), 'Back Ext: DB RDL substitute list on commercial gym includes Back Extension. Got: ' + subsRDLCommercial.join(','));
+S.settings.activeGymId = 'gym-hotel';
+const subsRDLHotel = getSubstitutes('DB RDL').map(s => s.name);
+assert(subsRDLHotel.includes('Back Extension'), 'Back Ext: DB RDL substitute list on hotel gym includes Back Extension (eq=bench, hotel has bench). Got: ' + subsRDLHotel.join(','));
+S.settings.activeGymId = 'gym-commercial';
+// Back Extension remains in VARIANTS['hinge-secondary'] for rotation
+assert((VARIANTS['hinge-secondary']||[]).includes('Back Extension'), 'Back Ext: still in VARIANTS[hinge-secondary] for rotation');
+
 // ===== CACHE-CONTROL META TAGS + FORCE REFRESH =====
 // GitHub Pages serves index.html with default long-lived caching headers, so
 // Chrome / iOS Safari hold onto stale HTML across deploys. We can't set HTTP
