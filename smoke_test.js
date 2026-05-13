@@ -92,12 +92,18 @@ assert(!isFB('Incline Bench'), 'Incline Bench rejected');
 assert(!isFB('Close-Grip Bench'), 'Close-Grip Bench rejected');
 
 // ===== EXTRAS LIBRARY =====
-assert(Array.isArray(EXTRAS) && EXTRAS.length === 46, 'EXTRAS has 46 entries: got ' + EXTRAS.length);
+assert(Array.isArray(EXTRAS) && EXTRAS.length === 50, 'EXTRAS has 50 entries: got ' + EXTRAS.length);
 const poolsC = EXTRAS.reduce((a,e)=>{a[e.pool]=(a[e.pool]||0)+1;return a},{});
 assert(poolsC.rehab === 10, 'Rehab pool count 10: got ' + poolsC.rehab);
 assert(poolsC.core === 11, 'Core pool count 11: got ' + poolsC.core);
-assert(poolsC.lower === 11, 'Lower pool count 11: got ' + poolsC.lower);
-assert(poolsC.upper === 14, 'Upper pool count 14: got ' + poolsC.upper);
+assert(poolsC.lower === 12, 'Lower pool count 12: got ' + poolsC.lower);
+assert(poolsC.upper === 17, 'Upper pool count 17: got ' + poolsC.upper);
+// Big-lift additions from user feedback ("no leg press in add extra; same
+// for other key compounds"). Surfaces heavy compounds for ad-hoc add.
+assert(EXTRAS.some(e => e.name === 'Leg Press' && e.pool === 'lower'), 'Extras: Leg Press present in lower pool');
+assert(EXTRAS.some(e => e.name === 'Bench Press' && e.pool === 'upper'), 'Extras: Bench Press present in upper pool');
+assert(EXTRAS.some(e => e.name === 'Pendlay Row' && e.pool === 'upper'), 'Extras: Pendlay Row present in upper pool');
+assert(EXTRAS.some(e => e.name === 'DB Bench Press' && e.pool === 'upper'), 'Extras: DB Bench Press present in upper pool');
 // All required fields
 const needed = ['key','pool','name','cat','sets','reps','loadKg','unit','equip','shoulder','carryover','whyBase'];
 const missing = EXTRAS.filter(e => needed.some(k => e[k] === undefined));
