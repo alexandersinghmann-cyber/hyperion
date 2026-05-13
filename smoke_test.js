@@ -938,6 +938,15 @@ let renderThrew = false;
 try { renderBig3Tiles(); } catch(e) { renderThrew = true; }
 assert(renderThrew === false, 'Render-timing: renderBig3Tiles must not throw on empty S.sessions');
 
+// ===== OVERFLOW MENU VISIBILITY =====
+// User: "Popup bar when clicking 3 dots is not visible."
+// Root cause: .ex-card has overflow:hidden which clips the absolutely-
+// positioned .ex-menu when it pops out the bottom of the card. Plus
+// .ex-menu z-index:50 was below the fixed rest-bar (z-index:90), so
+// when the rest bar was on it could cover the menu too.
+assert(/\.ex-card\s*{[^}]*overflow\s*:\s*visible/.test(html), 'Overflow menu: .ex-card overflow:visible (not hidden) so the menu can escape the card');
+assert(/\.ex-menu\s*{[^}]*z-index\s*:\s*9[5-9]|\.ex-menu\s*{[^}]*z-index\s*:\s*1[0-9][0-9]/.test(html), 'Overflow menu: .ex-menu z-index >=95 so it sits above the rest-bar (z-index:90)');
+
 // ===== CACHE-CONTROL META TAGS + FORCE REFRESH =====
 // GitHub Pages serves index.html with default long-lived caching headers, so
 // Chrome / iOS Safari hold onto stale HTML across deploys. We can't set HTTP
