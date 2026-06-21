@@ -71,10 +71,30 @@ The rules the coach (Claude) references at every session-design step. Encoded he
 
 **25. Sleep < 6h for 2+ nights.** Cap session RPE at 7. This is coach judgment, not app-enforced — but it's a rule.
 
+## Session type validation (v3, multi-modal)
+
+**26. Lifting rules are lifting-only.** Pattern alternation (rule 1), compounds-before-isolation (rule 3), same-pattern streak (rule 6), press-after-activation (rule 7), and time budget (rule 14) apply only when `sessionType === 'lifting'`. Calisthenics, swim, run, pilates, mobility, and rest days are not validated against these — `validateSession(exList, {sessionType})` short-circuits for non-lifting days.
+
+**27. Weak-leg-focus adjacency is allowed.** Rule 1's same-prime-mover adjacency check is exempted when the later exercise carries the `weak-leg-focus` tag (e.g. Back Squat → Bulgarian Split Squat). Unilateral continuation of a bilateral pattern is an intentional remediation choice (see rule 23), not a sequencing fault.
+
+**28. Time budget is per-day.** Rule 14's ceiling is the day's planned duration + 15 min (fallback absolute 95 min), passed as `validateSession(exList, {targetDur})`. A legitimately long heavy day (10 exercises) should not nag.
+
+## Cross-session recovery (v3, weekly)
+
+**29. CNS spacing across days.** `validateWeek()` warns when two heavy-CNS lifting days land on consecutive calendar days (<24h recovery).
+
+**30. Calisthenics ↔ lifting proximity.** A calisthenics class adjacent to a lifting day flags an info-level note to watch shared-pattern fatigue (pull volume especially).
+
+**31. Locked sessions never auto-reschedule.** External class commitments (`locked: true`) resist the reschedule flow and are excluded from any automatic day-shuffling.
+
+## Calisthenics progression anchors (v3)
+
+**32. Pull-Up and Dip are fixed mains on calisthenics days.** When `sessionType === 'calisthenics'`, Pull-Up / Dip / Strict Pull-Up / Strict Dip / Bar Muscle-Up are progression-tracked anchors and are excluded from accessory rotation — the calisthenics analogue of `FIXED_MAINS`. The Big-3 protection (Back Squat / Bench Press / Deadlift) is unchanged.
+
 ---
 
 ## How the validator enforces these
 
-`validateSession(exList)` in hyperion.html runs rules 1, 3, 4, 6, 7, 14. Returns warning objects. The user overrides with a reason; the override is logged.
+`validateSession(exList, opts)` in hyperion.html runs rules 1, 3, 4, 6, 7, 14 for lifting days (opts gates session type + time budget; rules 27–28 modify 1 and 14). `validateProgram()` sweeps all days; `validateWeek()` enforces rules 29–31.
 
-Rules 8–13, 15–25 live here as coach-enforced guidance. If a user pattern triggers one of these rules and I miss it, the failure mode is a nudge from the user — at which point I update both this doc and (if automatable) the validator.
+Rules 8–13, 15–25, 32 live here as coach-enforced or rotation-engine guidance. If a user pattern triggers one of these rules and I miss it, the failure mode is a nudge from the user — at which point I update both this doc and (if automatable) the validator.
