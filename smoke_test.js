@@ -1190,4 +1190,31 @@ assert(/#milestoneOverlay/.test(html), 'Track E: milestone overlay present');
 // reset session state for any later tests
 S.activeSession=null;S.sessions=[];
 
+// ===== TRACK B: MULTI-MODAL LOGGING (Commit 4) =====
+assert(typeof renderActivityLog==='function', 'Track B: renderActivityLog defined');
+assert(typeof makeActivitySession==='function', 'Track B: makeActivitySession defined');
+assert(typeof finalizeActivity==='function', 'Track B: finalizeActivity defined');
+assert(typeof setActivityField==='function', 'Track B: setActivityField defined');
+// activity session record shape
+const swimSess={startTime:1,date:'2026-06-22',dayLabel:'Swim',sessionType:'swim',activity:{durationMin:30,distance:500,effort:6,notes:'easy'}};
+const swimRec=makeActivitySession(swimSess);
+assert(swimRec.sessionType==='swim' && swimRec.duration===30 && swimRec.activity.distance===500 && swimRec.activity.effort===6, 'Track B: makeActivitySession captures duration/distance/effort');
+assert(swimRec.exercises.length===0 && swimRec.status==='complete', 'Track B: activity session has empty exercises + complete status');
+// swim always carries a numeric distance field (feedback #6)
+const swimNoDist=makeActivitySession({startTime:2,date:'2026-06-22',dayLabel:'Swim',sessionType:'swim',activity:{durationMin:20}});
+assert(typeof swimNoDist.activity.distance==='number', 'Track B: swim session always has a numeric distance field. Got: '+typeof swimNoDist.activity.distance);
+// run/pilates round-trip
+const runRec=makeActivitySession({startTime:3,date:'2026-06-22',dayLabel:'Run',sessionType:'run',activity:{durationMin:40,distance:5,effort:5,notes:''}});
+assert(runRec.sessionType==='run' && runRec.activity.distance===5, 'Track B: run session captures distance');
+// setActivityField writes onto active session
+S.activeSession={dayIndex:0,date:'2026-06-22',dayLabel:'Swim',sessionType:'swim',exercises:[],activity:{durationMin:0,distance:0,effort:null,notes:''}};
+setActivityField('distance',750);setActivityField('effort',7);
+assert(S.activeSession.activity.distance===750 && S.activeSession.activity.effort===7, 'Track B: setActivityField updates active session activity');
+// empty-state strings present
+assert(/Set duration and dive in/.test(html), 'Track B: swim empty state present');
+assert(/Set distance or duration to start/.test(html), 'Track B: run empty state present');
+// activity-log CSS present
+assert(/\.act-ring-wrap/.test(html) && /\.eff-chip/.test(html), 'Track B: activity-log CSS present');
+S.activeSession=null;S.sessions=[];
+
 console.log('\n=== All tests passed ===');

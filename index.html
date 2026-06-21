@@ -331,6 +331,15 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 #milestoneOverlay .mile-ring{color:var(--gold);margin-bottom:16px}
 #milestoneOverlay .mile-t{font:700 22px var(--sans);color:var(--tx);margin-bottom:6px}
 #milestoneOverlay .mile-l{font:600 15px var(--sans);color:var(--gold);margin-bottom:24px}
+/* Activity log (swim/run/pilates/mobility) */
+.act-log{padding:4px 2px 80px}
+.act-empty{display:flex;align-items:center;gap:6px;justify-content:center;margin-bottom:16px;color:var(--tx3)}
+.act-ring-wrap{text-align:center;background:var(--s1);border:1px solid var(--s2);border-radius:var(--r);padding:24px 16px;margin-bottom:16px}
+.act-ring-val{color:var(--acc)}
+.eff-row{display:flex;flex-wrap:wrap;gap:6px}
+.eff-chip{flex:1;min-width:40px;min-height:40px;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx2);font:600 14px var(--mono);cursor:pointer}
+.eff-chip.sel{background:var(--acc-dim);border-color:var(--acc);color:var(--acc)}
+.act-save{position:sticky;bottom:calc(12px + var(--sab));margin-top:16px}
 
 /* Last hint expanded */
 .last-hint{cursor:pointer}
@@ -2075,25 +2084,86 @@ function saveDayEdit(){
 function startDay(i){
   const day=S.program.days[i];if(!day)return;
   viewDayI=i;
-  S.activeSession={dayIndex:i,date:todayStr(),dayLabel:day.label,startTime:Date.now(),
-    exercises:day.exercises.map(ex=>({
-      name:ex.name,cat:ex.cat,
+  const st=day.sessionType||'lifting';
+  S.activeSession={dayIndex:i,date:todayStr(),dayLabel:day.label,sessionType:st,startTime:Date.now(),exercises:[],notes:''};
+  if(st==='swim'||st==='run'||st==='pilates'||st==='mobility'){
+    // Activity-log session: one form, no exercise cards.
+    S.activeSession.activity={durationMin:day.dur||0,distance:day.defaultDistance||0,effort:null,notes:''};
+  } else {
+    // Lifting + calisthenics: exercise cards.
+    S.activeSession.exercises=(day.exercises||[]).map(ex=>({
+      name:ex.name,cat:ex.cat,cue:ex.cue||null,
       prescribed:{sets:ex.sets,reps:ex.reps,loadKg:ex.loadKg,unit:ex.unit||'kg'},
       performed:[],notes:'',progression:null,nextLoad:null,painEvent:null,tags:ex.tags||[],rest:ex.rest||(COMPOUNDS.includes(ex.cat)?150:90)
-    }))
-  };
-  // Pre-fill
-  S.activeSession.exercises.forEach(ex=>{
-    for(let i=0;i<ex.prescribed.sets;i++){
-      ex.performed.push({type:'working',weightKg:ex.prescribed.loadKg,reps:repRange(ex.prescribed.reps).max||parseInt(ex.prescribed.reps)||0,rpe:null,logged:false});
-    }
-  });
+    }));
+    S.activeSession.exercises.forEach(ex=>{
+      for(let k=0;k<ex.prescribed.sets;k++){
+        ex.performed.push({type:'working',weightKg:ex.prescribed.loadKg,reps:repRange(ex.prescribed.reps).max||parseInt(ex.prescribed.reps)||0,rpe:null,logged:false});
+      }
+    });
+  }
   save();sessionStart=Date.now();startTimer();
   showView('vSession');renderEx();
   document.getElementById('navBar').style.display='none';
 }
 
 function saveSessionNotes(){if(S.activeSession){S.activeSession.notes=document.getElementById('sessNotes').value;save()}}
+
+// ===== ACTIVITY LOG (swim / run / pilates / mobility) =====
+const ACTIVITY_EMPTY={swim:'Set duration and dive in',run:'Set distance or duration to start',pilates:'Time it and take notes',mobility:'Time it and take notes'};
+function setActivityField(field,val){
+  const s=S.activeSession;if(!s)return;
+  s.activity=s.activity||{};
+  s.activity[field]=val;save();
+}
+// Pure: build a completed session record from an active activity session (testable).
+function makeActivitySession(sess){
+  const a=sess.activity||{};
+  return {id:'s_'+(sess.startTime||0),date:sess.date,dayLabel:sess.dayLabel,sessionType:sess.sessionType,
+    duration:Math.round(+a.durationMin||0),
+    activity:{durationMin:+a.durationMin||0,distance:+a.distance||0,effort:a.effort!=null?+a.effort:null,notes:a.notes||''},
+    exercises:[],painEvents:[],status:'complete'};
+}
+function finalizeActivity(){
+  const sess=S.activeSession;if(!sess)return;
+  const a=sess.activity||{};
+  // Swim distance is mandatory (feedback #6) — confirm before saving a 0.
+  if(sess.sessionType==='swim' && !(+a.distance>0)){
+    if(!confirm('No swim distance entered. Save with distance 0?'))return;
+    setActivityField('distance',0);
+  }
+  const rec=makeActivitySession(sess);
+  S.sessions.push(rec);
+  S.activeSession=null;save();
+  try{stopRest();}catch(e){}
+  if(sessionTimer)clearInterval(sessionTimer);sessionTimer=null;
+  document.getElementById('navBar').style.display='flex';
+  goTrain();
+  toast(rec.sessionType.charAt(0).toUpperCase()+rec.sessionType.slice(1)+' logged');
+}
+function renderActivityLog(sess){
+  sess.activity=sess.activity||{durationMin:0,distance:0,effort:null,notes:''};
+  const a=sess.activity;
+  const st=sess.sessionType;
+  const showDist=st!=='pilates'&&st!=='mobility';
+  const distReq=st==='swim';
+  const empty=ACTIVITY_EMPTY[st]||'Log this session';
+  const effChips=[1,2,3,4,5,6,7,8,9,10].map(v=>`<button class="eff-chip${a.effort===v?' sel':''}" onclick="setActivityField('effort',${v});renderEx()" aria-label="effort ${v}">${v}</button>`).join('');
+  const list=document.getElementById('exList');
+  list.innerHTML=`
+    <div class="act-log">
+      <div class="act-empty t-meta">${icon(st,16)} ${empty}</div>
+      <div class="act-ring-wrap">
+        <div class="act-ring-val t-display tnum" id="actDur">${Math.round(a.durationMin||0)}</div>
+        <div class="t-meta">minutes</div>
+        <input type="range" min="0" max="120" step="1" value="${Math.round(a.durationMin||0)}" oninput="setActivityField('durationMin',+this.value);document.getElementById('actDur').textContent=this.value" aria-label="duration minutes" style="width:100%;margin-top:10px">
+      </div>
+      ${showDist?`<div class="field"><label>Distance (${st==='swim'?'m':'km'})${distReq?' — required':''}</label><input type="number" step="${st==='swim'?'25':'0.1'}" value="${a.distance||''}" placeholder="${st==='swim'?'e.g. 500':'e.g. 5'}" oninput="setActivityField('distance',+this.value||0)" aria-label="distance"></div>`:''}
+      <div class="field"><label>Perceived effort (1–10)</label><div class="eff-row">${effChips}</div></div>
+      <div class="field"><label>Notes</label><textarea rows="4" placeholder="How did it feel?" oninput="setActivityField('notes',this.value)" aria-label="notes">${a.notes||''}</textarea></div>
+      <button class="btn btn-gold btn-w act-save" onclick="finalizeActivity()">Save ${st} session</button>
+    </div>`;
+}
 
 function getLastHint(exName){
   for(let i=S.sessions.length-1;i>=0;i--){
@@ -2119,8 +2189,14 @@ function getLastHint(exName){
 
 function renderEx(){
   const sess=S.activeSession;if(!sess)return;
-  document.getElementById('sDayLbl').textContent='Day '+(sess.dayIndex+1)+' · '+S.program.days[sess.dayIndex]?.dayOfWeek;
+  const dayMeta=S.program.days[sess.dayIndex];
+  document.getElementById('sDayLbl').textContent='Day '+(sess.dayIndex+1)+' · '+((dayMeta&&(dayMeta.defaultDay||dayMeta.dayOfWeek))||'');
   document.getElementById('sTitle').textContent=sess.dayLabel;
+
+  // Multi-modal dispatch: activity-log types render a single form, not cards.
+  const st=sess.sessionType||'lifting';
+  if(st==='swim'||st==='run'||st==='pilates'||st==='mobility'){renderActivityLog(sess);return;}
+  // lifting + calisthenics share the card path below.
 
   // Progress indicator
   const totalEx=sess.exercises.length;
@@ -2168,8 +2244,9 @@ function renderEx(){
       <div class="ex-head" onclick="document.getElementById('ex${i}').classList.toggle('open')">
         <div class="ex-status ${stCls}">${allDone?'✓':anyDone?'◐':'○'}</div>
         <div class="ex-info">
-          <div class="ex-name">${(ex.tags||[]).includes('bonus')?'<span style="color:var(--gold);font-size:10px;margin-right:4px">★</span>':''}${ex.name}${ex.tags.includes('per side')?' <span class="td" style="font-size:11px">/side</span>':''}${ex.tags.includes('per hand')?' <span class="td" style="font-size:11px">/hand</span>':''}${ex.tags.includes('per leg')?' <span class="td" style="font-size:11px">/leg</span>':''}</div>
-          <div class="ex-rx">${catChip}${ex.prescribed.sets}×${ex.prescribed.reps} @ ${fmtW(ex.prescribed.loadKg,ex.prescribed.unit)}</div>
+          <div class="ex-name">${(ex.tags||[]).includes('bonus')?'<span style="color:var(--gold);font-size:10px;margin-right:4px">★</span>':''}${st==='calisthenics'&&(ex.prescribed.unit==='bw'||!ex.prescribed.loadKg)?'<span style="background:var(--acc-dim);color:var(--acc);font:600 9px var(--mono);letter-spacing:.5px;padding:1px 5px;border-radius:3px;margin-right:5px">BW</span>':''}${ex.name}${ex.tags.includes('per side')?' <span class="td" style="font-size:11px">/side</span>':''}${ex.tags.includes('per hand')?' <span class="td" style="font-size:11px">/hand</span>':''}${ex.tags.includes('per leg')?' <span class="td" style="font-size:11px">/leg</span>':''}</div>
+          <div class="ex-rx">${catChip}${ex.prescribed.sets}×${ex.prescribed.reps}${ex.prescribed.loadKg?' @ '+fmtW(ex.prescribed.loadKg,ex.prescribed.unit):''}</div>
+          ${st==='calisthenics'&&ex.cue?`<div style="font-size:12px;color:var(--acc);margin-top:3px;line-height:1.4">${ex.cue}</div>`:''}
         </div>
         ${progArrow}
       </div>
@@ -3042,6 +3119,9 @@ function cancelSession(){
 }
 
 function endSession(){
+  // Activity-log sessions finalize directly (no per-exercise RPE modal).
+  const st=S.activeSession&&S.activeSession.sessionType;
+  if(st==='swim'||st==='run'||st==='pilates'||st==='mobility'){finalizeActivity();return;}
   // NOTE: do not stop the session timer yet — if the RPE modal is cancelled we
   // need the session to remain live and the timer to keep counting up.
   stopRest();
