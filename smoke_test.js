@@ -1217,4 +1217,56 @@ assert(/Set distance or duration to start/.test(html), 'Track B: run empty state
 assert(/\.act-ring-wrap/.test(html) && /\.eff-chip/.test(html), 'Track B: activity-log CSS present');
 S.activeSession=null;S.sessions=[];
 
+// ===== TRACK C: SCHEDULING + WEEKLY COMPOSER (Commit 5) =====
+// date helpers (argument-form Date is allowed)
+assert(dateAddDays('2026-06-22',1)==='2026-06-23', 'Track C: dateAddDays +1');
+assert(dateAddDays('2026-06-30',1)==='2026-07-01', 'Track C: dateAddDays crosses month');
+assert(dowOf('2026-06-22')==='Monday', 'Track C: dowOf 2026-06-22 = Monday. Got: '+dowOf('2026-06-22'));
+const wd=weekDatesFor('2026-06-24'); // a Wednesday
+assert(wd.length===7 && wd[0]==='2026-06-22' && wd[6]==='2026-06-28', 'Track C: weekDatesFor returns Mon..Sun. Got: '+wd[0]+'..'+wd[6]);
+assert(dowOf(wd[0])==='Monday' && dowOf(wd[6])==='Sunday', 'Track C: week starts Monday, ends Sunday');
+// buildWeek against a known program
+S.sessions=[];S.skips=[];
+S.program={name:'T',active:true,days:[
+  {id:1,label:'Upper',defaultDay:'Monday',dayOfWeek:'Monday',sessionType:'lifting',dur:70,exercises:[],bonus:[]},
+  {id:2,label:'Squat',defaultDay:'Friday',dayOfWeek:'Friday',sessionType:'lifting',dur:70,exercises:[],bonus:[]},
+  {id:3,label:'Deadlift',defaultDay:'Sunday',dayOfWeek:'Sunday',sessionType:'lifting',dur:70,exercises:[],bonus:[]}
+]};
+S.recurringActivities=[{type:'run',defaultDay:'Saturday',label:'Saturday run'},{type:'swim',defaultDay:null,label:'Swim',locked:true}];
+const week=buildWeek(weekDatesFor('2026-06-22'),'2026-06-22');
+const mon=week.find(r=>r.dow==='Monday'), fri=week.find(r=>r.dow==='Friday'), sat=week.find(r=>r.dow==='Saturday'), tue=week.find(r=>r.dow==='Tuesday');
+assert(mon.sessions.some(s=>s.label==='Upper'&&s.source==='program'), 'Track C: buildWeek places Upper on Monday');
+assert(fri.sessions.some(s=>s.label==='Squat'), 'Track C: buildWeek places Squat on Friday');
+assert(sat.sessions.some(s=>s.type==='run'&&s.source==='recurring'), 'Track C: buildWeek places recurring run on Saturday');
+assert(tue.sessions.length===0, 'Track C: Tuesday is a rest day (no sessions)');
+assert(mon.isToday===true, 'Track C: Monday flagged isToday for 2026-06-22');
+// reschedule: move Upper (idx 0) to Tuesday 2026-06-23
+assert(rescheduleDay(0,'2026-06-23')===true, 'Track C: rescheduleDay succeeds for unlocked day');
+const week2=buildWeek(weekDatesFor('2026-06-22'),'2026-06-22');
+const tue2=week2.find(r=>r.dow==='Tuesday'), mon2=week2.find(r=>r.dow==='Monday');
+assert(tue2.sessions.some(s=>s.label==='Upper'&&s.movedFrom==='Monday'), 'Track C: rescheduled Upper appears Tuesday with movedFrom=Monday');
+assert(!mon2.sessions.some(s=>s.label==='Upper'), 'Track C: Upper no longer on its default Monday');
+restoreDay(0);
+assert(buildWeek(weekDatesFor('2026-06-22'),'2026-06-22').find(r=>r.dow==='Monday').sessions.some(s=>s.label==='Upper'), 'Track C: restoreDay returns Upper to Monday');
+// locked day resists reschedule
+S.program.days[1].locked=true;
+assert(rescheduleDay(1,'2026-06-23')===false, 'Track C: locked day resists reschedule');
+S.program.days[1].locked=false;
+// today pick precedence
+S.program.days[0].scheduledDate='2026-06-23';
+assert(pickTodayDayIdx('2026-06-23','Tuesday')===0, 'Track C: pickToday prefers scheduledDate==today (idx 0)');
+delete S.program.days[0].scheduledDate;
+assert(pickTodayDayIdx('2026-06-26','Friday')===1, 'Track C: pickToday falls to defaultDay==today (Friday→Squat idx 1)');
+// composer add-session
+const beforeDays=S.program.days.length;
+composerAddSession('Wednesday','pilates',true);
+assert(S.program.days.length===beforeDays+1, 'Track C: composerAddSession appends a day');
+const added=S.program.days[S.program.days.length-1];
+assert(added.sessionType==='pilates'&&added.defaultDay==='Wednesday', 'Track C: added day has correct type + defaultDay');
+assert(S.recurringActivities.some(r=>r.type==='pilates'&&r.defaultDay==='Wednesday'), 'Track C: make-recurring pushed a recurring activity');
+// week-view CSS present
+assert(/\.wk-pill/.test(html) && /\.sheet-btn/.test(html) && /\.comp-card/.test(html), 'Track C: week/composer CSS present');
+// restore clean program for any later tests
+S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.skips=[];
+
 console.log('\n=== All tests passed ===');

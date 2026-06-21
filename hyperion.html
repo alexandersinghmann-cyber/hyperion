@@ -340,6 +340,22 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .eff-chip{flex:1;min-width:40px;min-height:40px;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx2);font:600 14px var(--mono);cursor:pointer}
 .eff-chip.sel{background:var(--acc-dim);border-color:var(--acc);color:var(--acc)}
 .act-save{position:sticky;bottom:calc(12px + var(--sab));margin-top:16px}
+/* Week view */
+.wk-row{display:flex;gap:12px;padding:12px 10px;border-bottom:1px solid var(--s2);align-items:flex-start}
+.wk-row.today{background:var(--acc-dim);border-radius:var(--rs)}
+.wk-row.past{opacity:.55}
+.wk-day{min-width:48px;text-align:left}
+.wk-sessions{flex:1;display:flex;flex-direction:column;gap:6px}
+.wk-pill{display:flex;align-items:center;gap:7px;min-height:44px;padding:8px 12px;background:var(--s1);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx);font:500 14px var(--sans);cursor:pointer;text-align:left;width:100%}
+.wk-pill.done{border-color:var(--grn);color:var(--grn)}
+.wk-pill.skipped{opacity:.5;text-decoration:line-through}
+.wk-pill-l{flex:1}
+.sheet-btn{display:block;width:100%;min-height:48px;padding:12px;margin-top:6px;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx);font:600 14px var(--sans);cursor:pointer;text-align:left}
+.sheet-btn:disabled{opacity:.45;cursor:not-allowed}
+.comp-card{background:var(--s1);border:1px solid var(--gold-dim);border-radius:var(--r);padding:14px;margin-top:14px}
+.comp-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--s2)}
+.comp-add{padding:8px;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx);font:500 12px var(--mono)}
+.comp-rec{font:500 10px var(--mono);color:var(--tx3);display:flex;align-items:center;gap:3px;white-space:nowrap}
 
 /* Last hint expanded */
 .last-hint{cursor:pointer}
@@ -542,12 +558,27 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   </div>
 
   <!-- Nav -->
+  <!-- ===== WEEK VIEW ===== -->
+  <div class="view pad" id="vWeek">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+      <div class="t-h1">This Week</div>
+      <button class="btn btn-sm btn-gold" onclick="openComposer()">Compose week</button>
+    </div>
+    <div class="t-meta" id="weekRange" style="margin-bottom:14px"></div>
+    <div id="weekList"></div>
+    <div id="composerCard"></div>
+  </div>
+
   <nav class="bar" id="navBar">
-    <button class="bar-btn on" data-v="Train" onclick="go('Train')">
+    <button class="bar-btn on" data-v="Train" onclick="go('Train')" aria-label="Train">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
       Train
     </button>
-    <button class="bar-btn" data-v="Progress" onclick="go('Progress')">
+    <button class="bar-btn" data-v="Week" onclick="go('Week')" aria-label="Week">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
+      Week
+    </button>
+    <button class="bar-btn" data-v="Progress" onclick="go('Progress')" aria-label="Progress">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
       Progress
     </button>
@@ -809,6 +840,25 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <div class="field"><label>Hyperion export JSON</label><textarea id="restoreArea" rows="10" placeholder='{"sessions":[...],"program":{...},"settings":{...}}'></textarea></div>
     <button class="btn btn-d btn-w" onclick="doRestore()">Restore (overwrite)</button>
     <button class="btn btn-s btn-w" style="margin-top:8px" onclick="hideModal('restoreModal')">Cancel</button>
+  </div>
+</div>
+
+<div class="overlay" id="sessionSheet">
+  <div class="modal">
+    <div class="modal-t" id="sessionSheetTitle">Session</div>
+    <div id="sessionSheetBody"></div>
+    <button class="btn btn-s btn-w" style="margin-top:10px" onclick="hideModal('sessionSheet')">Cancel</button>
+  </div>
+</div>
+
+<div class="overlay" id="rescheduleSheet">
+  <div class="modal">
+    <div class="modal-t">Reschedule</div>
+    <button class="sheet-btn" onclick="doReschedule('tomorrow')">Tomorrow</button>
+    <button class="sheet-btn" onclick="doReschedule('nextmon')">Next Monday</button>
+    <div class="field" style="margin-top:8px"><label>Pick a date</label><input type="date" id="reDate"></div>
+    <button class="btn btn-p btn-w" onclick="doReschedule('date')">Move to date</button>
+    <button class="btn btn-s btn-w" style="margin-top:8px" onclick="hideModal('rescheduleSheet')">Cancel</button>
   </div>
 </div>
 
@@ -1632,6 +1682,7 @@ function go(v){
   const el=document.getElementById('v'+v);if(el)el.classList.add('on');
   const btn=document.querySelector(`[data-v="${v}"]`);if(btn)btn.classList.add('on');
   if(v==='Train')renderTrain();
+  if(v==='Week')renderWeek();
   if(v==='Progress')renderProgress();
 }
 function goTrain(){go('Train')}
@@ -1775,6 +1826,144 @@ function getNextAvailableDayIdx(){
     if(!isDayDone(i)&&!isDaySkipped(i))return i;
   }
   return -1;
+}
+
+// ===== WEEKLY SCHEDULING (Track C) =====
+// Date helpers use the argument form of Date (allowed), not Date.now().
+function dateAddDays(dateStr,n){const d=new Date(dateStr+'T12:00:00');d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);}
+function dowOf(dateStr){return ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date(dateStr+'T12:00:00').getDay()];}
+// Monday-start week of 7 ISO dates containing dateStr.
+function weekDatesFor(dateStr){
+  const js=new Date(dateStr+'T12:00:00').getDay();
+  const back=(js===0?6:js-1);
+  const monday=dateAddDays(dateStr,-back);
+  return Array.from({length:7},(_,i)=>dateAddDays(monday,i));
+}
+// Map program days + recurring activities onto a Mon-Sun week.
+function buildWeek(weekDates,todayDate){
+  const rows=weekDates.map(date=>({date,dow:dowOf(date),isToday:date===todayDate,sessions:[]}));
+  const byDate={},byDow={};rows.forEach(r=>{byDate[r.date]=r;byDow[r.dow]=r;});
+  (S.program.days||[]).forEach((d,idx)=>{
+    let row=null,movedFrom=null;
+    if(d.scheduledDate&&byDate[d.scheduledDate]){
+      row=byDate[d.scheduledDate];
+      if(d.defaultDay&&dowOf(d.scheduledDate)!==d.defaultDay)movedFrom=d.defaultDay;
+    } else if((d.defaultDay||d.dayOfWeek)&&byDow[d.defaultDay||d.dayOfWeek]){
+      row=byDow[d.defaultDay||d.dayOfWeek];
+    }
+    if(row)row.sessions.push({label:d.label,type:d.sessionType||'lifting',locked:!!d.locked,source:'program',dayIndex:idx,movedFrom,done:isDayDone(idx),skipped:isDaySkipped(idx)});
+  });
+  (S.recurringActivities||[]).forEach(ra=>{
+    if(!ra.defaultDay)return;const row=byDow[ra.defaultDay];if(!row)return;
+    if(row.sessions.some(s=>s.type===ra.type))return; // already represented by a program day
+    row.sessions.push({label:ra.label||ra.type,type:ra.type,locked:!!ra.locked,source:'recurring',movedFrom:null});
+  });
+  return rows;
+}
+// Reschedule a program day to an explicit date (locked days resist).
+function rescheduleDay(dayIdx,newDate){
+  const d=S.program.days[dayIdx];if(!d)return false;
+  if(d.locked)return false;
+  d.scheduledDate=newDate;save();return true;
+}
+function restoreDay(dayIdx){const d=S.program.days[dayIdx];if(!d)return;delete d.scheduledDate;save();}
+// Today's session pick: scheduledDate-today > defaultDay-today > next available.
+function pickTodayDayIdx(todayDate,todayDowVal){
+  const days=S.program.days||[];
+  let i=days.findIndex((d,idx)=>d.scheduledDate===todayDate&&!isDayDone(idx)&&!isDaySkipped(idx));
+  if(i>=0)return i;
+  i=days.findIndex((d,idx)=>(d.defaultDay||d.dayOfWeek)===todayDowVal&&!d.scheduledDate&&!isDayDone(idx)&&!isDaySkipped(idx));
+  if(i>=0)return i;
+  return getNextAvailableDayIdx();
+}
+// ===== WEEK VIEW RENDER =====
+let _rescheduleDayIdx=null;
+function renderWeek(){
+  const today=todayStr();
+  const dates=weekDatesFor(today);
+  const rows=buildWeek(dates,today);
+  const rng=document.getElementById('weekRange');if(rng)rng.textContent=fmtDate(dates[0])+' – '+fmtDate(dates[6]);
+  const el=document.getElementById('weekList');if(!el)return;
+  const isPast=(d)=>d<today;
+  el.innerHTML=rows.map(r=>{
+    const pills=r.sessions.map(s=>{
+      const ic=icon(s.type,16);
+      const moved=s.movedFrom?`<span class="t-meta" style="margin-left:6px">moved from ${s.movedFrom.slice(0,3)}</span>`:'';
+      const lock=s.locked?'<span class="t-meta" style="margin-left:4px">🔒</span>':'';
+      const stt=s.done?' done':s.skipped?' skipped':'';
+      const onclick=s.source==='program'?`openSessionSheet(${s.dayIndex})`:`toast('${(s.label||'').replace(/'/g,"")} — recurring; add via Compose')`;
+      return `<button class="wk-pill${stt} tap" onclick="${onclick}" aria-label="${s.label}">${ic}<span class="wk-pill-l">${s.label}</span>${lock}${moved}</button>`;
+    }).join('');
+    return `<div class="wk-row${r.isToday?' today':''}${isPast(r.date)?' past':''}">
+      <div class="wk-day"><div class="t-h2">${r.dow.slice(0,3)}</div><div class="t-meta">${fmtDate(r.date).replace(/^[A-Za-z]+ /,'')}</div></div>
+      <div class="wk-sessions">${pills||'<span class="t-meta" style="color:var(--tx3)">rest</span>'}</div>
+    </div>`;
+  }).join('');
+  // Sunday auto-shows the composer card atop the week
+  const cc=document.getElementById('composerCard');
+  if(cc){cc.innerHTML = (todayDow()==='Sunday') ? `<div class="comp-card"><div class="t-h2">Plan next week</div><div class="t-meta" style="margin:4px 0 8px">It's Sunday — compose your sessions.</div><button class="btn btn-gold btn-w" onclick="openComposer()">Open composer</button></div>` : '';}
+}
+function openSessionSheet(dayIdx){
+  _rescheduleDayIdx=dayIdx;
+  const d=S.program.days[dayIdx];if(!d)return;
+  const done=isDayDone(dayIdx),skipped=isDaySkipped(dayIdx);
+  const body=document.getElementById('sessionSheetBody');
+  document.getElementById('sessionSheetTitle').textContent=d.label;
+  body.innerHTML=`
+    ${!done&&!skipped?`<button class="sheet-btn" onclick="hideModal('sessionSheet');startDay(${dayIdx})">Start session</button>`:''}
+    <button class="sheet-btn" onclick="openReschedule(${dayIdx})" ${d.locked?'disabled':''}>${d.locked?'Reschedule (locked — class commitment)':'Reschedule'}</button>
+    ${d.scheduledDate?`<button class="sheet-btn" onclick="restoreDay(${dayIdx});hideModal('sessionSheet');renderWeek()">Restore to ${(d.defaultDay||d.dayOfWeek||'').slice(0,3)}</button>`:''}
+    ${!done&&!skipped?`<button class="sheet-btn" onclick="hideModal('sessionSheet');openSkipDay(${dayIdx})">Skip</button>`:''}
+    <button class="sheet-btn" onclick="hideModal('sessionSheet');showDayPreview(${dayIdx})">View details</button>
+  `;
+  showModal('sessionSheet');
+}
+function openReschedule(dayIdx){
+  const d=S.program.days[dayIdx];if(!d||d.locked){toast('Locked — change in Settings');return;}
+  _rescheduleDayIdx=dayIdx;
+  hideModal('sessionSheet');
+  const today=todayStr();
+  document.getElementById('reDate').value=d.scheduledDate||today;
+  showModal('rescheduleSheet');
+}
+function doReschedule(when){
+  const i=_rescheduleDayIdx;if(i==null)return;
+  const today=todayStr();
+  let date;
+  if(when==='tomorrow')date=dateAddDays(today,1);
+  else if(when==='nextmon'){const wd=weekDatesFor(dateAddDays(today,7));date=wd[0];}
+  else date=document.getElementById('reDate').value||today;
+  const ok=rescheduleDay(i,date);
+  hideModal('rescheduleSheet');
+  if(!ok){toast('Locked session — cannot reschedule');return;}
+  renderWeek();toast('Moved to '+fmtDate(date));
+}
+// ===== WEEKLY COMPOSER =====
+const COMPOSER_TYPES=['lifting','calisthenics','swim','run','pilates','mobility','rest'];
+function openComposer(){
+  go('Week');
+  const cc=document.getElementById('composerCard');if(!cc)return;
+  const dates=weekDatesFor(todayStr());
+  const rows=buildWeek(dates,todayStr());
+  cc.innerHTML=`<div class="comp-card"><div class="t-h2" style="margin-bottom:8px">Compose week</div>`+
+    rows.map(r=>{
+      const have=r.sessions.map(s=>s.label).join(', ')||'—';
+      return `<div class="comp-row"><div><div class="t-h2" style="font-size:14px">${r.dow.slice(0,3)}</div><div class="t-meta">${have}</div></div>
+        <select class="comp-add" onchange="if(this.value){composerAddSession('${r.dow}',this.value,this.nextElementSibling.checked);this.value='';renderWeek();openComposer();}" aria-label="add session ${r.dow}">
+          <option value="">+ Add</option>${COMPOSER_TYPES.filter(t=>t!=='rest').map(t=>`<option value="${t}">${t}</option>`).join('')}
+        </select><label class="comp-rec"><input type="checkbox"> recurring</label></div>`;
+    }).join('')+
+    `<button class="btn btn-s btn-w" style="margin-top:10px" onclick="document.getElementById('composerCard').innerHTML=''">Done</button></div>`;
+  cc.scrollIntoView&&cc.scrollIntoView({behavior:'smooth'});
+}
+function composerAddSession(dow,type,makeRecurring){
+  const label=type.charAt(0).toUpperCase()+type.slice(1);
+  const day={id:'d_'+(S.program.days.length+1)+'_'+type,label:label,defaultDay:dow,dayOfWeek:dow,sessionType:type,dur:type==='lifting'?70:45,exercises:[],bonus:[],angle:null};
+  S.program.days.push(day);
+  if(makeRecurring&&!(S.recurringActivities||[]).some(r=>r.type===type&&r.defaultDay===dow)){
+    (S.recurringActivities=S.recurringActivities||[]).push({type,defaultDay:dow,defaultDuration:day.dur,defaultDistance:0,label});
+  }
+  save();return day;
 }
 
 // Skip reasons — labels + keys. Used in the skip modal picker.
