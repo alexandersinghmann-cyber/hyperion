@@ -1324,4 +1324,23 @@ assert(typeof miniRing==='function', 'Track D: miniRing defined');
 assert(/\.goal-card/.test(html) && /\.mu-trail/.test(html) && /\.goal-bar/.test(html), 'Track D: goals dashboard CSS present');
 S.sessions=[];
 
+// ===== COMMIT 8: ONBOARDING + CACHE + A11Y + ROUND-TRIP =====
+assert(typeof showOnboardingIfNeeded==='function' && typeof dismissOnboarding==='function', 'C8: onboarding fns defined');
+assert(/id="onboardOverlay"/.test(html), 'C8: onboarding overlay present');
+assert(!/\$\{''\}/.test(html), 'C8: no stray ${\'\'} template artifacts in static HTML');
+assert(/onboarded_v3/.test(html), 'C8: onboarding uses a localStorage flag (shown once)');
+assert(/forceRefresh[\s\S]{0,120}APP_VERSION/.test(html), 'C8: forceRefresh includes APP_VERSION in cache-bust query');
+assert(/focus-visible/.test(html), 'C8: focus-visible a11y outline present');
+// full-state export → import round-trip preserves v3 fields (incl. recurringActivities + goals)
+S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();
+const exp2=buildExportPayload('2026-06-22T00:00:00Z');
+const parsed=parseRestorePayload(exp2);
+assert(parsed.ok===true, 'C8: export round-trips through parseRestorePayload');
+const blob=parsed.parsed;
+assert(Array.isArray(blob.recurringActivities) && blob.goals.some(g=>g.id==='g-mu') && blob.program.days[0].sessionType==='lifting' && blob.program.days[0].exercises[0].equipmentClass, 'C8: round-trip preserves recurringActivities + goals + sessionType + equipmentClass');
+// importing that blob and re-migrating is a no-op for v3 fields (idempotent)
+const _s=S;S=JSON.parse(JSON.stringify(blob));migrateV3();
+assert(S.version===3 && S.goals.find(g=>g.id==='g-swim'), 'C8: re-import + migrate keeps v3 shape');
+S=_s;
+
 console.log('\n=== All tests passed ===');
