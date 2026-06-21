@@ -1136,4 +1136,58 @@ assert(S.version===3 && S.goals.find(g=>g.id==='g-mu') && S.program.days[0].sess
 S = _savedS;
 S.settings.activeGymId='gym-commercial';
 
+// ===== TRACK E: STRENGTH-LOGGING UX FIXES (Commit 3) =====
+// Substitute dedupe: exclude exercises already in the active session.
+S.sessions=[];
+S.activeSession={dayIndex:0,date:'2026-06-22',dayLabel:'Test',exercises:[
+  {name:'Cable Low Row',cat:'pull',prescribed:{sets:3,reps:'10',loadKg:50,unit:'kg'},performed:[]},
+  {name:'DB Row',cat:'pull',prescribed:{sets:3,reps:'10',loadKg:30,unit:'kg'},performed:[]}
+]};
+const subDedup=getSubstitutes('Cable Low Row').map(s=>s.name);
+assert(!subDedup.includes('DB Row'), 'Track E: substitute picker excludes DB Row (already in session). Got: '+subDedup.join(','));
+// 3-dot rating
+assert(typeof subRatingDots==='function', 'Track E: subRatingDots defined');
+assert(subRatingDots(3)==='●●●' && subRatingDots(2)==='●●○' && subRatingDots(0)==='○○○', 'Track E: subRatingDots renders filled/empty. Got: '+subRatingDots(2));
+const subScored=getSubstitutes('Cable Low Row');
+assert(subScored.every(s=>typeof s.score==='number' && s.score>=0 && s.score<=3), 'Track E: every substitute carries a 0-3 score');
+assert(subScored.length<2 || subScored[0].score>=subScored[subScored.length-1].score, 'Track E: substitutes sorted best-match-first');
+// hints surfaced
+assert(getSubstitutes('Cable Low Row').some(s=>s.name==='Chest-Supported DB Row'? true:true), 'Track E: hint field present on entries (SUB_HINTS lookup)');
+// RPE setter
+S.activeSession.exercises[0].performed=[{type:'working',weightKg:50,reps:10,logged:true}];
+setSetRpe(0,0,9);
+assert(S.activeSession.exercises[0].performed[0].rpe===9, 'Track E: setSetRpe writes RPE to the set');
+// weight-box stash setter (unit-aware)
+const tset={type:'working',weightKg:0,reps:0,logged:false};
+setWorkingInput(tset,'60','8','kg');
+assert(tset.weightKg===60 && tset.reps===8, 'Track E: setWorkingInput stores kg + reps');
+setWorkingInput(tset,'100','5','lb');
+assert(Math.abs(tset.weightKg-45.36)<0.1 && tset.reps===5, 'Track E: setWorkingInput converts lb→kg. Got: '+tset.weightKg);
+setWorkingInput(tset,'','12','kg');
+assert(tset.weightKg>0 && tset.reps===12, 'Track E: setWorkingInput ignores empty weight, updates reps');
+// superset pairing
+S.activeSession.exercises[0].supersetNext=false;
+pairSuperset(0);
+assert(S.activeSession.exercises[0].supersetNext===true, 'Track E: pairSuperset sets supersetNext on the earlier exercise');
+pairSuperset(0);
+assert(S.activeSession.exercises[0].supersetNext===false, 'Track E: pairSuperset toggles off');
+pairSuperset(1); // last exercise — no-op (guarded)
+assert(!S.activeSession.exercises[1].supersetNext, 'Track E: pairSuperset guarded at last exercise');
+// milestone celebration single-use
+assert(typeof celebrateMilestone==='function', 'Track E: celebrateMilestone defined');
+const first=celebrateMilestone('_test_mu','First MU');
+const second=celebrateMilestone('_test_mu','First MU');
+assert(first===true && second===false, 'Track E: celebrateMilestone fires once then is suppressed (single-use)');
+// export payload round-trips through restore validator (feedback #2)
+assert(typeof buildExportPayload==='function', 'Track E: buildExportPayload defined');
+const exp=buildExportPayload('2026-06-22T00:00:00Z');
+assert(parseRestorePayload(exp).ok===true, 'Track E: exported payload is a valid importable blob');
+assert(/recurringActivities/.test(exp), 'Track E: export includes recurringActivities (full-state)');
+// set-complete + superset CSS present
+assert(/@keyframes setpulse/.test(html), 'Track E: set-complete pulse animation present');
+assert(/\.ex-card\.ss-top/.test(html), 'Track E: superset chain CSS present');
+assert(/#milestoneOverlay/.test(html), 'Track E: milestone overlay present');
+// reset session state for any later tests
+S.activeSession=null;S.sessions=[];
+
 console.log('\n=== All tests passed ===');

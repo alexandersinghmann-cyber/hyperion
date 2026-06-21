@@ -315,6 +315,22 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .ex-menu button:hover{background:var(--s3)}
 .ex-menu button.danger{color:var(--red)}
 .prog-skip{background:var(--s2);color:var(--tx3)}
+/* Superset visual chain */
+.ex-card.ss-top{border-left:2px solid var(--gold);border-bottom-left-radius:0}
+.ex-card.ss-bot{border-left:2px solid var(--gold);border-top-left-radius:0;margin-top:-2px}
+.ex-card.ss-top::before{content:'⛓ superset';position:absolute;top:-7px;left:10px;font:600 8px var(--mono);letter-spacing:1px;color:var(--gold);background:var(--bg);padding:0 4px}
+.ex-card{position:relative}
+/* Set-complete pulse + check */
+.set-check{display:inline-flex;color:var(--grn)}
+.set-row.just-logged{animation:setpulse 240ms ease}
+@keyframes setpulse{0%{transform:scale(1)}40%{transform:scale(1.03);background:var(--grn-dim)}100%{transform:scale(1)}}
+/* Milestone unlock overlay */
+#milestoneOverlay{position:fixed;inset:0;z-index:400;display:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(8,9,12,.94);text-align:center;padding:24px}
+#milestoneOverlay.on{display:flex;animation:milein 240ms ease}
+@keyframes milein{0%{opacity:0;transform:scale(.96)}100%{opacity:1;transform:scale(1)}}
+#milestoneOverlay .mile-ring{color:var(--gold);margin-bottom:16px}
+#milestoneOverlay .mile-t{font:700 22px var(--sans);color:var(--tx);margin-bottom:6px}
+#milestoneOverlay .mile-l{font:600 15px var(--sans);color:var(--gold);margin-bottom:24px}
 
 /* Last hint expanded */
 .last-hint{cursor:pointer}
@@ -511,8 +527,8 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 
     <!-- Sync -->
     <div class="sync-bar">
-      <span>Export data for Cowork</span>
-      <button class="btn btn-sm btn-g" onclick="syncData()">Save JSON</button>
+      <span>Export data (JSON backup)</span>
+      <button class="btn btn-sm btn-g" onclick="syncData()">Export</button>
     </div>
   </div>
 
@@ -762,6 +778,10 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       </div>
     </div>
     <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
+      <span>Export data (JSON backup)</span>
+      <button class="btn btn-sm btn-g" onclick="syncData()">Export</button>
+    </div>
+    <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
       <span>Restore from JSON</span>
       <button class="btn btn-sm btn-g" onclick="hideModal('settingsModal');showModal('restoreModal')">Restore</button>
     </div>
@@ -781,6 +801,13 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <button class="btn btn-d btn-w" onclick="doRestore()">Restore (overwrite)</button>
     <button class="btn btn-s btn-w" style="margin-top:8px" onclick="hideModal('restoreModal')">Cancel</button>
   </div>
+</div>
+
+<div id="milestoneOverlay" role="dialog" aria-label="Milestone unlocked">
+  <div class="mile-ring"><svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12l4-4 4 4M12 8v8"/></svg></div>
+  <div class="mile-t">Milestone unlocked</div>
+  <div class="mile-l" id="milestoneLabel"></div>
+  <button class="btn btn-gold btn-w" style="max-width:240px" onclick="closeMilestone()">Continue</button>
 </div>
 
 <div class="overlay" id="big3DiagnosticModal">
@@ -2132,8 +2159,12 @@ function renderEx(){
     // S1: progression indicator in header when allDone.
     const progArrow=allDone&&ex.progression==='increase'?'<span class="ex-prog-ind tg">↑</span>':allDone&&ex.progression==='flag'?'<span class="ex-prog-ind tr">⚠</span>':allDone&&ex.progression==='stall'?'<span class="ex-prog-ind" style="color:var(--warn)">⏸</span>':allDone&&ex.progression==='hold'?'<span class="ex-prog-ind td">→</span>':'';
     const catChip=ex.cat?`<span class="ex-cat">${ex.cat}</span>`:'';
+    // Superset visual chain: this card is the top of a pair if it has supersetNext;
+    // the bottom if the previous exercise has supersetNext.
+    const ssTop=ex.supersetNext?' ss-top':'';
+    const ssBot=(i>0&&sess.exercises[i-1].supersetNext)?' ss-bot':'';
 
-    return`<div class="ex-card ${autoOpen?'open':''} ${autoOpen&&!allDone?'active':''}" id="ex${i}">
+    return`<div class="ex-card ${autoOpen?'open':''} ${autoOpen&&!allDone?'active':''}${ssTop}${ssBot}" id="ex${i}">
       <div class="ex-head" onclick="document.getElementById('ex${i}').classList.toggle('open')">
         <div class="ex-status ${stCls}">${allDone?'✓':anyDone?'◐':'○'}</div>
         <div class="ex-info">
@@ -2157,11 +2188,11 @@ function renderEx(){
           const ru=repsUnit(ex.prescribed.reps);
           const repsDisp=ru?(s.reps+' '+ru):s.reps;
           if(s.logged&&!isSkipped){
-            return`<div class="set-row ${stCl} compact">
-              <div class="set-num ${wu?'wu':''}">${wn}</div>
+            return`<div class="set-row ${stCl} compact${s._justLogged?' just-logged':''}">
+              <div class="set-num ${wu?'wu':''}"><span class="set-check">${icon('check',14)}</span></div>
               <div class="set-summary">${fmtW(s.weightKg,ex.prescribed.unit)} <span class="td">×</span> ${repsDisp}</div>
-              <button class="set-rpe ${s.rpe?'has':''}" onclick="showRpePicker(this,${i},${si})" style="position:relative">${s.rpe?'@'+s.rpe:'RPE'}</button>
-              <button class="set-edit" onclick="editSet(${i},${si})" title="Edit">✎</button>
+              <button class="set-rpe ${s.rpe?'has':''}" onclick="showRpePicker(this,${i},${si})" style="position:relative" aria-label="rate effort">${s.rpe?'@'+s.rpe:'RPE'}</button>
+              <button class="set-edit" onclick="editSet(${i},${si})" title="Edit" aria-label="edit set">✎</button>
             </div>`;
           }
           if(isSkipped){
@@ -2171,7 +2202,10 @@ function renderEx(){
               <button class="set-edit" onclick="editSet(${i},${si})" title="Unskip">✎</button>
             </div>`;
           }
-          // Preserve user's current input if they're mid-typing (render can fire during logSet)
+          // Weight-box reset fix: values render from set state, and oninput stashes
+          // each keystroke back into the set object, so a re-render triggered by any
+          // other button (which blurs the input) repaints the typed value instead of
+          // reverting to the prescribed default.
           const wInputEl=document.getElementById(`w${i}_${si}`);
           const rInputEl=document.getElementById(`r${i}_${si}`);
           const wVal = (wInputEl&&document.activeElement===wInputEl) ? wInputEl.value : dw;
@@ -2179,9 +2213,9 @@ function renderEx(){
           return`<div class="set-row ${stCl}">
             <div class="set-num ${wu?'wu':''}">${wn}</div>
             <div class="set-fields">
-              <input type="number" step="0.5" value="${wVal}" placeholder="wt" id="w${i}_${si}">
+              <input type="number" step="0.5" value="${wVal}" placeholder="wt" id="w${i}_${si}" oninput="stashSetInput(${i},${si})" aria-label="weight">
               <span class="x">×</span>
-              <input type="number" value="${rVal}" placeholder="${ru||'rps'}" id="r${i}_${si}">
+              <input type="number" value="${rVal}" placeholder="${ru||'rps'}" id="r${i}_${si}" oninput="stashSetInput(${i},${si})" aria-label="reps">
             </div>
             <button class="set-log ready" onclick="logSet(${i},${si})">Log</button>
             <button class="set-skip" onclick="skipSet(${i},${si})">skip</button>
@@ -2195,9 +2229,10 @@ function renderEx(){
             <button class="btn btn-sm btn-g" onclick="toggleExMenu(${i})" aria-label="More">⋯</button>
             <div class="ex-menu" id="exMenu${i}">
               <button onclick="addWu(${i});closeExMenus()">+ Warmup</button>
-              ${!allDone?`<button onclick="openSubstitute(${i});closeExMenus()">🔀 Substitute (equip)</button>`:''}
-              ${!allDone?`<button onclick="openSwap(${i});closeExMenus()">⇄ Swap</button>`:''}
-              ${!allDone?`<button onclick="skipExercise(${i});closeExMenus()">⏭ Skip exercise</button>`:''}
+              ${!allDone?`<button onclick="openSubstitute(${i});closeExMenus()">Substitute (equip)</button>`:''}
+              ${!allDone?`<button onclick="openSwap(${i});closeExMenus()">Swap</button>`:''}
+              ${i<sess.exercises.length-1?`<button onclick="pairSuperset(${i});closeExMenus()">${ex.supersetNext?'Unpair superset':'Superset with next'}</button>`:''}
+              ${!allDone?`<button onclick="skipExercise(${i});closeExMenus()">Skip exercise</button>`:''}
               <button onclick="painExI=${i};document.getElementById('painExName').textContent='${ex.name.replace(/'/g,"\\'")}';closeExMenus();showModal('painModal')" class="danger">⚠ Pain</button>
             </div>
           </div>
@@ -2543,35 +2578,50 @@ function getActiveGymEquip(){
   const g=gyms.find(x=>x.id===gid);
   return g?g.equipment:null; // null = no filter
 }
+// Variant-detail hints surfaced in the substitute picker (grip/angle guidance).
+const SUB_HINTS={
+  'Lat Pulldown':'wide grip','Close-Grip Lat Pulldown':'narrow grip','Cable Low Row':'neutral grip',
+  'DB Incline Bench':'30° incline','DB Bench Press':'flat','Chest-Supported DB Row':'chest-supported',
+  'Pendlay Row':'strict, dead-stop','Seal Row':'chest-supported'
+};
 function getSubstitutes(exName){
   const meta=getMeta(exName);
   if(!meta.slot)return [];
   const gymEq=getActiveGymEquip();
+  // Dedupe: never suggest an exercise already in the current session (feedback —
+  // exclude already-performed-today). doSubstitute also guards, but hiding them
+  // up front is the real fix.
+  const inSession=new Set((S.activeSession&&S.activeSession.exercises||[]).map(e=>(e.name||'').toLowerCase()));
   const out=[];
   // Core-family broadening: a Pallof Press user mid-session may want any core
-  // option (Cable Crunch, Hanging Knee Raise, Dead Bug, etc.) even though
-  // anti-rot ≠ anti-ext functionally. Surface them as alternatives, not as
-  // recommended. Limited to core slots to avoid generalizing across patterns.
+  // option even though anti-rot ≠ anti-ext functionally. Limited to core slots.
   const isCoreFamily=meta.slot.startsWith('core-');
   Object.keys(EX_META).forEach(name=>{
     if(canonName(name)===canonName(exName))return;
+    if(inSession.has(name.toLowerCase()))return; // already in session — skip
     const m=EX_META[name];
     const slotMatch=m.slot===meta.slot;
     const familyMatch=isCoreFamily && (m.slot||'').startsWith('core-');
     if(!slotMatch && !familyMatch)return;
-    // If gym filter active, every required equipment must be present
-    if(gymEq){
-      const ok=(m.eq||[]).every(tag=>gymEq.includes(tag)||tag==='bodyweight');
-      if(!ok)return;
-    }
-    // Recommended: same SLOT and same shoulder-safety class as the source.
-    // Cross-slot core-family matches are alternatives only.
-    const recommended=slotMatch && m.sh===meta.sh;
-    out.push({name,meta:m,recommended});
+    // Equipment fit at active gym (every required tag present, or no filter)
+    const equipFit=!gymEq || (m.eq||[]).every(tag=>gymEq.includes(tag)||tag==='bodyweight');
+    if(gymEq && !equipFit)return;
+    // Match quality 0–3 dots: slot match + shoulder-class match + equipment fit.
+    let score=0;
+    if(slotMatch)score++;
+    if(m.sh===meta.sh)score++;
+    if(equipFit)score++;
+    const recommended=slotMatch && m.sh===meta.sh; // back-compat field
+    out.push({name,meta:m,recommended,score,hint:SUB_HINTS[name]||null});
   });
-  // Recommended first; within a tier, EX_META insertion order is preserved.
-  out.sort((a,b)=>(b.recommended?1:0)-(a.recommended?1:0));
+  // Best match first; stable within score by EX_META insertion order.
+  out.sort((a,b)=>b.score-a.score);
   return out;
+}
+// Render the 3-dot match-quality indicator (●●○) for a substitute score 0–3.
+function subRatingDots(score){
+  const n=Math.max(0,Math.min(3,score|0));
+  return '●'.repeat(n)+'○'.repeat(3-n);
 }
 function loadAdjustForSub(fromName,toName,fromLoadKg){
   // Heuristic scaling: BB rows heavier than DB rows; leg press heavier than BB squat; etc.
@@ -2599,23 +2649,18 @@ function openSubstitute(ei){
     body.innerHTML='<div class="ec-why" style="padding:12px">No substitutes found for slot "'+(getMeta(ex.name).slot||'unknown')+'". This exercise may not be in the metadata library yet.</div>';
   } else {
     const dispU=S.settings.unit||'kg';
-    const renderCard=(s,isReco)=>{
-      const newLoad=loadAdjustForSub(ex.name,s.name,ex.prescribed.loadKg||0);
-      const loadDisp=newLoad===0?'bodyweight':(dispU==='lb'?Math.round(newLoad*K2L*10)/10+' lb':newLoad+' kg');
+    const renderCard=(s)=>{
+      const snapped=snapLoadToEquipment(loadAdjustForSub(ex.name,s.name,ex.prescribed.loadKg||0),inferEquipmentClass(s.name));
+      const loadDisp=snapped===0?'bodyweight':(dispU==='lb'?Math.round(snapped*K2L*10)/10+' lb':snapped+' kg');
       const eqTags=(s.meta.eq||[]).join(' · ');
-      const badge=isReco?'<span style="color:var(--gold);font:600 9px var(--mono);letter-spacing:1px;margin-right:6px">★ BEST MATCH</span>':'';
-      return `<div class="extra-card" onclick="doSubstitute('${encodeURIComponent(s.name)}')">
-        <div class="ec-head"><div class="ec-name">${badge}${s.name}</div><div class="ec-add">🔀</div></div>
+      const hint=s.hint?`<span style="color:var(--acc);font-size:11px;margin-left:6px">${s.hint}</span>`:'';
+      const dots=`<span class="sub-dots" title="match quality" style="font-size:11px;letter-spacing:1px;color:var(--gold);margin-right:6px">${subRatingDots(s.score)}</span>`;
+      return `<div class="extra-card tap" onclick="doSubstitute('${encodeURIComponent(s.name)}')">
+        <div class="ec-head"><div class="ec-name">${dots}${s.name}${hint}</div><div class="ec-add">${icon('arrow',16)}</div></div>
         <div class="ec-why">${ex.prescribed.sets}×${ex.prescribed.reps} @ ${loadDisp} · ${eqTags}</div>
       </div>`;
     };
-    const reco=subs.filter(s=>s.recommended).slice(0,3);
-    const alts=subs.filter(s=>!s.recommended).slice(0, Math.max(0, 6-reco.length));
-    const sectionHdr=(label)=>`<div style="font:600 10px var(--mono);color:var(--tx3);letter-spacing:1.5px;text-transform:uppercase;margin:10px 4px 6px">${label}</div>`;
-    let html='';
-    if(reco.length){html+=sectionHdr('Recommended')+reco.map(s=>renderCard(s,true)).join('');}
-    if(alts.length){html+=sectionHdr('Alternatives')+alts.map(s=>renderCard(s,false)).join('');}
-    body.innerHTML=html;
+    body.innerHTML=subs.slice(0,6).map(renderCard).join('');
   }
   showModal('subModal');
 }
@@ -2650,11 +2695,15 @@ function logSet(ei,si){
   const dispU=S.settings.unit||'kg';
   if(wi&&wi.value){const v=parseFloat(wi.value);s.weightKg=dispU==='lb'?v*L2K:v}
   if(ri&&ri.value)s.reps=parseInt(ri.value);
-  s.logged=true;save();
+  s.logged=true;s._justLogged=true;save();
+  // Set-complete feedback: brief haptic (CSS pulse handled via ._justLogged class).
+  if(typeof navigator!=='undefined'&&navigator.vibrate)navigator.vibrate(30);
   initAudio();playBeepLater(ex.rest);
   startRest(ex.rest);
   if(ex.performed.every(x=>x.logged))evalProg(ei);
   renderEx();
+  // clear the one-shot pulse flag after the animation window
+  setTimeout(()=>{if(s._justLogged){delete s._justLogged;}},260);
 }
 
 function logAll(ei){
@@ -2742,15 +2791,63 @@ function toggleExMenu(i){
 function closeExMenus(){document.querySelectorAll('.ex-menu.on').forEach(m=>m.classList.remove('on'))}
 function skipExercise(ei){const ex=S.activeSession.exercises[ei];ex.performed.forEach(s=>{if(!s.logged){s.logged=true;s.skipped=true;s.reps=0;s.weightKg=0;s.skipReason=s.skipReason||'other'}});ex.progression='skipped';save();renderEx()}
 
-// Fix 14: RPE inline picker
-function showRpePicker(btn,ei,si){
-  const existing=btn.querySelector('.rpe-inline');if(existing){existing.remove();return}
-  document.querySelectorAll('.rpe-inline').forEach(e=>e.remove());
-  const picker=document.createElement('div');picker.className='rpe-inline';
-  [6,7,8,9,10].forEach(v=>{const b=document.createElement('button');b.textContent=v;const cur=S.activeSession.exercises[ei].performed[si].rpe;if(cur===v)b.classList.add('sel');b.onclick=e=>{e.stopPropagation();S.activeSession.exercises[ei].performed[si].rpe=v;save();renderEx()};picker.appendChild(b)});
-  btn.appendChild(picker);
-  setTimeout(()=>{document.addEventListener('click',function h(){document.querySelectorAll('.rpe-inline').forEach(e=>e.remove());document.removeEventListener('click',h)},{once:true})},10);
+// Pure setter for a working/logged set's RPE — testable without DOM.
+function setSetRpe(ei,si,v){
+  const ex=S.activeSession&&S.activeSession.exercises[ei];if(!ex)return;
+  const s=ex.performed[si];if(!s)return;
+  s.rpe=v;save();
 }
+// Pure setter for an in-progress set's weight/reps (unit-aware) — testable.
+function setWorkingInput(set,rawW,rawR,unit){
+  if(rawW!==''&&rawW!=null&&!isNaN(parseFloat(rawW)))set.weightKg=unit==='lb'?parseFloat(rawW)*L2K:parseFloat(rawW);
+  if(rawR!==''&&rawR!=null&&!isNaN(parseInt(rawR)))set.reps=parseInt(rawR);
+  return set;
+}
+// DOM glue: stash live input into set state on every keystroke (weight-box fix).
+function stashSetInput(ei,si){
+  const ex=S.activeSession&&S.activeSession.exercises[ei];if(!ex)return;
+  const s=ex.performed[si];if(!s)return;
+  const wi=document.getElementById(`w${ei}_${si}`),ri=document.getElementById(`r${ei}_${si}`);
+  setWorkingInput(s, wi?wi.value:'', ri?ri.value:'', S.settings.unit||'kg');
+  save();
+}
+// RPE picker — body-level popover (not a child of the button), so a tap on a
+// value can never re-trigger the button's own showRpePicker (the old race that
+// made selection intermittently unresponsive). Toggles closed if re-tapped.
+function showRpePicker(btn,ei,si){
+  const open=document.getElementById('_rpePop');
+  if(open){const same=open._ei===ei&&open._si===si;open.remove();if(same)return;}
+  const set=S.activeSession.exercises[ei].performed[si];
+  const pop=document.createElement('div');pop.id='_rpePop';pop.className='rpe-inline';pop._ei=ei;pop._si=si;
+  [6,7,8,9,10].forEach(v=>{const b=document.createElement('button');b.textContent=v;if(set.rpe===v)b.classList.add('sel');b.setAttribute('aria-label','RPE '+v);b.onclick=e=>{e.stopPropagation();setSetRpe(ei,si,v);pop.remove();renderEx();};pop.appendChild(b);});
+  document.body.appendChild(pop);
+  try{const r=btn.getBoundingClientRect();pop.style.position='fixed';pop.style.zIndex='300';pop.style.top=Math.max(8,r.top-44)+'px';pop.style.left=Math.max(8,r.right-160)+'px';}catch(e){}
+  setTimeout(()=>{const h=ev=>{if(!pop.contains(ev.target)){pop.remove();document.removeEventListener('click',h,true)}};document.addEventListener('click',h,true);},0);
+}
+// ===== SUPERSET CHAINING =====
+// supersetNext on the earlier exercise pairs it visually with the next one.
+function pairSuperset(ei){
+  const sess=S.activeSession;if(!sess)return;
+  if(ei>=sess.exercises.length-1){toast('No exercise after this to pair with.');return;}
+  sess.exercises[ei].supersetNext=!sess.exercises[ei].supersetNext;
+  save();renderEx();
+}
+// ===== MILESTONE UNLOCK CELEBRATION =====
+const _celebrated=new Set();
+function milestoneCelebrated(key){
+  if(_celebrated.has(key))return true;
+  try{if(localStorage.getItem('cel_'+key))return true;}catch(e){}
+  return false;
+}
+function celebrateMilestone(key,label){
+  if(milestoneCelebrated(key))return false;       // single-use per milestone
+  _celebrated.add(key);try{localStorage.setItem('cel_'+key,'1');}catch(e){}
+  const o=document.getElementById('milestoneOverlay');
+  if(o){const l=document.getElementById('milestoneLabel');if(l)l.textContent=label||key;o.classList.add('on');}
+  if(typeof navigator!=='undefined'&&navigator.vibrate)navigator.vibrate(50);
+  return true;
+}
+function closeMilestone(){const o=document.getElementById('milestoneOverlay');if(o)o.classList.remove('on');}
 
 // Fix 5: Add exercise mid-session
 function addExMidSession(){
@@ -3649,11 +3746,20 @@ function generateCoachReport(){
   });
 }
 
-// ===== SYNC =====
+// ===== EXPORT =====
+// Full-state export (incl. recurringActivities + v3 fields) so a round-trip
+// through Restore loses nothing. Timestamp passed in (testable; new Date()
+// is unavailable in the smoke eval).
+function buildExportPayload(ts){
+  const d=JSON.parse(JSON.stringify(S));
+  d.exportedAt=ts||null;
+  return JSON.stringify(d,null,2);
+}
 function syncData(){
-  const d={exportedAt:new Date().toISOString(),program:S.program,sessions:S.sessions,goals:S.goals,settings:S.settings};
-  const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
+  const json=buildExportPayload(new Date().toISOString());
+  const b=new Blob([json],{type:'application/json'});
   const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='hyperion_data.json';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);
+  toast('Exported hyperion_data.json');
 }
 
 // ===== RESET =====
