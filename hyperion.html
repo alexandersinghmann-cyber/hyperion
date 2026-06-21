@@ -356,6 +356,17 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .comp-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--s2)}
 .comp-add{padding:8px;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx);font:500 12px var(--mono)}
 .comp-rec{font:500 10px var(--mono);color:var(--tx3);display:flex;align-items:center;gap:3px;white-space:nowrap}
+/* Goals dashboard */
+.goal-card{background:var(--s1);border:1px solid var(--s2);border-radius:var(--r);padding:16px;margin-bottom:10px;cursor:pointer}
+.goal-head{display:flex;justify-content:space-between;align-items:baseline}
+.goal-bar{height:8px;background:var(--s3);border-radius:4px;overflow:hidden;margin-top:10px}
+.goal-bar-fill{height:100%;border-radius:4px;transition:width var(--motion)}
+.mu-trail{display:flex;gap:6px;margin-top:12px}
+.mu-seg{flex:1;height:8px;border-radius:4px;background:var(--s3)}
+.mu-seg.done{background:var(--gold)}
+.mu-seg.cur{background:var(--acc);animation:musegpulse 1.4s ease-in-out infinite}
+@keyframes musegpulse{0%,100%{opacity:1}50%{opacity:.45}}
+.mu-check{display:flex;align-items:center;gap:8px;padding:10px 4px;border-bottom:1px solid var(--s2);font-size:14px}
 
 /* Last hint expanded */
 .last-hint{cursor:pointer}
@@ -508,6 +519,13 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 
   <!-- ===== PROGRESS VIEW ===== -->
   <div class="view pad" id="vProgress">
+    <!-- Goals dashboard (hero) -->
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+      <div class="t-h1">Goals</div>
+      <div class="t-meta" id="goalsCountdown"></div>
+    </div>
+    <div id="goalsDash" style="margin-bottom:24px"></div>
+
     <div class="t1" style="margin-bottom:16px">Progress</div>
 
     <!-- Ring -->
@@ -840,6 +858,15 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <div class="field"><label>Hyperion export JSON</label><textarea id="restoreArea" rows="10" placeholder='{"sessions":[...],"program":{...},"settings":{...}}'></textarea></div>
     <button class="btn btn-d btn-w" onclick="doRestore()">Restore (overwrite)</button>
     <button class="btn btn-s btn-w" style="margin-top:8px" onclick="hideModal('restoreModal')">Cancel</button>
+  </div>
+</div>
+
+<div class="overlay" id="muDetailModal">
+  <div class="modal">
+    <div class="modal-t">Bar Muscle-Up — milestones</div>
+    <div class="t-meta" style="margin-bottom:8px">Auto-checks from logged calisthenics (Strict Pull-Up, Strict Dip, False-Grip Pull-Up, MU Negative, Bar Muscle-Up). Tick manually to override.</div>
+    <div id="muDetailBody"></div>
+    <button class="btn btn-s btn-w" style="margin-top:12px" onclick="hideModal('muDetailModal')">Close</button>
   </div>
 </div>
 
@@ -3402,6 +3429,63 @@ function copyReport(){
 
 // ===== PROGRESS VIEW =====
 
+// ===== GOALS DASHBOARD DATA (Track D) =====
+// Pace token from required-vs-actual progression, with a muted "insufficient
+// data" state (feedback #4) so post-break gaps never read critical.
+function paceToken(needed,actual,trailingSessions){
+  if((trailingSessions||0)<2)return 'pace-none';
+  if(needed<=0)return 'pace-on';
+  const r=actual/needed;
+  if(r>=1)return 'pace-ahead';
+  if(r>=0.7)return 'pace-on';
+  if(r>=0.4)return 'pace-behind';
+  return 'pace-critical';
+}
+function weeksUntil(fromStr,toStr){
+  const a=new Date(fromStr+'T12:00:00'),b=new Date(toStr+'T12:00:00');
+  return Math.max(0,Math.ceil((b-a)/(7*86400000)));
+}
+// Muscle-up milestone detection by EXACT exercise-name match (feedback #5).
+function detectMuscleUpMilestones(sessions){
+  const done={pullups:false,dips:false,falsegrip:false,negatives:false,firstmu:false};
+  (sessions||[]).forEach(s=>{
+    (s.exercises||[]).forEach(ex=>{
+      const sets=(ex.performed||[]).filter(p=>p.logged!==false&&!p.skipped);
+      if(!sets.length)return;
+      const maxReps=sets.reduce((m,p)=>Math.max(m,+p.reps||0),0);
+      if(ex.name==='Strict Pull-Up'&&maxReps>=8)done.pullups=true;
+      if(ex.name==='Strict Dip'&&maxReps>=10)done.dips=true;
+      if(ex.name==='False-Grip Pull-Up'&&maxReps>=30)done.falsegrip=true; // hold logged as "30s" → reps 30
+      if(ex.name==='MU Negative'&&maxReps>=5)done.negatives=true;
+      if(ex.name==='Bar Muscle-Up')done.firstmu=true;
+    });
+  });
+  return done;
+}
+// Sync detection into the muscle-up goal; fire single-use celebration on new unlocks.
+function refreshMuscleUpGoal(){
+  const g=(S.goals||[]).find(g=>g.id==='g-mu');if(!g||!Array.isArray(g.milestones))return 0;
+  const det=detectMuscleUpMilestones(S.sessions);
+  let current=0;
+  g.milestones.forEach(m=>{
+    if((det[m.key]||m.manual)&&!m.done){m.done=true;celebrateMilestone('mu_'+m.key,m.label);}
+    if(m.done)current++;
+  });
+  g.current=current;save();return current;
+}
+function swimBest(sessions){
+  return (sessions||[]).filter(s=>s.sessionType==='swim').reduce((m,s)=>Math.max(m,+(s.activity&&s.activity.distance)||0),0);
+}
+function runWeekly(sessions,weekDates){
+  const set=new Set(weekDates);
+  return (sessions||[]).filter(s=>s.sessionType==='run'&&set.has(s.date)).reduce((a,s)=>a+(+(s.activity&&s.activity.distance)||0),0);
+}
+function runWeeklySeries(sessions,today,weeks){
+  const out=[];
+  for(let w=weeks-1;w>=0;w--){out.push(runWeekly(sessions,weekDatesFor(dateAddDays(today,-7*w))));}
+  return out; // oldest..newest
+}
+
 // Canonical Big 3 e1RM source — used by Hero total, Big 3 tiles, Progress stats, and e1RM chart.
 // Bench uses logged Flat Bench only; if none has been logged, falls back to S.settings.benchBaseline1RM (Alex: 95 kg).
 // Incline Bench is deliberately EXCLUDED — it is not a 1RM proxy for flat bench.
@@ -3683,7 +3767,84 @@ function goToLiftDetail(key){
   }, 80);
 }
 
+// Small SVG progress ring for goal cards.
+function miniRing(pct,color,label,sub){
+  const R=24,C=28,circ=2*Math.PI*R,dash=circ*Math.min(100,Math.max(0,pct))/100;
+  return `<div style="text-align:center">
+    <svg viewBox="0 0 56 56" width="56" height="56"><circle cx="${C}" cy="${C}" r="${R}" fill="none" stroke="var(--s3)" stroke-width="5"/><circle cx="${C}" cy="${C}" r="${R}" fill="none" stroke="${color}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}" transform="rotate(-90 ${C} ${C})"/></svg>
+    <div class="t-display tnum" style="font-size:16px;margin-top:-4px">${label}</div>
+    <div class="t-meta">${sub}</div>
+  </div>`;
+}
+function renderGoalsDashboard(){
+  const dash=document.getElementById('goalsDash');if(!dash)return;
+  const today=todayStr();
+  const cd=document.getElementById('goalsCountdown');if(cd)cd.textContent=weeksUntil(today,'2026-12-31')+' weeks to Dec 31';
+  refreshMuscleUpGoal();
+  const b3=getBig3E1rm();
+  const tg=S.settings.big3Targets||{squat:166,bench:102,dead:186};
+  const lb=v=>Math.round(v*K2L);
+  const totalLb=lb(b3.squat)+lb(b3.bench)+lb(b3.dead);
+  // trailing-2-week lifting sessions for the pace muted-guard
+  const cut=dateAddDays(today,-14);
+  const liftN=(S.sessions||[]).filter(s=>(s.sessionType||'lifting')==='lifting'&&s.date>=cut).length;
+  const wkLeft=Math.max(1,weeksUntil(today,'2026-12-31'));
+  const needPerWk=Math.max(0,(1000-totalLb)/wkLeft);
+  const tok1000=`var(--${paceToken(needPerWk, b3.deltaSquat+b3.deltaBench+b3.deltaDead, liftN)})`;
+  const pc=(v,t)=>Math.min(100,v/t*100);
+  // 1000 lb club card
+  const card1000=`<div class="goal-card tap" onclick="goToLiftDetail('squat')">
+    <div class="goal-head"><span class="t-h2">1000 lb Club</span><span class="t-display tnum" style="color:${tok1000}">${totalLb}<span class="t-meta" style="margin-left:4px">/ 1000 lb</span></span></div>
+    <div style="display:flex;justify-content:space-around;margin-top:10px">
+      ${miniRing(pc(b3.squat,tg.squat),tok1000,lb(b3.squat),'squat lb')}
+      ${miniRing(pc(b3.bench,tg.bench),tok1000,lb(b3.bench),'bench lb')}
+      ${miniRing(pc(b3.dead,tg.dead),tok1000,lb(b3.dead),'dead lb')}
+    </div></div>`;
+  // Muscle-up card (stepped trail)
+  const mu=(S.goals||[]).find(g=>g.id==='g-mu');
+  const ms=(mu&&mu.milestones)||[];
+  const muDone=ms.filter(m=>m.done).length;
+  const trail=ms.map((m,i)=>`<div class="mu-seg ${m.done?'done':(i===muDone?'cur':'')}" title="${m.label}"></div>`).join('');
+  const muLabel=muDone>=5?'Bar muscle-up achieved':(ms[muDone]?ms[muDone].label+' — '+(5-muDone)+' more to first MU':'—');
+  const cardMU=`<div class="goal-card tap" onclick="openMuscleUpDetail()">
+    <div class="goal-head"><span class="t-h2">Bar Muscle-Up</span><span class="t-meta">${muDone}/5</span></div>
+    <div class="mu-trail">${trail}</div>
+    <div class="t-meta" style="margin-top:8px;color:var(--tx2)">${muLabel}</div></div>`;
+  // Swim card (distance bar)
+  const sb=swimBest(S.sessions);
+  const swimN=(S.sessions||[]).filter(s=>s.sessionType==='swim'&&s.date>=cut).length;
+  const swimTok=`var(--${paceToken(1, sb>0?1:0, swimN)})`;
+  const cardSwim=`<div class="goal-card tap" onclick="go('Week')">
+    <div class="goal-head"><span class="t-h2">1000m Freestyle</span><span class="t-display tnum" style="color:${swimTok}">${sb}<span class="t-meta" style="margin-left:4px">/ 1000 m</span></span></div>
+    <div class="goal-bar"><div class="goal-bar-fill" style="width:${Math.min(100,sb/1000*100)}%;background:${swimTok}"></div></div>
+    ${sb===0?'<div class="t-meta" style="margin-top:6px;color:var(--tx3)">No swim logged yet — log a session to start tracking</div>':''}</div>`;
+  // Run card (sparkline, no pace color — maintenance)
+  const series=runWeeklySeries(S.sessions,today,8);
+  const thisWk=series[series.length-1]||0;
+  const prior=series.slice(0,7);const avg=prior.length?prior.reduce((a,b)=>a+b,0)/prior.length:0;
+  const mx=Math.max(1,...series);
+  const spark=series.map((v,i)=>`${(i/(series.length-1||1)*100).toFixed(1)},${(30-v/mx*28).toFixed(1)}`).join(' ');
+  const cardRun=`<div class="goal-card tap" onclick="go('Week')">
+    <div class="goal-head"><span class="t-h2">Weekly Running</span><span class="t-display tnum">${thisWk.toFixed(1)}<span class="t-meta" style="margin-left:4px">km this wk</span></span></div>
+    <svg viewBox="0 0 100 30" width="100%" height="34" style="margin-top:6px"><polyline points="${spark}" fill="none" stroke="var(--acc)" stroke-width="1.5"/></svg>
+    <div class="t-meta">4-wk avg ${avg.toFixed(1)} km</div></div>`;
+  dash.innerHTML=card1000+cardMU+cardSwim+cardRun;
+}
+function openMuscleUpDetail(){
+  const mu=(S.goals||[]).find(g=>g.id==='g-mu');if(!mu)return;
+  const body=document.getElementById('muDetailBody');
+  body.innerHTML=(mu.milestones||[]).map((m,i)=>`<label class="mu-check"><input type="checkbox" ${m.done?'checked':''} onchange="toggleMuMilestone(${i},this.checked)"> <span>${m.label}</span></label>`).join('');
+  showModal('muDetailModal');
+}
+function toggleMuMilestone(i,on){
+  const mu=(S.goals||[]).find(g=>g.id==='g-mu');if(!mu||!mu.milestones[i])return;
+  mu.milestones[i].manual=on;mu.milestones[i].done=on;
+  mu.current=mu.milestones.filter(m=>m.done).length;save();
+  if(on)celebrateMilestone('mu_'+mu.milestones[i].key,mu.milestones[i].label);
+  renderProgress();
+}
 function renderProgress(){
+  renderGoalsDashboard();
   const total=calcTotal();
   const pct=Math.min(100,total/1000*100);
   // Ring

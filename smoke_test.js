@@ -1269,4 +1269,55 @@ assert(/\.wk-pill/.test(html) && /\.sheet-btn/.test(html) && /\.comp-card/.test(
 // restore clean program for any later tests
 S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.skips=[];
 
+// ===== TRACK D: GOALS DASHBOARD (Commit 6) =====
+// paceToken incl. muted <2-session guard (feedback #4)
+assert(typeof paceToken==='function', 'Track D: paceToken defined');
+assert(paceToken(10,12,5)==='pace-ahead', 'Track D: pace ahead when actual>needed');
+assert(paceToken(10,8,5)==='pace-on', 'Track D: pace on at 80%');
+assert(paceToken(10,5,5)==='pace-behind', 'Track D: pace behind at 50%');
+assert(paceToken(10,1,5)==='pace-critical', 'Track D: pace critical when far behind');
+assert(paceToken(10,0,1)==='pace-none', 'Track D: <2 trailing sessions → muted pace-none (no false critical)');
+assert(paceToken(10,0,0)==='pace-none', 'Track D: zero sessions → muted');
+// weeksUntil
+assert(weeksUntil('2026-12-24','2026-12-31')===1, 'Track D: weeksUntil ~1 week. Got: '+weeksUntil('2026-12-24','2026-12-31'));
+assert(weeksUntil('2027-01-01','2026-12-31')===0, 'Track D: weeksUntil clamps at 0 past target');
+// muscle-up exact-name detection
+const muSessions=[
+  {sessionType:'calisthenics',date:'2026-06-20',exercises:[
+    {name:'Strict Pull-Up',performed:[{type:'working',reps:8,logged:true}]},
+    {name:'Strict Dip',performed:[{type:'working',reps:10,logged:true}]},
+    {name:'Pull-Up',performed:[{type:'working',reps:12,logged:true}]} // kipping — must NOT count
+  ]}
+];
+const det=detectMuscleUpMilestones(muSessions);
+assert(det.pullups===true && det.dips===true, 'Track D: 8 Strict Pull-Ups + 10 Strict Dips detected');
+assert(det.falsegrip===false && det.negatives===false && det.firstmu===false, 'Track D: undone milestones stay false');
+// kipping Pull-Up does not satisfy strict milestone
+const detKip=detectMuscleUpMilestones([{sessionType:'calisthenics',date:'2026-06-20',exercises:[{name:'Pull-Up',performed:[{type:'working',reps:15,logged:true}]}]}]);
+assert(detKip.pullups===false, 'Track D: kipping Pull-Up (15 reps) does NOT auto-check strict milestone');
+// refreshMuscleUpGoal syncs count
+S.sessions=muSessions.slice();
+const muCount=refreshMuscleUpGoal();
+assert(muCount===2, 'Track D: refreshMuscleUpGoal sets current=2. Got: '+muCount);
+const muGoal=S.goals.find(g=>g.id==='g-mu');
+assert(muGoal.milestones[0].done===true && muGoal.milestones[2].done===false, 'Track D: milestone done flags synced');
+// swim best + run weekly selectors
+const acts=[
+  {sessionType:'swim',date:'2026-06-21',activity:{distance:600}},
+  {sessionType:'swim',date:'2026-06-14',activity:{distance:450}},
+  {sessionType:'run',date:'2026-06-22',activity:{distance:5}},
+  {sessionType:'run',date:'2026-06-24',activity:{distance:3}}
+];
+assert(swimBest(acts)===600, 'Track D: swimBest returns max distance. Got: '+swimBest(acts));
+assert(swimBest([])===0, 'Track D: swimBest 0 when no swims');
+const rw=runWeekly(acts,weekDatesFor('2026-06-22'));
+assert(rw===8, 'Track D: runWeekly sums run distance in week (5+3). Got: '+rw);
+const rs=runWeeklySeries(acts,'2026-06-22',8);
+assert(rs.length===8 && rs[7]===8, 'Track D: runWeeklySeries length 8, newest week = 8km');
+// dashboard render fns + CSS
+assert(typeof renderGoalsDashboard==='function', 'Track D: renderGoalsDashboard defined');
+assert(typeof miniRing==='function', 'Track D: miniRing defined');
+assert(/\.goal-card/.test(html) && /\.mu-trail/.test(html) && /\.goal-bar/.test(html), 'Track D: goals dashboard CSS present');
+S.sessions=[];
+
 console.log('\n=== All tests passed ===');
