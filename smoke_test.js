@@ -1087,4 +1087,53 @@ assert(/^<svg /.test(icon('check')) && /viewBox/.test(icon('check')), 'v3 icons:
 assert(/width="28"/.test(icon('swim',28)), 'v3 icons: icon() honors size arg');
 assert(typeof APP_VERSION === 'string' && APP_VERSION === 'v3', 'v3: APP_VERSION === "v3"');
 
+// ===== TRACK A: SCHEMA MIGRATION + LOAD SNAPPING (Commit 2) =====
+// snapLoadToEquipment
+assert(typeof snapLoadToEquipment === 'function', 'Snap: snapLoadToEquipment defined');
+S.settings.activeGymId='gym-commercial';
+assert(snapLoadToEquipment(14,'db') === 15, 'Snap: db 14 → 15 (nearest 2.5)'); // confirms why literal must be 12.5
+assert(snapLoadToEquipment(12.5,'db') === 12.5, 'Snap: db 12.5 stays 12.5');
+assert(snapLoadToEquipment(83.7,'barbell') === 82.5, 'Snap: barbell rounds to nearest 2.5 plate. Got: '+snapLoadToEquipment(83.7,'barbell'));
+assert(snapLoadToEquipment(84,'barbell') === 85, 'Snap: barbell 84 → 85 (nearest 2.5)');
+assert(snapLoadToEquipment(62.4,'cable') === 62, 'Snap: cable rounds to nearest 1. Got: '+snapLoadToEquipment(62.4,'cable'));
+assert(snapLoadToEquipment(145,'machine') === 145, 'Snap: machine passes through');
+assert(snapLoadToEquipment(125,'sled') === 125, 'Snap: sled passes through');
+assert(snapLoadToEquipment(50,'bw') === 0, 'Snap: bw → 0');
+// inferEquipmentClass
+assert(typeof inferEquipmentClass === 'function', 'Infer: inferEquipmentClass defined');
+assert(inferEquipmentClass('Bench Press') === 'barbell', 'Infer: Bench Press → barbell');
+assert(inferEquipmentClass('DB Bench Press') === 'db', 'Infer: DB Bench Press → db');
+assert(inferEquipmentClass('Lat Pulldown') === 'cable', 'Infer: Lat Pulldown → cable');
+assert(inferEquipmentClass('Leg Press') === 'machine', 'Infer: Leg Press → machine');
+assert(inferEquipmentClass('Sled Push') === 'sled', 'Infer: Sled Push → sled');
+assert(inferEquipmentClass('Hanging Leg Raise') === 'bw', 'Infer: Hanging Leg Raise → bw');
+// migrateV3 ran at eval-time via init()/load(); goals are v3 shape
+assert(typeof migrateV3 === 'function', 'MigrateV3: defined');
+const g1 = S.goals.find(g=>g.id==='g1');
+assert(g1 && g1.type === 'big3-total' && g1.targetDate === '2026-12-31' && g1.dataSource === 'big3', 'MigrateV3: 1000lb goal upgraded (type/targetDate/dataSource)');
+assert(S.goals.some(g=>g.id==='g-mu' && g.type==='milestone-checklist' && Array.isArray(g.milestones) && g.milestones.length===5), 'MigrateV3: muscle-up goal seeded with 5 milestones');
+assert(S.goals.some(g=>g.id==='g-swim' && g.type==='distance-progressive' && g.target===1000), 'MigrateV3: swim goal seeded (target 1000)');
+assert(S.goals.some(g=>g.id==='g-run' && g.type==='weekly-distance' && g.target===null), 'MigrateV3: run goal seeded (no target)');
+assert(Array.isArray(S.recurringActivities) && S.recurringActivities.some(r=>/Push Pull Give/.test(r.label) && r.locked===true), 'MigrateV3: recurring activities incl. locked Cali Handstand (Push Pull Give)');
+assert(S.version === 3, 'MigrateV3: version stamped to 3');
+// program days carry sessionType + defaultDay alias + exercise equipmentClass
+// (earlier tests reset S.program from raw DEF_PROGRAM, so re-apply the idempotent migration)
+migrateV3();
+const md1 = S.program.days[0];
+assert(md1.sessionType === 'lifting', 'MigrateV3: day sessionType=lifting');
+assert(md1.defaultDay && md1.dayOfWeek && md1.defaultDay === md1.dayOfWeek, 'MigrateV3: defaultDay/dayOfWeek alias both populated + equal');
+assert(md1.exercises.every(e=>typeof e.equipmentClass==='string' && 'angle' in e && 'grip' in e), 'MigrateV3: exercises gain equipmentClass + angle + grip');
+// sessions get sessionType
+assert((S.sessions||[]).every(s=>s.sessionType==='lifting'), 'MigrateV3: historical sessions tagged sessionType=lifting');
+// idempotent: re-run changes nothing material
+const goalsBefore = S.goals.length; migrateV3(); assert(S.goals.length === goalsBefore, 'MigrateV3: idempotent (no duplicate goals on re-run)');
+// v2-import round-trip: a pre-v3 blob, when set as S and migrated, backfills cleanly (feedback #7)
+const v2blob = {version:2, program:{name:'Old',active:true,days:[{id:1,label:'Old Day',dayOfWeek:'Monday',dur:60,exercises:[{id:'x1',name:'Back Squat',cat:'squat',sets:4,reps:'5',loadKg:100,unit:'kg',rest:180,tags:[]}],bonus:[]}]}, sessions:[{date:'2026-01-01',dayLabel:'Old Day',exercises:[{name:'Back Squat',performed:[{type:'working',weightKg:100,reps:5,logged:true}]}]}], goals:[{id:'g1',name:'1000 lb Total',current:0,target:1000,unit:'lb',auto:true}], settings:{unit:'kg'}};
+const _savedS = S;
+S = JSON.parse(JSON.stringify(v2blob));
+migrateV3();
+assert(S.version===3 && S.goals.find(g=>g.id==='g-mu') && S.program.days[0].sessionType==='lifting' && S.program.days[0].defaultDay==='Monday' && S.program.days[0].exercises[0].equipmentClass==='barbell' && S.sessions[0].sessionType==='lifting', 'MigrateV3: pre-v3 blob backfills all v3 fields with no loss');
+S = _savedS;
+S.settings.activeGymId='gym-commercial';
+
 console.log('\n=== All tests passed ===');

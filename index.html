@@ -1289,6 +1289,33 @@ function rotateAccessories(){
 // ===== CALIBRATION (Block 2 week 2: real 1RM via top-single ramp) =====
 // Round to plate increment (2.5 kg) — bar math friendly.
 function roundPlate(kg){return Math.round(kg/2.5)*2.5;}
+// Active gym's DB increment (defaults to 2.5kg if unset).
+function activeGymDbInc(){const g=(S.settings&&S.settings.gyms||[]).find(x=>x.id===S.settings.activeGymId);return (g&&g.dbIncrementKg)||2.5;}
+// Snap a prescribed load to a valid increment for its equipment class.
+// db→gym DB increment, barbell→2.5kg plate, cable→1kg, machine/sled→pass-through, bw→0.
+function snapLoadToEquipment(loadKg,equipmentClass){
+  const kg=+loadKg||0;
+  if(kg<=0)return equipmentClass==='bw'?0:kg;
+  switch(equipmentClass){
+    case 'db': {const inc=activeGymDbInc();return Math.round(kg/inc)*inc;}
+    case 'barbell': return roundPlate(kg);
+    case 'cable': return Math.round(kg);
+    case 'bw': return 0;
+    default: return kg; // machine, sled, null — pass through
+  }
+}
+// Infer equipmentClass from an exercise's EX_META eq[] tags. Order matters:
+// barbell > sled > db > cable > machine > bw.
+function inferEquipmentClass(name){
+  const eq=(getMeta(name).eq)||[];
+  if(eq.includes('barbell'))return 'barbell';
+  if(eq.includes('sled'))return 'sled';
+  if(eq.includes('db'))return 'db';
+  if(eq.includes('cable')||eq.includes('pulley'))return 'cable';
+  const machineTags=['leg-press','hack-squat','v-squat','chest-press','pec-deck','leg-extension','hamstring-curl','calf-raise','pulldown-station','machine'];
+  if(eq.some(t=>machineTags.includes(t)))return 'machine';
+  return 'bw';
+}
 // Build a calibration ramp for a lift given current e1RM.
 // Returns array of performed-set objects ready to slot into an activeSession exercise.
 function buildCalibrationRamp(current1RM){
@@ -1408,6 +1435,8 @@ function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse
   if(S.sessions.length===0){S.sessions.push(JSON.parse(JSON.stringify(SEED_SESSION)));save()}
   // Ensure gyms seeded for fresh installs (no prior state branch above)
   try{ensureGyms();save();}catch(e){}
+  // v2→v3 multi-modal migration (idempotent; runs for fresh installs + imported data alike)
+  try{migrateV3();save();}catch(e){}
   // Run validator sweep once (non-blocking) to surface any ordering issues in console
   setTimeout(()=>{try{validateProgram()}catch(e){}},1200);
 }catch(e){}}
@@ -1432,6 +1461,59 @@ function migrateCategories(){
   if(S.activeSession)(S.activeSession.exercises||[]).forEach(walk);
   if(fixed>0){save();setTimeout(()=>toast('Fixed '+fixed+' exercise categor'+(fixed===1?'y':'ies')),400);}
   return fixed;
+}
+
+// ===== v2 → v3 MIGRATION (multi-modal) =====
+// Idempotent. Runs on every load() (fresh installs too), so it must only add
+// what's missing and never clobber existing v3 data.
+const DEFAULT_RECURRING=[
+  {type:'swim',defaultDay:null,defaultDuration:45,defaultDistance:0,label:'Swim lesson',locked:true},
+  {type:'pilates',defaultDay:null,defaultDuration:50,defaultDistance:0,label:'Pilates'},
+  {type:'run',defaultDay:'Saturday',defaultDuration:40,defaultDistance:5,label:'Saturday run'},
+  {type:'calisthenics',defaultDay:null,defaultDuration:60,defaultDistance:0,label:'Cali Handstand (Push Pull Give)',locked:true}
+];
+function muscleUpMilestones(){
+  return [
+    {key:'pullups',label:'8 strict pull-ups',done:false,manual:false},
+    {key:'dips',label:'10 strict dips',done:false,manual:false},
+    {key:'falsegrip',label:'30s false-grip hold',done:false,manual:false},
+    {key:'negatives',label:'5 MU negatives',done:false,manual:false},
+    {key:'firstmu',label:'First bar muscle-up',done:false,manual:false}
+  ];
+}
+function migrateV3(){
+  // --- Goals → v3 shape ---
+  if(!Array.isArray(S.goals))S.goals=[];
+  let g1=S.goals.find(g=>g.id==='g1'||g.auto);
+  if(!g1){g1={id:'g1',auto:true};S.goals.unshift(g1);}
+  if(!g1.type){
+    g1.id='g1';g1.name='1000 lb Club';g1.type='big3-total';g1.target=1000;
+    g1.current=g1.current||0;g1.unit='lb';g1.targetDate='2026-12-31';g1.dataSource='big3';g1.auto=true;
+  }
+  if(!S.goals.some(g=>g.id==='g-mu'))S.goals.push({id:'g-mu',name:'Bar Muscle-Up',type:'milestone-checklist',target:5,current:0,targetDate:'2026-12-31',dataSource:'calisthenics',milestones:muscleUpMilestones()});
+  if(!S.goals.some(g=>g.id==='g-swim'))S.goals.push({id:'g-swim',name:'1000m Freestyle',type:'distance-progressive',target:1000,current:0,unit:'m',targetDate:'2026-12-31',dataSource:'swim'});
+  if(!S.goals.some(g=>g.id==='g-run'))S.goals.push({id:'g-run',name:'Weekly Running',type:'weekly-distance',target:null,current:0,unit:'km',targetDate:null,dataSource:'run'});
+  // --- Recurring activities ---
+  if(!Array.isArray(S.recurringActivities))S.recurringActivities=JSON.parse(JSON.stringify(DEFAULT_RECURRING));
+  // --- Program days: sessionType + defaultDay alias; exercises: angle/grip/equipmentClass ---
+  const fixDay=(d)=>{
+    if(!d.sessionType)d.sessionType='lifting';
+    d.defaultDay=d.defaultDay||d.dayOfWeek||null;
+    d.dayOfWeek=d.dayOfWeek||d.defaultDay||null; // keep alias populated both ways
+    const fixEx=(ex)=>{
+      if(!ex||!ex.name)return;
+      if(ex.angle===undefined)ex.angle=null;
+      if(ex.grip===undefined)ex.grip=null;
+      if(!ex.equipmentClass)ex.equipmentClass=inferEquipmentClass(ex.name);
+    };
+    (d.exercises||[]).forEach(fixEx);
+    (d.bonus||[]).forEach(fixEx);
+  };
+  (S.program&&S.program.days||[]).forEach(fixDay);
+  // --- Sessions: sessionType ---
+  (S.sessions||[]).forEach(s=>{if(!s.sessionType)s.sessionType='lifting';});
+  // --- Version stamp ---
+  if(!S.version||S.version<3)S.version=3;
 }
 
 // Lightweight toast (no deps, auto-dismiss). Safe to call before DOM is ready.
@@ -1643,7 +1725,7 @@ function delGym(){
 function toggleUnit(){S.settings.unit=S.settings.unit==='kg'?'lb':'kg';document.getElementById('unitBtn').textContent=S.settings.unit.toUpperCase();save();renderTrain()}
 
 // ===== TRAIN VIEW =====
-function getTodayDayIdx(){const dow=todayDow();return S.program.days.findIndex(d=>d.dayOfWeek===dow)}
+function getTodayDayIdx(){const dow=todayDow();return S.program.days.findIndex(d=>(d.defaultDay||d.dayOfWeek)===dow)}
 function isDayDone(dayIdx){const day=S.program.days[dayIdx];if(!day)return false;const bn=S.program.name;return S.sessions.some(s=>s.dayLabel===day.label&&(s.blockName===bn||(bn==='Apr 11–16 Block'&&!s.blockName)))}
 function isDaySkipped(dayIdx){const day=S.program.days[dayIdx];if(!day)return false;const bn=S.program.name;return (S.skips||[]).some(sk=>sk.dayLabel===day.label&&sk.blockName===bn)}
 function getDaySkip(dayIdx){const day=S.program.days[dayIdx];if(!day)return null;const bn=S.program.name;return (S.skips||[]).find(sk=>sk.dayLabel===day.label&&sk.blockName===bn)||null}
@@ -2438,12 +2520,14 @@ function doSwap(encName){
     alert('"'+name+'" is already in this session.');return;
   }
   ex.name=name;ex.cat=c.cat||ex.cat;
-  ex.prescribed={sets:c.sets,reps:c.reps,loadKg:c.loadKg,unit:c.unit||'kg'};
+  ex.equipmentClass=inferEquipmentClass(name);
+  const swapLoad=snapLoadToEquipment(c.loadKg,ex.equipmentClass);
+  ex.prescribed={sets:c.sets,reps:c.reps,loadKg:swapLoad,unit:c.unit||'kg'};
   // Reset only un-logged sets to new prescription; keep logged ones
   const rr=repRange(c.reps);const targetReps=rr.max||parseInt(c.reps)||ex.performed[0]?.reps||8;
-  ex.performed=ex.performed.map(p=>p.logged?p:{type:'working',weightKg:c.loadKg,reps:targetReps,rpe:null,logged:false});
+  ex.performed=ex.performed.map(p=>p.logged?p:{type:'working',weightKg:swapLoad,reps:targetReps,rpe:null,logged:false});
   // If new prescription has more sets than current, pad
-  while(ex.performed.length<c.sets)ex.performed.push({type:'working',weightKg:c.loadKg,reps:targetReps,rpe:null,logged:false});
+  while(ex.performed.length<c.sets)ex.performed.push({type:'working',weightKg:swapLoad,reps:targetReps,rpe:null,logged:false});
   ex.nextLoad=null;ex.progression=null;
   (ex.tags=ex.tags||[]).indexOf('swapped')<0&&ex.tags.push('swapped');
   save();hideModal('swapModal');_swapEi=null;renderEx();
@@ -2543,9 +2627,11 @@ function doSubstitute(encName){
   if(sess.exercises.some((e,i)=>i!==_subEi&&(e.name||'').toLowerCase()===name.toLowerCase())){
     alert('"'+name+'" is already in this session.');return;
   }
-  const newLoad=loadAdjustForSub(ex.name,name,ex.prescribed.loadKg||0);
   const m=getMeta(name);
+  const fromName=ex.name;
   ex.name=name;
+  ex.equipmentClass=inferEquipmentClass(name);
+  const newLoad=snapLoadToEquipment(loadAdjustForSub(fromName,name,ex.prescribed.loadKg||0),ex.equipmentClass);
   // Map new pattern back to legacy cat for existing progression engine compatibility
   const patToCat={squat:'squat',hinge:'hinge',hpush:'push',vpush:'push',hpull:'pull',vpull:'pull','rear-delt':'pull','iso-bi':'isolation','iso-tri':'isolation','iso-delt':'isolation','iso-ham':'isolation','iso-quad':'isolation','iso-calf':'isolation','iso-core':'core',carry:'core',rehab:'rehab',cardio:'cardio'};
   if(patToCat[m.pat])ex.cat=patToCat[m.pat];
@@ -3439,8 +3525,11 @@ function saveExEdit(){
   ex.sets=parseInt(document.getElementById('eSets').value)||3;
   ex.reps=document.getElementById('eReps').value;
   const lv=parseFloat(document.getElementById('eLoad').value),lu=document.getElementById('eUnit').value;
-  ex.unit=lu;ex.loadKg=lu==='lb'?lv*L2K:lu==='bw'?0:lv;
-  ex.cat=document.getElementById('eCat').value;
+  ex.unit=lu;ex.cat=document.getElementById('eCat').value;
+  // Snap to a valid increment for the exercise's equipment class.
+  ex.equipmentClass=inferEquipmentClass(ex.name);
+  const rawKg=lu==='lb'?lv*L2K:lu==='bw'?0:lv;
+  ex.loadKg=snapLoadToEquipment(rawKg,ex.equipmentClass);
   // Move to different day if changed — insert at same ordinal position in the target day
   // (clamped to the target's length) rather than unconditionally appending at the end.
   if(ndi!==odi){
@@ -3463,10 +3552,11 @@ function addExToDay(){
   const lv=parseFloat(document.getElementById('aLoad').value)||0;
   const lu=document.getElementById('aUnit').value;
   const cat=document.getElementById('aCat').value;
-  const loadKg=lu==='lb'?lv*L2K:lv;
+  const equipmentClass=inferEquipmentClass(n);
+  const loadKg=snapLoadToEquipment(lu==='lb'?lv*L2K:lv,equipmentClass);
   const restSec=COMPOUNDS.includes(cat)?150:90;
   // Add to program
-  S.program.days[viewDayI].exercises.push({id:'ex_'+Date.now(),name:n,cat,sets,reps,loadKg,unit:lu,rest:restSec,tags:[]});
+  S.program.days[viewDayI].exercises.push({id:'ex_'+Date.now(),name:n,cat,sets,reps,loadKg,unit:lu,rest:restSec,tags:[],angle:null,grip:null,equipmentClass});
   // If mid-session, also add to active session
   if(S._addingMidSession&&S.activeSession){
     const ex={name:n,cat,prescribed:{sets,reps,loadKg,unit:lu},performed:[],notes:'',progression:null,nextLoad:null,painEvent:null,tags:[],rest:restSec};
