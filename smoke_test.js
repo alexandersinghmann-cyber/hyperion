@@ -30,7 +30,9 @@ const patched = js
   .replace(/\bconst ROTATION_THRESHOLD\s*=/g, 'var ROTATION_THRESHOLD =')
   .replace(/\bconst EX_META\s*=/g, 'var EX_META =')
   .replace(/\bconst EQ_TAGS\s*=/g, 'var EQ_TAGS =')
-  .replace(/\bconst DEFAULT_GYMS\s*=/g, 'var DEFAULT_GYMS =');
+  .replace(/\bconst DEFAULT_GYMS\s*=/g, 'var DEFAULT_GYMS =')
+  .replace(/\bconst ICONS\s*=/g, 'var ICONS =')
+  .replace(/\bconst APP_VERSION\s*=/g, 'var APP_VERSION =');
 (0, eval)(patched);
 // Expose helpers globally (they were `function` declarations, already global when eval'd indirectly)
 
@@ -1067,5 +1069,22 @@ assert(goodPayload.sessCount === 2, 'Restore: sessCount = 2. Got: ' + goodPayloa
 assert(goodPayload.parsed && goodPayload.parsed.program && goodPayload.parsed.program.name === 'X', 'Restore: parsed payload preserved');
 const justSettings = parseRestorePayload('{"settings":{"unit":"lb"}}');
 assert(justSettings.ok === true, 'Restore: settings-only payload accepted (partial data is still restorable)');
+
+// ===== V3 DESIGN TOKENS + ICON LIBRARY (Commit 1) =====
+assert(/--t-display:\s*32px/.test(html), 'v3 tokens: --t-display:32px present');
+assert(/--t-h1:\s*22px/.test(html) && /--t-h2:\s*17px/.test(html) && /--t-meta:\s*11px/.test(html), 'v3 tokens: type scale h1/h2/meta present');
+assert(/--sp-1:\s*4px/.test(html) && /--sp-6:\s*24px/.test(html), 'v3 tokens: spacing scale (4px base) present');
+assert(/--motion:\s*220ms/.test(html), 'v3 tokens: --motion 220ms present');
+assert(/--pace-ahead:/.test(html) && /--pace-on:/.test(html) && /--pace-behind:/.test(html) && /--pace-critical:/.test(html) && /--pace-none:/.test(html), 'v3 tokens: all pace tokens present (incl. muted --pace-none)');
+assert(/prefers-reduced-motion:\s*reduce/.test(html), 'v3 tokens: prefers-reduced-motion block present');
+assert(/font-variant-numeric:\s*tabular-nums/.test(html), 'v3 tokens: tabular-nums utility present');
+assert(typeof ICONS === 'object' && ICONS, 'v3 icons: ICONS map defined');
+['lifting','calisthenics','swim','run','pilates','mobility','rest'].forEach(k=>assert(typeof ICONS[k]==='string'&&ICONS[k].length>0, 'v3 icons: session-type icon "'+k+'" present'));
+['muscleup','wave','footprint','barbell'].forEach(k=>assert(typeof ICONS[k]==='string', 'v3 icons: goal icon "'+k+'" present'));
+['check','arrow','pause','move'].forEach(k=>assert(typeof ICONS[k]==='string', 'v3 icons: status icon "'+k+'" present'));
+assert(typeof icon === 'function', 'v3 icons: icon() helper defined');
+assert(/^<svg /.test(icon('check')) && /viewBox/.test(icon('check')), 'v3 icons: icon() returns an <svg> string');
+assert(/width="28"/.test(icon('swim',28)), 'v3 icons: icon() honors size arg');
+assert(typeof APP_VERSION === 'string' && APP_VERSION === 'v3', 'v3: APP_VERSION === "v3"');
 
 console.log('\n=== All tests passed ===');
