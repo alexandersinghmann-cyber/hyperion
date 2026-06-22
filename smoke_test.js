@@ -1280,8 +1280,8 @@ assert(paceToken(10,12,5)==='pace-ahead', 'Track D: pace ahead when actual>neede
 assert(paceToken(10,8,5)==='pace-on', 'Track D: pace on at 80%');
 assert(paceToken(10,5,5)==='pace-behind', 'Track D: pace behind at 50%');
 assert(paceToken(10,1,5)==='pace-critical', 'Track D: pace critical when far behind');
-assert(paceToken(10,0,1)==='pace-none', 'Track D: <2 trailing sessions → muted pace-none (no false critical)');
-assert(paceToken(10,0,0)==='pace-none', 'Track D: zero sessions → muted');
+assert(paceToken(10,0,1)==='pace-muted', 'Track D: <2 trailing sessions → muted (no false critical)');
+assert(paceToken(10,0,0)==='pace-muted', 'Track D: zero sessions → muted');
 // weeksUntil
 assert(weeksUntil('2026-12-24','2026-12-31')===1, 'Track D: weeksUntil ~1 week. Got: '+weeksUntil('2026-12-24','2026-12-31'));
 assert(weeksUntil('2027-01-01','2026-12-31')===0, 'Track D: weeksUntil clamps at 0 past target');
@@ -1342,5 +1342,67 @@ assert(Array.isArray(blob.recurringActivities) && blob.goals.some(g=>g.id==='g-m
 const _s=S;S=JSON.parse(JSON.stringify(blob));migrateV3();
 assert(S.version===3 && S.goals.find(g=>g.id==='g-swim'), 'C8: re-import + migrate keeps v3 shape');
 S=_s;
+
+// ===== V3 REVIEW FIXES =====
+S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.skips=[];
+
+// BUG 1: pace muted on insufficient data
+assert(typeof computePace==='function', 'BUG1: computePace defined');
+const big3goal=S.goals.find(g=>g.id==='g1');
+S.sessions=[{sessionType:'lifting',date:'2026-06-20',dayLabel:'X',exercises:[]}]; // 1 lifting session in window
+assert(computePace(big3goal,'2026-06-22')==='pace-muted', 'BUG1: <2 lifting sessions → pace-muted. Got: '+computePace(big3goal,'2026-06-22'));
+S.sessions=[{sessionType:'lifting',date:'2026-06-18',dayLabel:'X',exercises:[]},{sessionType:'lifting',date:'2026-06-20',dayLabel:'Y',exercises:[]},{sessionType:'lifting',date:'2026-06-21',dayLabel:'Z',exercises:[]}];
+assert(computePace(big3goal,'2026-06-22')!=='pace-muted', 'BUG1: 3 lifting sessions → a computed (non-muted) token. Got: '+computePace(big3goal,'2026-06-22'));
+assert(/--pace-muted:/.test(html), 'BUG1: --pace-muted token defined in CSS');
+assert(/return 'pace-muted'/.test(html), 'BUG1: paceToken returns pace-muted for low-data');
+
+// BUG 2: muscle-up trail fill maps 1:1 + cur is outline not fill
+assert(/\.mu-seg\.cur\{[^}]*box-shadow:inset/.test(html), 'BUG2: cur segment is an inset outline (not a background fill)');
+assert(/Log a Strict Pull-Up set to start tracking/.test(html), 'BUG2: 0/5 placeholder copy present');
+assert(/✓ — Next:/.test(html), 'BUG2: progressive "✓ — Next:" label present');
+
+// BUG 3: today-pick is calendar-ordered (Sunday done → Mon next, not Thu)
+S.program={name:'B3',active:true,days:[
+  {id:1,label:'Mon Upper',defaultDay:'Monday',dayOfWeek:'Monday',sessionType:'lifting',dur:70,exercises:[],bonus:[]},
+  {id:2,label:'Tue Acc',defaultDay:'Tuesday',dayOfWeek:'Tuesday',sessionType:'lifting',dur:60,exercises:[],bonus:[]},
+  {id:3,label:'Thu Swim',defaultDay:'Thursday',dayOfWeek:'Thursday',sessionType:'swim',dur:40,exercises:[],bonus:[]},
+  {id:4,label:'Fri Squat',defaultDay:'Friday',dayOfWeek:'Friday',sessionType:'lifting',dur:70,exercises:[],bonus:[]},
+  {id:5,label:'Sun Dead',defaultDay:'Sunday',dayOfWeek:'Sunday',sessionType:'lifting',dur:70,exercises:[],bonus:[]}
+]};
+S.sessions=[{date:'2026-06-21',dayLabel:'Sun Dead',blockName:'B3',sessionType:'lifting',exercises:[]}]; // Sunday done
+S.skips=[];
+const todayPick=pickTodayDayIdx('2026-06-21','Sunday'); // today = Sun, Sunday done
+assert(S.program.days[todayPick] && S.program.days[todayPick].label==='Mon Upper', 'BUG3: Sunday done → next is Mon Upper (calendar order), not Thu Swim. Got: '+(S.program.days[todayPick]&&S.program.days[todayPick].label));
+
+// BUG 4: blockDateRange spans full Mon..Sun regardless of which days have sessions
+S.program={name:'B4',active:true,days:[{id:1,label:'Mon only',defaultDay:'Monday',dayOfWeek:'Monday',sessionType:'lifting',dur:70,exercises:[],bonus:[]}]};
+const wkd=weekDatesFor(todayStr());
+const d0=new Date(wkd[0]+'T12:00:00').getDate(), d6=new Date(wkd[6]+'T12:00:00').getDate();
+const br=blockDateRange();
+assert(typeof br==='string' && br.indexOf(String(d0))>=0 && br.indexOf(String(d6))>=0, 'BUG4: blockDateRange spans Mon('+d0+')..Sun('+d6+') even with a single-day program. Got: '+br);
+
+// BUG 5: completed/upcoming split helpers
+assert(typeof dayEffectiveDate==='function', 'BUG5: dayEffectiveDate defined');
+assert(/\.comp-toggle/.test(html) && /\.block-banner/.test(html), 'BUG5: completed-section + new-block-banner CSS present');
+assert(typeof dismissNewBlock==='function' && typeof reviewNewBlock==='function', 'BUG5: new-block banner handlers defined');
+S.settings._dismissedBlock=undefined;dismissNewBlock();
+assert(S.settings._dismissedBlock===DEF_PROGRAM.name, 'BUG5: dismissNewBlock records the dismissed block name');
+S.settings._dismissedBlock=undefined;
+
+// FEATURE: drag-drop core
+assert(typeof dragMoveTo==='function', 'Drag: dragMoveTo defined');
+assert(typeof wireWeekDrag==='function', 'Drag: wireWeekDrag defined');
+S.program={name:'DG',active:true,days:[
+  {id:1,label:'Mon',defaultDay:'Monday',dayOfWeek:'Monday',sessionType:'lifting',dur:70,exercises:[],bonus:[]},
+  {id:2,label:'Locked',defaultDay:'Wednesday',dayOfWeek:'Wednesday',sessionType:'calisthenics',dur:60,exercises:[],bonus:[],locked:true}
+]};
+assert(dragMoveTo(0,'2026-06-24')===true, 'Drag: moving Mon → Wed succeeds');
+assert(S.program.days[0].scheduledDate==='2026-06-24', 'Drag: scheduledDate updated');
+const wkAfter=buildWeek(weekDatesFor('2026-06-22'),'2026-06-22');
+assert(wkAfter.find(r=>r.dow==='Wednesday').sessions.some(s=>s.label==='Mon'&&s.movedFrom==='Monday'), 'Drag: moved-from tag renders after drag');
+assert(dragMoveTo(1,'2026-06-25')===false, 'Drag: locked day resists drag (returns false)');
+assert(!S.program.days[1].scheduledDate, 'Drag: locked day not moved');
+// restore clean state
+S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.skips=[];
 
 console.log('\n=== All tests passed ===');

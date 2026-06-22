@@ -35,7 +35,7 @@
   /* v3 motion */
   --motion:220ms cubic-bezier(.2,0,0,1);
   /* v3 pace tokens (year-end goal pacing) */
-  --pace-ahead:var(--grn);--pace-on:var(--acc);--pace-behind:var(--warn);--pace-critical:var(--red);--pace-none:var(--tx3);
+  --pace-ahead:var(--grn);--pace-on:var(--acc);--pace-behind:var(--warn);--pace-critical:var(--red);--pace-muted:var(--tx3);--pace-none:var(--tx3);
 }
 /* v3 numeric headline utility */
 .tnum{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
@@ -373,9 +373,20 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .mu-trail{display:flex;gap:6px;margin-top:12px}
 .mu-seg{flex:1;height:8px;border-radius:4px;background:var(--s3)}
 .mu-seg.done{background:var(--gold)}
-.mu-seg.cur{background:var(--acc);animation:musegpulse 1.4s ease-in-out infinite}
+.mu-seg.cur{background:transparent;box-shadow:inset 0 0 0 2px var(--acc);animation:musegpulse 1.4s ease-in-out infinite}
 @keyframes musegpulse{0%,100%{opacity:1}50%{opacity:.45}}
 .mu-check{display:flex;align-items:center;gap:8px;padding:10px 4px;border-bottom:1px solid var(--s2);font-size:14px}
+/* New-block banner + completed section (Train view) */
+.block-banner{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--gold-dim);border:1px solid var(--gold);border-radius:var(--r);padding:12px 14px;margin-bottom:12px}
+.comp-toggle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;margin-top:16px;padding:10px 4px;font:600 11px var(--mono);color:var(--tx3);letter-spacing:1px;text-transform:uppercase;border-top:1px solid var(--s2)}
+.comp-toggle .comp-arrow{transition:transform var(--motion)}
+.comp-toggle.open .comp-arrow{transform:rotate(90deg)}
+.comp-list{display:none;margin-top:8px}
+.comp-list.open{display:block}
+/* Week-view drag-drop */
+.wk-pill.dragging{opacity:.92;box-shadow:0 8px 24px rgba(0,0,0,.5);transform:scale(1.02);position:relative;z-index:50}
+.wk-row.drag-dim{opacity:.4}
+.wk-row.drop-target{background:var(--acc-dim);outline:2px dashed var(--acc);border-radius:var(--rs)}
 
 /* Last hint expanded */
 .last-hint{cursor:pointer}
@@ -1931,14 +1942,10 @@ function isDaySkipped(dayIdx){const day=S.program.days[dayIdx];if(!day)return fa
 function getDaySkip(dayIdx){const day=S.program.days[dayIdx];if(!day)return null;const bn=S.program.name;return (S.skips||[]).find(sk=>sk.dayLabel===day.label&&sk.blockName===bn)||null}
 // Next unfinished (not-done, not-skipped) day starting from today's day-of-week, wrapping forward through the week.
 function getNextAvailableDayIdx(){
-  const n=S.program.days.length;if(!n)return -1;
-  const todayI=getTodayDayIdx();
-  const start=todayI>=0?todayI:0;
-  for(let off=0;off<n;off++){
-    const i=(start+off)%n;
-    if(!isDayDone(i)&&!isDaySkipped(i))return i;
-  }
-  return -1;
+  // Calendar-ordered next session from today (BUG 3) — delegates to pickTodayDayIdx.
+  if(!S.program.days.length)return -1;
+  const idx=pickTodayDayIdx(todayStr(),todayDow());
+  return idx>=0?idx:-1;
 }
 
 // ===== WEEKLY SCHEDULING (Track C) =====
@@ -1980,14 +1987,25 @@ function rescheduleDay(dayIdx,newDate){
   d.scheduledDate=newDate;save();return true;
 }
 function restoreDay(dayIdx){const d=S.program.days[dayIdx];if(!d)return;delete d.scheduledDate;save();}
-// Today's session pick: scheduledDate-today > defaultDay-today > next available.
+// Today's session pick (BUG 3 — calendar-ordered, not session-ordered):
+//  1. scheduledDate === today & not done
+//  2. defaultDay === today's dow & not moved & not done
+//  3. forward scan today+1..+7 in CALENDAR order; first not-done-not-skipped
 function pickTodayDayIdx(todayDate,todayDowVal){
   const days=S.program.days||[];
-  let i=days.findIndex((d,idx)=>d.scheduledDate===todayDate&&!isDayDone(idx)&&!isDaySkipped(idx));
+  const avail=(idx)=>!isDayDone(idx)&&!isDaySkipped(idx);
+  let i=days.findIndex((d,idx)=>d.scheduledDate===todayDate&&avail(idx));
   if(i>=0)return i;
-  i=days.findIndex((d,idx)=>(d.defaultDay||d.dayOfWeek)===todayDowVal&&!d.scheduledDate&&!isDayDone(idx)&&!isDaySkipped(idx));
+  i=days.findIndex((d,idx)=>(d.defaultDay||d.dayOfWeek)===todayDowVal&&!d.scheduledDate&&avail(idx));
   if(i>=0)return i;
-  return getNextAvailableDayIdx();
+  for(let off=1;off<=7;off++){
+    const date=dateAddDays(todayDate,off), dow=dowOf(date);
+    i=days.findIndex((d,idx)=>d.scheduledDate===date&&avail(idx));
+    if(i>=0)return i;
+    i=days.findIndex((d,idx)=>(d.defaultDay||d.dayOfWeek)===dow&&!d.scheduledDate&&avail(idx));
+    if(i>=0)return i;
+  }
+  return -1;
 }
 // ===== WEEK VIEW RENDER =====
 let _rescheduleDayIdx=null;
@@ -2005,16 +2023,63 @@ function renderWeek(){
       const lock=s.locked?'<span class="t-meta" style="margin-left:4px">🔒</span>':'';
       const stt=s.done?' done':s.skipped?' skipped':'';
       const onclick=s.source==='program'?`openSessionSheet(${s.dayIndex})`:`toast('${(s.label||'').replace(/'/g,"")} — recurring; add via Compose')`;
-      return `<button class="wk-pill${stt} tap" onclick="${onclick}" aria-label="${s.label}">${ic}<span class="wk-pill-l">${s.label}</span>${lock}${moved}</button>`;
+      const dnd=s.source==='program'?` data-day-idx="${s.dayIndex}" data-locked="${s.locked?1:0}"`:'';
+      return `<button class="wk-pill${stt} tap"${dnd} onclick="${onclick}" aria-label="${s.label}">${ic}<span class="wk-pill-l">${s.label}</span>${lock}${moved}</button>`;
     }).join('');
-    return `<div class="wk-row${r.isToday?' today':''}${isPast(r.date)?' past':''}">
+    return `<div class="wk-row${r.isToday?' today':''}${isPast(r.date)?' past':''}" data-date="${r.date}">
       <div class="wk-day"><div class="t-h2">${r.dow.slice(0,3)}</div><div class="t-meta">${fmtDate(r.date).replace(/^[A-Za-z]+ /,'')}</div></div>
       <div class="wk-sessions">${pills||'<span class="t-meta" style="color:var(--tx3)">rest</span>'}</div>
     </div>`;
   }).join('');
+  wireWeekDrag(el);
   // Sunday auto-shows the composer card atop the week
   const cc=document.getElementById('composerCard');
   if(cc){cc.innerHTML = (todayDow()==='Sunday') ? `<div class="comp-card"><div class="t-h2">Plan next week</div><div class="t-meta" style="margin:4px 0 8px">It's Sunday — compose your sessions.</div><button class="btn btn-gold btn-w" onclick="openComposer()">Open composer</button></div>` : '';}
+}
+// Core drag-move (testable): reschedule a program day to a target date.
+// Locked days resist with a short haptic + return false (snap-back signal).
+function dragMoveTo(dayIdx,targetDate){
+  const d=S.program.days[dayIdx];if(!d)return false;
+  if(d.locked){if(typeof navigator!=='undefined'&&navigator.vibrate)navigator.vibrate(20);return false;}
+  const ok=rescheduleDay(dayIdx,targetDate);
+  if(ok&&typeof navigator!=='undefined'&&navigator.vibrate)navigator.vibrate(15);
+  return ok;
+}
+// Long-press → drag → drop wiring for the week pills (touch + mouse via Pointer
+// Events). Tap still fires the pill's onclick (drag only arms after 300ms hold).
+function wireWeekDrag(container){
+  if(!container||!container.querySelectorAll)return;
+  const pills=container.querySelectorAll('.wk-pill[data-day-idx]');
+  pills.forEach&&pills.forEach(pill=>{
+    let holdT=null,dragging=false,startY=0;
+    const rows=()=>Array.prototype.slice.call(container.querySelectorAll('.wk-row'));
+    const clearDrag=()=>{dragging=false;pill.classList.remove('dragging');rows().forEach(r=>r.classList.remove('drag-dim','drop-target'));};
+    const rowAt=(y)=>rows().find(r=>{const b=r.getBoundingClientRect();return y>=b.top&&y<=b.bottom;});
+    pill.addEventListener('pointerdown',e=>{
+      startY=e.clientY;
+      holdT=setTimeout(()=>{
+        dragging=true;pill.classList.add('dragging');
+        rows().forEach(r=>r.classList.add('drag-dim'));
+        if(navigator.vibrate)navigator.vibrate(10);
+      },300);
+    });
+    pill.addEventListener('pointermove',e=>{
+      if(!dragging)return;
+      e.preventDefault();
+      rows().forEach(r=>r.classList.remove('drop-target'));
+      const r=rowAt(e.clientY);if(r)r.classList.add('drop-target');
+    });
+    const onUp=(e)=>{
+      if(holdT){clearTimeout(holdT);holdT=null;}
+      if(!dragging){return;}
+      const r=rowAt(e.clientY);
+      const idx=parseInt(pill.getAttribute('data-day-idx'));
+      clearDrag();
+      if(r){const date=r.getAttribute('data-date');if(date&&dragMoveTo(idx,date)){renderWeek();toast('Moved to '+fmtDate(date));}else{toast('Locked — change in Settings');}}
+    };
+    pill.addEventListener('pointerup',onUp);
+    pill.addEventListener('pointercancel',()=>{if(holdT)clearTimeout(holdT);clearDrag();});
+  });
 }
 function openSessionSheet(dayIdx){
   _rescheduleDayIdx=dayIdx;
@@ -2126,23 +2191,15 @@ function unskipDay(dayIdx){
   save();renderTrain();
 }
 
+// BUG 4: always span the full Mon–Sun of the current week, regardless of
+// which days carry sessions.
 function blockDateRange(){
-  const days=S.program.days;if(!days.length)return'';
+  const dates=weekDatesFor(todayStr());
+  const fmt=(ds)=>{const d=new Date(ds+'T12:00:00');return {m:d.getMonth(),day:d.getDate()};};
   const mn=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  // Use program name to extract dates, or fall back to day-of-week calculation
-  const m=S.program.name.match(/(\w+ \d+)[–-](\d+)/);
-  if(m)return m[0];
-  // Fallback: calculate from today's date and day positions
-  const now=new Date();const dow=now.getDay();
-  const dows=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  const firstDayDow=dows.indexOf(days[0].dayOfWeek);
-  const lastDayDow=dows.indexOf(days[days.length-1].dayOfWeek);
-  let diff=(firstDayDow-dow+7)%7; if(diff>3)diff-=7;
-  const first=new Date(now);first.setDate(first.getDate()+diff);
-  const span=days.length-1;
-  const last=new Date(first);last.setDate(first.getDate()+((lastDayDow-firstDayDow+7)%7));
-  if(first.getMonth()===last.getMonth())return mn[first.getMonth()]+' '+first.getDate()+'–'+last.getDate();
-  return mn[first.getMonth()]+' '+first.getDate()+' – '+mn[last.getMonth()]+' '+last.getDate();
+  const a=fmt(dates[0]),b=fmt(dates[6]);
+  if(a.m===b.m)return mn[a.m]+' '+a.day+'–'+b.day;
+  return mn[a.m]+' '+a.day+' – '+mn[b.m]+' '+b.day;
 }
 
 function renderTrain(){
@@ -2181,7 +2238,7 @@ function renderTrain(){
   // Block days
   const todayIdx=getTodayDayIdx();
   const container=document.getElementById('blockDays');
-  let html='';
+  const upcoming=[],completed=[];
 
   S.program.days.forEach((day,i)=>{
     const done=isDayDone(i);
@@ -2217,7 +2274,8 @@ function renderTrain(){
     const upLocked=i===0||done||isDayDone(i-1);
     const downLocked=i===nDays-1||done||isDayDone(i+1);
 
-    html+=`<div class="day-card ${cls}" onclick="showDayPreview(${i})">
+    const dow=day.defaultDay||day.dayOfWeek;
+    const card=`<div class="day-card ${cls}" onclick="showDayPreview(${i})">
       <div class="day-row">
         <div class="dc-reorder">
           <button class="dc-move" ${upLocked?'disabled':''} onclick="event.stopPropagation();moveDay(${i},-1)" title="Move up">▲</button>
@@ -2226,25 +2284,47 @@ function renderTrain(){
         <div class="day-num">${numGlyph}</div>
         <div class="day-info">
           <div class="day-label">${day.label}</div>
-          <div class="day-meta">${day.dayOfWeek} · ${day.exercises.length} exercises${metaTail}</div>
+          <div class="day-meta">${dow} · ${day.exercises.length} exercises${metaTail}</div>
         </div>
         <div class="day-arrow" style="color:${arrowColor};font-size:14px">${arrowGlyph}</div>
       </div>
       <div style="margin-top:4px;margin-left:${42+28}px;font:11px var(--mono);color:var(--tx3);letter-spacing:.2px">${subtitle}</div>
     </div>`;
+    if(done||skipped)completed.push(card);
+    else upcoming.push({idx:i,sort:dayEffectiveDate(day),card});
   });
 
-  // Gold start button — next available (not done, not skipped) day
+  // BUG 5: split into "Up next" (date-sorted) and a collapsed "Completed" list.
+  upcoming.sort((a,b)=>a.sort<b.sort?-1:a.sort>b.sort?1:a.idx-b.idx);
+  let html='';
+  // New-block banner (surfaces when the built-in default differs from the loaded block)
+  if(DEF_PROGRAM.name!==S.program.name && S.settings._dismissedBlock!==DEF_PROGRAM.name){
+    html+=`<div class="block-banner"><div><div class="t-meta" style="color:var(--gold)">NEW BLOCK AVAILABLE</div><div style="font:600 14px var(--sans);margin-top:2px">${DEF_PROGRAM.name}</div></div><div style="display:flex;gap:6px"><button class="btn btn-sm btn-gold" onclick="event.stopPropagation();reviewNewBlock()">Review</button><button class="btn btn-sm btn-g" onclick="event.stopPropagation();dismissNewBlock()">Skip</button></div></div>`;
+  }
+  // Gold start button — next available, calendar-ordered
   const startIdx=getNextAvailableDayIdx();
   if(startIdx>=0){
     const sDay=S.program.days[startIdx];
     const isTodayStart=startIdx===todayIdx;
-    const label=isTodayStart?`Start — ${sDay.label}`:`Start — ${sDay.label} (${sDay.dayOfWeek})`;
-    html=`<button class="start-btn" onclick="showDayPreview(${startIdx})">${label}</button><div style="height:8px"></div>`+html;
+    const label=isTodayStart?`Start — ${sDay.label}`:`Start — ${sDay.label} (${sDay.defaultDay||sDay.dayOfWeek})`;
+    html+=`<button class="start-btn" onclick="showDayPreview(${startIdx})">${label}</button><div style="height:8px"></div>`;
   }
-
+  html+=`<div class="section-hdr" style="margin-top:4px">Up next</div>`+(upcoming.map(u=>u.card).join('')||'<div class="t-meta" style="padding:8px 2px">All sessions done — load a new block.</div>');
+  if(completed.length){
+    html+=`<div class="comp-toggle" onclick="this.parentNode.querySelector('.comp-list').classList.toggle('open');this.classList.toggle('open')">Completed this block · ${completed.length}<span class="comp-arrow">›</span></div><div class="comp-list">${completed.join('')}</div>`;
+  }
   container.innerHTML=html;
 }
+// Effective calendar date a program day next occurs on (for Up-next sorting).
+function dayEffectiveDate(day){
+  const today=todayStr();
+  if(day.scheduledDate&&day.scheduledDate>=today)return day.scheduledDate;
+  const dow=day.defaultDay||day.dayOfWeek;
+  for(let off=0;off<=13;off++){const dt=dateAddDays(today,off);if(dowOf(dt)===dow)return dt;}
+  return today;
+}
+function reviewNewBlock(){if(S.activeSession){alert('End your current session first.');return}showModal('importModal');}
+function dismissNewBlock(){S.settings._dismissedBlock=DEF_PROGRAM.name;save();renderTrain();}
 
 function showDayPreview(i){
   previewDayI=i;
@@ -3519,13 +3599,34 @@ function copyReport(){
 // Pace token from required-vs-actual progression, with a muted "insufficient
 // data" state (feedback #4) so post-break gaps never read critical.
 function paceToken(needed,actual,trailingSessions){
-  if((trailingSessions||0)<2)return 'pace-none';
+  if((trailingSessions||0)<2)return 'pace-muted';
   if(needed<=0)return 'pace-on';
   const r=actual/needed;
   if(r>=1)return 'pace-ahead';
   if(r>=0.7)return 'pace-on';
   if(r>=0.4)return 'pace-behind';
   return 'pace-critical';
+}
+// Goal-level pace: counts sessions of the goal's modality in the trailing
+// 2-week window. <2 → muted grey (BUG 1 — no false red on low-data windows).
+function computePace(goal,todayDate){
+  const today=todayDate||todayStr();
+  const cut=dateAddDays(today,-14);
+  if(goal.type==='big3-total'){
+    const n=(S.sessions||[]).filter(s=>(s.sessionType||'lifting')==='lifting'&&s.date>=cut).length;
+    if(n<2)return 'pace-muted';
+    const b3=getBig3E1rm();
+    const totalLb=Math.round(b3.squat*K2L)+Math.round(b3.bench*K2L)+Math.round(b3.dead*K2L);
+    const wkLeft=Math.max(1,weeksUntil(today,goal.targetDate||'2026-12-31'));
+    const need=Math.max(0,((goal.target||1000)-totalLb)/wkLeft);
+    return paceToken(need, b3.deltaSquat+b3.deltaBench+b3.deltaDead, n);
+  }
+  if(goal.type==='distance-progressive'){
+    const n=(S.sessions||[]).filter(s=>s.sessionType==='swim'&&s.date>=cut).length;
+    if(n<2)return 'pace-muted';
+    return paceToken(1, swimBest(S.sessions)>0?1:0, n);
+  }
+  return 'pace-muted';
 }
 function weeksUntil(fromStr,toStr){
   const a=new Date(fromStr+'T12:00:00'),b=new Date(toStr+'T12:00:00');
@@ -3881,12 +3982,8 @@ function renderGoalsDashboard(){
   const tg=S.settings.big3Targets||{squat:166,bench:102,dead:186};
   const lb=v=>Math.round(v*K2L);
   const totalLb=lb(b3.squat)+lb(b3.bench)+lb(b3.dead);
-  // trailing-2-week lifting sessions for the pace muted-guard
-  const cut=dateAddDays(today,-14);
-  const liftN=(S.sessions||[]).filter(s=>(s.sessionType||'lifting')==='lifting'&&s.date>=cut).length;
-  const wkLeft=Math.max(1,weeksUntil(today,'2026-12-31'));
-  const needPerWk=Math.max(0,(1000-totalLb)/wkLeft);
-  const tok1000=`var(--${paceToken(needPerWk, b3.deltaSquat+b3.deltaBench+b3.deltaDead, liftN)})`;
+  const g1=(S.goals||[]).find(g=>g.id==='g1')||{type:'big3-total',target:1000,targetDate:'2026-12-31'};
+  const tok1000=`var(--${computePace(g1,today)})`;
   const pc=(v,t)=>Math.min(100,v/t*100);
   // 1000 lb club card
   const card1000=`<div class="goal-card tap" onclick="goToLiftDetail('squat')">
@@ -3900,16 +3997,21 @@ function renderGoalsDashboard(){
   const mu=(S.goals||[]).find(g=>g.id==='g-mu');
   const ms=(mu&&mu.milestones)||[];
   const muDone=ms.filter(m=>m.done).length;
-  const trail=ms.map((m,i)=>`<div class="mu-seg ${m.done?'done':(i===muDone?'cur':'')}" title="${m.label}"></div>`).join('');
-  const muLabel=muDone>=5?'Bar muscle-up achieved':(ms[muDone]?ms[muDone].label+' — '+(5-muDone)+' more to first MU':'—');
+  // BUG 2: fill maps 1:1 to achieved count. 'cur' is an outline (next-up),
+  // never a fill — at 0/5 nothing reads as done.
+  const trail=ms.map((m,i)=>`<div class="mu-seg ${m.done?'done':(i===muDone&&muDone>0?'cur':'')}" title="${m.label}"></div>`).join('');
+  let muLabel;
+  if(muDone>=5)muLabel='Bar muscle-up achieved';
+  else if(muDone===0)muLabel='Log a Strict Pull-Up set to start tracking';
+  else muLabel=ms[muDone-1].label+' ✓ — Next: '+ms[muDone].label;
   const cardMU=`<div class="goal-card tap" onclick="openMuscleUpDetail()">
     <div class="goal-head"><span class="t-h2">Bar Muscle-Up</span><span class="t-meta">${muDone}/5</span></div>
     <div class="mu-trail">${trail}</div>
     <div class="t-meta" style="margin-top:8px;color:var(--tx2)">${muLabel}</div></div>`;
   // Swim card (distance bar)
   const sb=swimBest(S.sessions);
-  const swimN=(S.sessions||[]).filter(s=>s.sessionType==='swim'&&s.date>=cut).length;
-  const swimTok=`var(--${paceToken(1, sb>0?1:0, swimN)})`;
+  const swimGoal=(S.goals||[]).find(g=>g.id==='g-swim')||{type:'distance-progressive',target:1000};
+  const swimTok=`var(--${computePace(swimGoal,today)})`;
   const cardSwim=`<div class="goal-card tap" onclick="go('Week')">
     <div class="goal-head"><span class="t-h2">1000m Freestyle</span><span class="t-display tnum" style="color:${swimTok}">${sb}<span class="t-meta" style="margin-left:4px">/ 1000 m</span></span></div>
     <div class="goal-bar"><div class="goal-bar-fill" style="width:${Math.min(100,sb/1000*100)}%;background:${swimTok}"></div></div>
