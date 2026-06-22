@@ -159,8 +159,8 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .day-card{position:relative;background:var(--s1);border-radius:var(--r);padding:14px 16px;margin-bottom:8px;border:1px solid var(--s3);cursor:pointer;transition:all .15s;overflow:hidden}
 .day-card:active{transform:scale(.98)}
 .day-card.today{border-color:var(--s3);border-left:3px solid var(--acc);background:linear-gradient(135deg,rgba(34,211,238,.03),transparent)}
-.day-card.done{opacity:.5}
-.day-card.done:active{opacity:.7}
+.day-card.done{opacity:.55}
+.day-card.done:active{opacity:.75}
 .day-card.skipped{opacity:.55;border-left:3px solid var(--tx3);background:linear-gradient(135deg,rgba(255,255,255,.015),transparent)}
 .day-row{display:flex;align-items:center;gap:12px}
 .day-num{width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:50%;font:700 12px var(--mono);flex-shrink:0}
@@ -460,18 +460,12 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       </div>
     </div>
 
-    <!-- Hero stat -->
-    <div id="heroStat"></div>
-    <!-- Big 3 e1RM tiles -->
-    <div class="big3-tiles" id="big3Tiles"></div>
-    <div class="big3-baseline-note" id="big3BaselineNote" style="display:none"></div>
-    <!-- Stats strip -->
-    <div class="stat-strip" id="stats"></div>
+    <!-- Big 3 hero/tiles/stats removed (BUG 7) — all goal/stat tracking lives in Progress. -->
 
     <!-- Block days -->
     <div class="section-hdr" id="blockHdr">Training Block</div>
     <div id="blockDays"></div>
-    <button class="btn btn-g btn-w" style="margin-top:16px;font-size:12px" onclick="if(S.activeSession){alert('End your current session first.')}else{showModal('importModal')}">Load New Block</button>
+    <button class="btn btn-g btn-w" style="margin-top:16px;font-size:12px" onclick="if(S.activeSession){alert('End your current session first.')}else{showModal('importModal')}">Import Block from JSON</button>
   </div>
 
   <!-- ===== DAY PREVIEW VIEW ===== -->
@@ -646,7 +640,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 
 <div class="overlay" id="importModal">
   <div class="modal">
-    <div class="modal-t">Load New Block</div>
+    <div class="modal-t">Import Block from JSON</div>
     <p style="font-size:12px;color:var(--tx2);margin-bottom:12px;line-height:1.5">Paste the program JSON from your coach. This replaces your current training block — all session history is preserved.</p>
     <div class="field"><label>Program JSON</label><textarea id="importArea" rows="6" placeholder='{"name":"...","days":[...]}'></textarea></div>
     <button class="btn btn-p btn-w" onclick="doImport()">Import</button>
@@ -792,6 +786,10 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
       <span>Display Unit</span>
       <button class="btn btn-sm btn-g tm" onclick="toggleUnit();renderSettings()" id="sUnitBtn">KG</button>
+    </div>
+    <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
+      <span>Stoic quote on Train</span>
+      <button class="btn btn-sm btn-g" onclick="toggleQuote();renderSettings()" id="sQuoteBtn">ON</button>
     </div>
     <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
       <span>Import Program</span>
@@ -1738,14 +1736,16 @@ function toast(msg,ms){
 // Reset program to the built-in default, preserving sessions + goals + settings.
 function syncProgram(){
   if(S.activeSession){alert('End your current session before syncing the program.');return}
-  if(!confirm('Replace your current program with the built-in 4-day default?\n\nThis preserves all session history, goals, and settings.\n\nCurrent program: '+(S.program&&S.program.days?S.program.days.length:0)+' days\nDefault: 4 days'))return;
-  S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));
+  const defN=DEF_PROGRAM.days.length;
+  if(!confirm('Load the built-in block "'+DEF_PROGRAM.name+'" ('+defN+' days)?\n\nThis preserves all session history, goals, and settings.\n\nCurrent: '+(S.program&&S.program.days?S.program.days.length:0)+' days'))return;
+  S.program=JSON.parse(JSON.stringify(DEF_PROGRAM)); // name auto-updates to DEF_PROGRAM.name
+  delete S.settings._dismissedBlock; // a fresh adoption clears any prior skip
   save();
   hideModal('settingsModal');
   renderTrain();
   const warns=validateProgram();
-  const warnCount=warns.reduce((a,r)=>a+r.warnings.length,0);
-  alert('Program synced to default (4 days).'+(warnCount?'\n\n'+warnCount+' validator note(s) in console.':''));
+  const warnCount=warns.reduce((a,r)=>a+r.warnings.filter(w=>w.level==='warn').length,0);
+  alert('Loaded "'+DEF_PROGRAM.name+'" ('+defN+' days).'+(warnCount?'\n\n'+warnCount+' validator note(s) in console.':''));
 }
 
 // ===== HELPERS =====
@@ -1815,6 +1815,7 @@ function hideModal(id){document.getElementById(id).classList.remove('on')}
 function showSettings(){renderSettings();showModal('settingsModal')}
 function renderSettings(){
   document.getElementById('sUnitBtn').textContent=S.settings.unit.toUpperCase();
+  const qB=document.getElementById('sQuoteBtn');if(qB)qB.textContent=(S.settings.showQuote!==false)?'ON':'OFF';
   const disp=S.settings.unit||'kg';
   const tgts=S.settings.big3Targets||{squat:166,bench:102,dead:186};
   const toDisp=kg=>disp==='lb'?Math.round(kg*K2L):Math.round(kg*10)/10;
@@ -1934,6 +1935,7 @@ function delGym(){
 
 // ===== UNIT =====
 function toggleUnit(){S.settings.unit=S.settings.unit==='kg'?'lb':'kg';document.getElementById('unitBtn').textContent=S.settings.unit.toUpperCase();save();renderTrain()}
+function toggleQuote(){S.settings.showQuote=(S.settings.showQuote===false);save();renderTrain();}
 
 // ===== TRAIN VIEW =====
 function getTodayDayIdx(){const dow=todayDow();return S.program.days.findIndex(d=>(d.defaultDay||d.dayOfWeek)===dow)}
@@ -2203,37 +2205,18 @@ function blockDateRange(){
 }
 
 function renderTrain(){
-  const maxim=getMaxim();
-  document.getElementById('quoteText').textContent='"'+maxim[0]+'"';
-  document.getElementById('quoteAuthor').textContent='— '+maxim[1];
+  // Stoic quote — optional via Settings (default ON).
+  const showQuote=S.settings.showQuote!==false;
+  const greet=document.getElementById('greeting');
+  if(greet)greet.style.display=showQuote?'':'none';
+  if(showQuote){
+    const maxim=getMaxim();
+    document.getElementById('quoteText').textContent='"'+maxim[0]+'"';
+    document.getElementById('quoteAuthor').textContent='— '+maxim[1];
+  }
   document.getElementById('unitBtn').textContent=S.settings.unit.toUpperCase();
   document.getElementById('blockDateRange').textContent=blockDateRange();
   document.getElementById('blockHdr').textContent=S.program.name||'Training Block';
-
-  // Stats
-  const totalE1=calcTotal();
-  const blockTotal=S.program.days.length;
-  const blockDone=S.program.days.filter((_,i)=>isDayDone(i)).length;
-  // Streak: consecutive days with sessions
-  let streak=0;
-  const sortedDates=[...new Set(S.sessions.map(s=>s.date))].sort().reverse();
-  if(sortedDates.length){
-    const today=new Date();today.setHours(12,0,0,0);
-    let check=new Date(sortedDates[0]+'T12:00:00');
-    const diffToday=Math.round((today-check)/864e5);
-    if(diffToday<=1){streak=1;for(let i=1;i<sortedDates.length;i++){const prev=new Date(sortedDates[i]+'T12:00:00');const gap=Math.round((check-prev)/864e5);if(gap<=1){streak++;check=prev}else break}}
-  }
-  // Hero stat
-  const gap=totalE1>0&&totalE1<1000?(1000-totalE1)+' lb to go':'';
-  document.getElementById('heroStat').innerHTML=`
-    <div class="hero-row"><span class="hero-total">${totalE1>0?totalE1:'—'}</span><span class="hero-unit">lb</span></div>
-    ${gap?`<div class="hero-gap">${gap}</div>`:''}`;
-  // Big 3 e1RM tiles (tap → Progress chart)
-  renderBig3Tiles();
-  document.getElementById('stats').innerHTML=`
-    <div class="stat-item"><div class="stat-val">${blockDone} / ${blockTotal}</div><div class="stat-lbl">Sessions</div></div>
-    <div class="stat-item"><div class="stat-val">${streak}</div><div class="stat-lbl">Streak</div></div>
-  `;
 
   // Block days
   const todayIdx=getTodayDayIdx();
@@ -2265,7 +2248,7 @@ function renderTrain(){
     }
 
     const numGlyph=done?'✓':skipped?'⊘':(i+1);
-    const metaTail=done?' · Completed':skipped?' · Skipped':isToday?' · Today':' · ~'+day.dur+' min';
+    const metaTail=done?' · ✓ Done':skipped?' · Skipped':isToday?' · Today':' · ~'+day.dur+' min';
     const arrowColor=isToday?'var(--acc)':'var(--tx3)';
     const arrowGlyph=isToday?'→':'›';
 
@@ -2323,7 +2306,9 @@ function dayEffectiveDate(day){
   for(let off=0;off<=13;off++){const dt=dateAddDays(today,off);if(dowOf(dt)===dow)return dt;}
   return today;
 }
-function reviewNewBlock(){if(S.activeSession){alert('End your current session first.');return}showModal('importModal');}
+// Banner "Review" adopts the built-in DEF_PROGRAM (preserves history) — this is
+// the sync path, distinct from the JSON-paste import button (BUG 6).
+function reviewNewBlock(){if(S.activeSession){alert('End your current session first.');return}syncProgram();}
 function dismissNewBlock(){S.settings._dismissedBlock=DEF_PROGRAM.name;save();renderTrain();}
 
 function showDayPreview(i){
@@ -2490,6 +2475,17 @@ function startDay(i){
 }
 
 function saveSessionNotes(){if(S.activeSession){S.activeSession.notes=document.getElementById('sessNotes').value;save()}}
+
+// Start an ad-hoc activity session (no program day) — used by tappable empty
+// goal cards so they open the matching logging flow directly (no dead ends).
+function startAdHocSession(type){
+  if(S.activeSession){alert('End your current session first.');return}
+  const label=type.charAt(0).toUpperCase()+type.slice(1);
+  S.activeSession={dayIndex:-1,date:todayStr(),dayLabel:label,sessionType:type,startTime:Date.now(),exercises:[],notes:'',activity:{durationMin:0,distance:0,effort:null,notes:''}};
+  save();sessionStart=Date.now();startTimer();
+  showView('vSession');renderEx();
+  document.getElementById('navBar').style.display='none';
+}
 
 // ===== ACTIVITY LOG (swim / run / pilates / mobility) =====
 const ACTIVITY_EMPTY={swim:'Set duration and dive in',run:'Set distance or duration to start',pilates:'Time it and take notes',mobility:'Time it and take notes'};
@@ -4012,20 +4008,21 @@ function renderGoalsDashboard(){
   const sb=swimBest(S.sessions);
   const swimGoal=(S.goals||[]).find(g=>g.id==='g-swim')||{type:'distance-progressive',target:1000};
   const swimTok=`var(--${computePace(swimGoal,today)})`;
-  const cardSwim=`<div class="goal-card tap" onclick="go('Week')">
+  const cardSwim=`<div class="goal-card tap" onclick="startAdHocSession('swim')">
     <div class="goal-head"><span class="t-h2">1000m Freestyle</span><span class="t-display tnum" style="color:${swimTok}">${sb}<span class="t-meta" style="margin-left:4px">/ 1000 m</span></span></div>
     <div class="goal-bar"><div class="goal-bar-fill" style="width:${Math.min(100,sb/1000*100)}%;background:${swimTok}"></div></div>
-    ${sb===0?'<div class="t-meta" style="margin-top:6px;color:var(--tx3)">No swim logged yet — log a session to start tracking</div>':''}</div>`;
+    ${sb===0?'<div class="t-meta" style="margin-top:6px;color:var(--acc)">Tap to log a swim</div>':''}</div>`;
   // Run card (sparkline, no pace color — maintenance)
   const series=runWeeklySeries(S.sessions,today,8);
   const thisWk=series[series.length-1]||0;
   const prior=series.slice(0,7);const avg=prior.length?prior.reduce((a,b)=>a+b,0)/prior.length:0;
   const mx=Math.max(1,...series);
   const spark=series.map((v,i)=>`${(i/(series.length-1||1)*100).toFixed(1)},${(30-v/mx*28).toFixed(1)}`).join(' ');
-  const cardRun=`<div class="goal-card tap" onclick="go('Week')">
+  const runEmpty=series.every(v=>v===0);
+  const cardRun=`<div class="goal-card tap" onclick="startAdHocSession('run')">
     <div class="goal-head"><span class="t-h2">Weekly Running</span><span class="t-display tnum">${thisWk.toFixed(1)}<span class="t-meta" style="margin-left:4px">km this wk</span></span></div>
     <svg viewBox="0 0 100 30" width="100%" height="34" style="margin-top:6px"><polyline points="${spark}" fill="none" stroke="var(--acc)" stroke-width="1.5"/></svg>
-    <div class="t-meta">4-wk avg ${avg.toFixed(1)} km</div></div>`;
+    <div class="t-meta">${runEmpty?'Tap to log a run':'4-wk avg '+avg.toFixed(1)+' km'}</div></div>`;
   dash.innerHTML=card1000+cardMU+cardSwim+cardRun;
 }
 function openMuscleUpDetail(){

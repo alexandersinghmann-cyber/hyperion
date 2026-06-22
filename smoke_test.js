@@ -1405,4 +1405,32 @@ assert(!S.program.days[1].scheduledDate, 'Drag: locked day not moved');
 // restore clean state
 S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.skips=[];
 
+// ===== BUG 6: import button rename + banner sync path =====
+assert(/Import Block from JSON/.test(html), 'BUG6: button relabeled "Import Block from JSON"');
+assert(!/Load New Block/.test(html), 'BUG6: ambiguous "Load New Block" label removed');
+assert(/function reviewNewBlock\(\)\{[\s\S]*?syncProgram\(\)/.test(html), 'BUG6: banner Review adopts the built-in via syncProgram (not the paste modal)');
+
+// ===== BUG 7: Big 3 hero/tiles/stats removed from Train =====
+assert(!/id="heroStat"/.test(html), 'BUG7: heroStat removed from Train');
+assert(!/id="big3Tiles"/.test(html), 'BUG7: big3Tiles removed from Train');
+assert(!/class="stat-strip" id="stats"/.test(html), 'BUG7: Train stat-strip removed');
+
+// ===== POLISH =====
+// stoic quote toggle (default ON)
+assert(typeof toggleQuote==='function', 'Polish: toggleQuote defined');
+S.settings.showQuote=undefined;
+assert((S.settings.showQuote!==false)===true, 'Polish: quote defaults ON when unset');
+toggleQuote(); assert(S.settings.showQuote===false, 'Polish: toggleQuote ON→OFF');
+toggleQuote(); assert(S.settings.showQuote===true, 'Polish: toggleQuote OFF→ON');
+assert(/Stoic quote on Train/.test(html), 'Polish: quote toggle row present in Settings');
+// tappable empty goal cards
+assert(typeof startAdHocSession==='function', 'Polish: startAdHocSession defined (tappable empty cards)');
+assert(/Tap to log a swim/.test(html) && /Tap to log a run/.test(html), 'Polish: empty swim/run cards prompt to log (no dead-end)');
+// completed styling
+assert(/✓ Done/.test(html), 'Polish: completed sessions tagged "✓ Done"');
+assert(/\.day-card\.done\{opacity:\.55\}/.test(html), 'Polish: completed cards at 0.55 opacity');
+// block name auto-updates on sync (syncProgram replaces S.program with DEF_PROGRAM incl. name)
+assert(typeof DEF_PROGRAM.name==='string' && JSON.parse(JSON.stringify(DEF_PROGRAM)).name===DEF_PROGRAM.name, 'Polish: adopting the built-in carries DEF_PROGRAM.name (block name auto-updates on sync)');
+assert(/function syncProgram\(\)\{[\s\S]*?S\.program=JSON\.parse\(JSON\.stringify\(DEF_PROGRAM\)\)/.test(html), 'Polish: syncProgram adopts DEF_PROGRAM (name included)');
+
 console.log('\n=== All tests passed ===');
