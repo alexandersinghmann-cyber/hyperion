@@ -1443,4 +1443,10 @@ assert(/\.day-card\.done\{opacity:\.55\}/.test(html), 'Polish: completed cards a
 assert(typeof DEF_PROGRAM.name==='string' && JSON.parse(JSON.stringify(DEF_PROGRAM)).name===DEF_PROGRAM.name, 'Polish: adopting the built-in carries DEF_PROGRAM.name (block name auto-updates on sync)');
 assert(/function syncProgram\(\)\{[\s\S]*?S\.program=JSON\.parse\(JSON\.stringify\(DEF_PROGRAM\)\)/.test(html), 'Polish: syncProgram adopts DEF_PROGRAM (name included)');
 
+// ===== BUG: Up-next day badges renumber by display order (not stored position) =====
+// renderTrain bakes a %%N%% placeholder for upcoming cards and replaces it 1..N
+// after the date-sort, so a date-sorted list never shows scrambled 2,3,1 badges.
+assert(/numGlyph=done\?'✓':skipped\?'⊘':'%%N%%'/.test(html), 'Up-next badges: upcoming uses a placeholder, not the stored index');
+assert(/upcoming\.forEach\(\(u,n\)=>\{u\.card=u\.card\.replace\('day-num">%%N%%<'/.test(html), 'Up-next badges: renumbered 1..N in display order after sort');
+
 console.log('\n=== All tests passed ===');

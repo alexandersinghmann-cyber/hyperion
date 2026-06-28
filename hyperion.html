@@ -2282,7 +2282,10 @@ function renderTrain(){
       subtitle=mainEx?`${mainEx.name} ${fmtW(mainEx.loadKg,mainEx.unit)}${secondEx?', '+secondEx.name+' '+fmtW(secondEx.loadKg,secondEx.unit):''}`:'';
     }
 
-    const numGlyph=done?'✓':skipped?'⊘':(i+1);
+    // Upcoming cards get a placeholder number, renumbered 1..N in display
+    // (date-sorted) order after the sort — otherwise the stored program
+    // position shows through and the list reads e.g. 2,3,1.
+    const numGlyph=done?'✓':skipped?'⊘':'%%N%%';
     const metaTail=done?' · ✓ Done':skipped?' · Skipped':isToday?' · Today':' · ~'+day.dur+' min';
     const arrowColor=isToday?'var(--acc)':'var(--tx3)';
     const arrowGlyph=isToday?'→':'›';
@@ -2314,6 +2317,7 @@ function renderTrain(){
 
   // BUG 5: split into "Up next" (date-sorted) and a collapsed "Completed" list.
   upcoming.sort((a,b)=>a.sort<b.sort?-1:a.sort>b.sort?1:a.idx-b.idx);
+  upcoming.forEach((u,n)=>{u.card=u.card.replace('day-num">%%N%%<','day-num">'+(n+1)+'<')});
   let html='';
   // New-block banner (surfaces when the built-in default differs from the loaded block)
   if(DEF_PROGRAM.name!==S.program.name && S.settings._dismissedBlock!==DEF_PROGRAM.name){
