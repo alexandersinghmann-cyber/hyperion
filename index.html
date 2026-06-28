@@ -378,6 +378,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .mu-check{display:flex;align-items:center;gap:8px;padding:10px 4px;border-bottom:1px solid var(--s2);font-size:14px}
 /* New-block banner + completed section (Train view) */
 .block-banner{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--gold-dim);border:1px solid var(--gold);border-radius:var(--r);padding:12px 14px;margin-bottom:12px}
+.conflict-banner{display:flex;align-items:flex-start;gap:10px;background:var(--warn-dim);border:1px solid var(--warn);border-radius:var(--r);padding:12px 14px;margin-bottom:12px;color:var(--warn)}
 .comp-toggle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;margin-top:16px;padding:10px 4px;font:600 11px var(--mono);color:var(--tx3);letter-spacing:1px;text-transform:uppercase;border-top:1px solid var(--s2)}
 .comp-toggle .comp-arrow{transition:transform var(--motion)}
 .comp-toggle.open .comp-arrow{transform:rotate(90deg)}
@@ -990,7 +991,10 @@ const NAME_ALIASES={
   'Seated Row (cable)':'Cable Low Row',
   'Low Row':'Cable Low Row',
   'Cable Row':'Cable Low Row',
-  'Cable Row (wide)':'Cable Low Row'
+  'Cable Row (wide)':'Cable Low Row',
+  'Calf Raise (sitting)':'Calf Raise',
+  'Standing Overhead Barbell Press':'Military Press',
+  'Overhead Press':'Military Press'
 };
 function canonName(n){return NAME_ALIASES[n]||n}
 
@@ -1019,12 +1023,14 @@ const EX_META={
   'DB Bench Press':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['db','bench'],fat:'heavy-compound',sh:'activation-first',slot:'hpush'},
   'Machine Chest Press':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['chest-press'],fat:'heavy-compound',sh:'safe',slot:'hpush'},
   'Push-Up':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['bodyweight'],fat:'light-compound',sh:'safe',slot:'hpush'},
-  'DB Shoulder Press':{pat:'vpush',prim:['front-delt','tri'],eq:['db'],fat:'heavy-compound',sh:'activation-first',slot:'vpush'},
+  'DB Shoulder Press':{pat:'vpush',prim:['front-delt','tri'],eq:['db'],fat:'heavy-compound',sh:'activation-first',slot:'ohp'},
+  'Military Press':{pat:'vpush',prim:['front-delt','tri','upper-chest'],eq:['barbell'],fat:'heavy-compound',sh:'warn',slot:'ohp'},
   // Dips + calisthenics muscle-up progression anchors (discrete strict-form entries
   // so milestone detection matches names exactly, not kipping variants).
-  'Dip':{pat:'hpush',prim:['tri','chest','front-delt'],eq:['parallel-bars'],fat:'heavy-compound',sh:'activation-first',slot:'dip'},
-  'Strict Dip':{pat:'hpush',prim:['tri','chest','front-delt'],eq:['parallel-bars'],fat:'heavy-compound',sh:'activation-first',slot:'dip'},
-  'Strict Pull-Up':{pat:'vpull',prim:['lat','bi'],eq:['pull-up-bar'],fat:'heavy-compound',sh:'safe',slot:'vpull'},
+  'Dip':{pat:'dip',prim:['tri','chest','front-delt'],eq:['parallel-bars'],fat:'heavy-compound',sh:'activation-first',slot:'dip'},
+  'Strict Dip':{pat:'dip',prim:['tri','chest','front-delt'],eq:['parallel-bars'],fat:'heavy-compound',sh:'activation-first',slot:'dip'},
+  'Strict Pull-Up':{pat:'vpull',prim:['lat','bi','rhomboid'],eq:['pull-up-bar'],fat:'heavy-compound',sh:'safe',slot:'vpull'},
+  'Narrow-Grip Cable Pulldown':{pat:'vpull',prim:['lat','bi','rhomboid'],eq:['cable','pulldown-station'],fat:'heavy-compound',sh:'safe',slot:'vpull'},
   'False-Grip Pull-Up':{pat:'vpull',prim:['lat','bi','grip'],eq:['pull-up-bar'],fat:'heavy-compound',sh:'safe',slot:'vpull'},
   'MU Negative':{pat:'vpull',prim:['lat','bi','tri','chest'],eq:['pull-up-bar'],fat:'heavy-compound',sh:'activation-first',slot:'vpull'},
   'Bar Muscle-Up':{pat:'vpull',prim:['lat','bi','tri','chest'],eq:['pull-up-bar'],fat:'heavy-compound',sh:'activation-first',slot:'vpull'},
@@ -1150,8 +1156,11 @@ function validateSession(exList,opts){
   }
   for(let i=1;i<exList.length;i++){
     const prev=getMeta(exList[i-1].name),cur=getMeta(exList[i].name);
-    if(prev.fat==='iso' && cur.fat==='heavy-compound'){
-      out.push({level:'warn',exIdx:i,msg:exList[i].name+' is a heavy compound placed after isolation — usually put compounds first'});
+    // Only flag a PRIMARY (Big-3 main) compound buried behind isolation — that's
+    // rule #3's real intent. Accessory compounds (pulldowns, dips, rows) freely
+    // interleave with prehab/isolation in accessory blocks.
+    if(prev.fat==='iso' && cur.fat==='heavy-compound' && FIXED_MAINS.includes(canonName(exList[i].name))){
+      out.push({level:'warn',exIdx:i,msg:exList[i].name+' is a main lift placed after isolation — put it first'});
     }
   }
   // 3. Press before shoulder activation (for activation-first lifts)
@@ -1215,39 +1224,42 @@ function recommendSupersets(exList){
 }
 
 // ===== DEFAULT PROGRAM =====
-const DEF_PROGRAM={name:"Jun 22 Progression",active:true,days:[
-{id:1,label:"Upper (Bench)",defaultDay:"Monday",dayOfWeek:"Monday",sessionType:"lifting",dur:80,exercises:[
-  {id:"d1e1",name:"Band Pull-Apart",cat:"rehab",sets:2,reps:"15",loadKg:0,unit:"bw",rest:45,tags:["activation"],angle:null,grip:null,equipmentClass:"band"},
-  {id:"d1e2",name:"Bench Press",cat:"push",sets:4,reps:"5",loadKg:82.5,unit:"kg",rest:180,tags:["shoulder","AMRAP-last-if-easy"],angle:"flat",grip:null,equipmentClass:"barbell"},
-  {id:"d1e3",name:"DB Shoulder Press",cat:"push",sets:3,reps:"8",loadKg:12.5,unit:"kg",rest:120,tags:["per hand"],angle:null,grip:null,equipmentClass:"db"},
-  {id:"d1e4",name:"Lat Pulldown",cat:"pull",sets:4,reps:"8",loadKg:62.5,unit:"kg",rest:120,tags:[],angle:null,grip:"wide",equipmentClass:"cable"},
-  {id:"d1e5",name:"DB Bench Press",cat:"push",sets:3,reps:"10",loadKg:22.5,unit:"kg",rest:120,tags:["per hand"],angle:"30",grip:null,equipmentClass:"db"},
-  {id:"d1e6",name:"Cable Row (wide)",cat:"pull",sets:3,reps:"10",loadKg:50,unit:"kg",rest:90,tags:[],angle:null,grip:"wide",equipmentClass:"cable"},
-  {id:"d1e7",name:"Cable Tricep Extension",cat:"isolation",sets:3,reps:"12",loadKg:25,unit:"kg",rest:75,tags:[],angle:null,grip:null,equipmentClass:"cable"},
-  {id:"d1e8",name:"DB Curl",cat:"isolation",sets:3,reps:"10",loadKg:12.5,unit:"kg",rest:75,tags:["per hand"],angle:null,grip:null,equipmentClass:"db"},
-  {id:"d1e9",name:"Lateral Raise",cat:"isolation",sets:2,reps:"10",loadKg:5,unit:"kg",rest:60,tags:["per hand"],angle:null,grip:null,equipmentClass:"db"},
-  {id:"d1e10",name:"Pallof Press",cat:"core",sets:2,reps:"12",loadKg:20,unit:"kg",rest:60,tags:["per side"],angle:null,grip:null,equipmentClass:"cable"}
+const DEF_PROGRAM={name:"Jun 29 Block 4 W2",active:true,days:[
+{id:1,label:"Upper (Bench)",defaultDay:"Monday",dayOfWeek:"Monday",sessionType:"lifting",dur:85,exercises:[
+  {id:"d1e1",name:"Bird Dog",cat:"core",sets:2,reps:"8",loadKg:0,unit:"bw",rest:45,tags:["activation","per side","3-sec hold"],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"d1e2",name:"Bench Press",cat:"push",sets:4,reps:"5",loadKg:87.5,unit:"kg",rest:180,tags:["shoulder","AMRAP-last-if-easy"],angle:"flat",grip:null,equipmentClass:"barbell"},
+  {id:"d1e3",name:"DB Shoulder Press",cat:"push",sets:3,reps:"8",loadKg:22.5,unit:"kg",rest:120,tags:["per hand"],angle:null,grip:null,equipmentClass:"db"},
+  {id:"d1e4",name:"Strict Pull-Up",cat:"pull",sets:4,reps:"8",loadKg:0,unit:"bw",rest:120,tags:["AMRAP-first-set","MU-progression","superset-with-dip"],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"d1e5",name:"Strict Dip",cat:"push",sets:3,reps:"10",loadKg:0,unit:"bw",rest:120,tags:["AMRAP-first-set","MU-progression"],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"d1e6",name:"DB Bench Press",cat:"push",sets:3,reps:"8",loadKg:22.5,unit:"kg",rest:120,tags:["per hand"],angle:"30",grip:null,equipmentClass:"db"},
+  {id:"d1e7",name:"Face Pull",cat:"pull",sets:3,reps:"15",loadKg:36,unit:"kg",rest:75,tags:[],angle:null,grip:null,equipmentClass:"cable"},
+  {id:"d1e8",name:"Narrow-Grip Cable Pulldown",cat:"pull",sets:3,reps:"8",loadKg:50,unit:"kg",rest:90,tags:["superset-with-tri"],angle:null,grip:"underhand",equipmentClass:"cable"},
+  {id:"d1e9",name:"Cable Tricep Extension",cat:"isolation",sets:3,reps:"12",loadKg:22.5,unit:"kg",rest:75,tags:[],angle:null,grip:null,equipmentClass:"cable"},
+  {id:"d1e10",name:"Lateral Raise",cat:"isolation",sets:2,reps:"10",loadKg:7,unit:"kg",rest:60,tags:["per hand"],angle:null,grip:null,equipmentClass:"db"},
+  {id:"d1e11",name:"Pallof Press",cat:"core",sets:2,reps:"12",loadKg:20,unit:"kg",rest:60,tags:["per side"],angle:null,grip:null,equipmentClass:"cable"}
 ],bonus:[
   {id:"d1b1",name:"Ext. Rotation",cat:"rehab",sets:2,reps:"15",loadKg:5,unit:"kg",rest:60,tags:["rehab"],angle:null,grip:null,equipmentClass:"db"}
 ]},
-{id:2,label:"Squat",defaultDay:"Friday",dayOfWeek:"Friday",sessionType:"lifting",dur:70,exercises:[
-  {id:"d2e1",name:"Back Squat",cat:"squat",sets:4,reps:"5",loadKg:82.5,unit:"kg",rest:180,tags:["AMRAP-last-if-easy"],angle:null,grip:null,equipmentClass:"barbell"},
-  {id:"d2e2",name:"Bulgarian Split Squat",cat:"squat",sets:3,reps:"8",loadKg:15,unit:"kg",rest:120,tags:["per hand","weak-leg-focus"],angle:null,grip:null,equipmentClass:"db"},
-  {id:"d2e3",name:"DB RDL",cat:"hinge",sets:3,reps:"10",loadKg:27.5,unit:"kg",rest:120,tags:["per hand"],angle:null,grip:null,equipmentClass:"db"},
-  {id:"d2e4",name:"Sled Push",cat:"squat",sets:4,reps:"10m",loadKg:125,unit:"kg",rest:90,tags:[],angle:null,grip:null,equipmentClass:"sled"},
-  {id:"d2e5",name:"Hanging Leg Raise",cat:"core",sets:3,reps:"8",loadKg:0,unit:"bw",rest:60,tags:[],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"d2e6",name:"Suitcase Carry",cat:"core",sets:2,reps:"30m",loadKg:25,unit:"kg",rest:90,tags:["one hand","alternate"],angle:null,grip:null,equipmentClass:"db"},
-  {id:"d2e7",name:"Calf Raise",cat:"isolation",sets:3,reps:"12",loadKg:40,unit:"kg",rest:60,tags:[],angle:null,grip:null,equipmentClass:"machine"}
+{id:2,label:"Squat",defaultDay:"Wednesday",dayOfWeek:"Wednesday",sessionType:"lifting",dur:65,exercises:[
+  {id:"d2e1",name:"Bird Dog",cat:"core",sets:2,reps:"8",loadKg:0,unit:"bw",rest:45,tags:["activation","per side","3-sec hold"],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"d2e2",name:"Back Squat",cat:"squat",sets:4,reps:"5",loadKg:92.5,unit:"kg",rest:180,tags:["AMRAP-last-if-easy"],angle:null,grip:null,equipmentClass:"barbell"},
+  {id:"d2e3",name:"Bulgarian Split Squat",cat:"squat",sets:3,reps:"8",loadKg:17.5,unit:"kg",rest:120,tags:["per hand","weak-leg-focus"],angle:null,grip:null,equipmentClass:"db"},
+  {id:"d2e4",name:"DB RDL",cat:"hinge",sets:3,reps:"10",loadKg:30,unit:"kg",rest:120,tags:["per hand"],angle:null,grip:null,equipmentClass:"db"},
+  {id:"d2e5",name:"Sled Push",cat:"squat",sets:4,reps:"10m",loadKg:147.5,unit:"kg",rest:90,tags:[],angle:null,grip:null,equipmentClass:"sled"},
+  {id:"d2e6",name:"Hanging Leg Raise",cat:"core",sets:3,reps:"8",loadKg:0,unit:"bw",rest:60,tags:[],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"d2e7",name:"Suitcase Carry",cat:"core",sets:2,reps:"30m",loadKg:26,unit:"kg",rest:90,tags:["one hand","alternate"],angle:null,grip:null,equipmentClass:"db"},
+  {id:"d2e8",name:"Calf Raise",cat:"isolation",sets:3,reps:"12",loadKg:31,unit:"kg",rest:60,tags:["sitting"],angle:null,grip:null,equipmentClass:"machine"}
 ],bonus:[
   {id:"d2b1",name:"Ext. Rotation",cat:"rehab",sets:2,reps:"15",loadKg:5,unit:"kg",rest:60,tags:["rehab"],angle:null,grip:null,equipmentClass:"db"}
 ]},
-{id:3,label:"Deadlift + Pull",defaultDay:"Sunday",dayOfWeek:"Sunday",sessionType:"lifting",dur:70,exercises:[
-  {id:"d3e1",name:"Deadlift",cat:"hinge",sets:4,reps:"5",loadKg:110,unit:"kg",rest:180,tags:["reset-every-rep","no-AMRAP"],angle:null,grip:null,equipmentClass:"barbell"},
-  {id:"d3e2",name:"Leg Press",cat:"squat",sets:3,reps:"10",loadKg:145,unit:"kg",rest:120,tags:[],angle:null,grip:null,equipmentClass:"machine"},
-  {id:"d3e3",name:"Cable Row (wide)",cat:"pull",sets:4,reps:"8",loadKg:55,unit:"kg",rest:120,tags:[],angle:null,grip:"wide",equipmentClass:"cable"},
-  {id:"d3e4",name:"Back Extension",cat:"hinge",sets:2,reps:"12",loadKg:5,unit:"kg",rest:90,tags:["weight-held"],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"d3e5",name:"Calf Raise",cat:"isolation",sets:3,reps:"12",loadKg:40,unit:"kg",rest:60,tags:[],angle:null,grip:null,equipmentClass:"machine"},
-  {id:"d3e6",name:"Cable Crunch",cat:"core",sets:3,reps:"12",loadKg:30,unit:"kg",rest:60,tags:[],angle:null,grip:null,equipmentClass:"cable"}
+{id:3,label:"Deadlift + Pull",defaultDay:"Sunday",dayOfWeek:"Sunday",sessionType:"lifting",dur:65,exercises:[
+  {id:"d3e1",name:"Bird Dog",cat:"core",sets:2,reps:"8",loadKg:0,unit:"bw",rest:45,tags:["activation","per side","3-sec hold"],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"d3e2",name:"Deadlift",cat:"hinge",sets:4,reps:"5",loadKg:111,unit:"kg",rest:180,tags:["reset-every-rep","NO-AMRAP","RPE-8-cap"],angle:null,grip:null,equipmentClass:"barbell"},
+  {id:"d3e3",name:"Leg Press",cat:"squat",sets:3,reps:"10",loadKg:152.5,unit:"kg",rest:120,tags:[],angle:null,grip:null,equipmentClass:"machine"},
+  {id:"d3e4",name:"Cable Low Row",cat:"pull",sets:4,reps:"8",loadKg:36,unit:"kg",rest:120,tags:["narrow-grip"],angle:null,grip:"neutral",equipmentClass:"cable"},
+  {id:"d3e5",name:"Back Extension",cat:"hinge",sets:3,reps:"12",loadKg:7.5,unit:"kg",rest:90,tags:["weight-held"],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"d3e6",name:"Calf Raise",cat:"isolation",sets:3,reps:"12",loadKg:31,unit:"kg",rest:60,tags:["sitting"],angle:null,grip:null,equipmentClass:"machine"},
+  {id:"d3e7",name:"Hanging Knee Raise",cat:"core",sets:3,reps:"8",loadKg:0,unit:"bw",rest:60,tags:[],angle:null,grip:null,equipmentClass:"bw"}
 ],bonus:[
   {id:"d3b1",name:"Ext. Rotation",cat:"rehab",sets:2,reps:"15",loadKg:5,unit:"kg",rest:60,tags:["rehab"],angle:null,grip:null,equipmentClass:"db"}
 ]}
@@ -1364,9 +1376,11 @@ const SEED_SESSION={
 // Phase C: accessory rotation library. Keyed by slot; ordered by preference.
 // Main lifts (Back Squat, Bench Press, Deadlift) are NOT rotated (rule #16).
 const VARIANTS={
-  vpull:['Lat Pulldown','Close-Grip Lat Pulldown','Chin-Up','Pull-Up'],
+  vpull:['Lat Pulldown','Narrow-Grip Cable Pulldown','Close-Grip Lat Pulldown','Chin-Up','Pull-Up','Strict Pull-Up'],
   hpull:['Cable Low Row','DB Row','Chest-Supported DB Row','Pendlay Row','Seal Row'],
   'rear-delt':['Face Pull','Reverse Pec Deck'],
+  ohp:['DB Shoulder Press','Military Press'],
+  dip:['Dip','Strict Dip'],
   hpush:['DB Incline Bench','DB Bench Press','Machine Chest Press'],
   biceps:['DB Curl','Hammer Curl','Cable Curl','Preacher Curl'],
   triceps:['Cable Tricep Extension','Rope Pushdown','Overhead Cable Tricep Extension','DB Skullcrusher'],
@@ -1553,28 +1567,49 @@ function validateProgram(){
   }
   return report;
 }
-// Cross-session recovery validator. Walks the scheduled week (program days +
-// recurring), warns when two heavy-CNS lifts land within 24h, or a calisthenics
-// class abuts a same-pattern lifting day. Returns [{date,warnings:[...]}].
-const HEAVY_CNS=['lifting'];
+// Compound-lift movement patterns trained in a week-row's program sessions.
+function dayCompoundPats(daySessions){
+  const pats={};
+  (daySessions||[]).forEach(s=>{
+    if(s.source!=='program'||s.dayIndex==null)return;
+    const day=S.program.days[s.dayIndex];if(!day)return;
+    (day.exercises||[]).forEach(ex=>{
+      const m=getMeta(ex.name);
+      if(/compound/.test(m.fat||'')&&m.pat)pats[m.pat]=ex.name;
+    });
+  });
+  return pats;
+}
+// Cross-session recovery validator. Scans every consecutive-calendar-day pair
+// (<36h apart) INCLUDING the Sun→next-Mon wrap (the program recurs weekly), and
+// warns when the two days share a compound MOVEMENT PATTERN — the real recovery
+// concern the old type-only check missed (e.g. hpull on Sun and Mon).
+// Returns [{date,warnings:[{level,msg}]}].
 function validateWeek(weekDates,todayDate){
-  const rows=buildWeek(weekDates||weekDatesFor(todayStr()),todayDate||todayStr());
+  const wd=weekDates||weekDatesFor(todayStr());
+  const today=todayDate||todayStr();
+  const rows=buildWeek(wd,today);
+  // Append the wrap: next Monday repeats this week's Monday session set.
+  const seq=rows.concat([{date:dateAddDays(wd[6],1),dow:'Monday (next)',sessions:rows[0].sessions}]);
   const out=[];
-  for(let i=1;i<rows.length;i++){
-    const prev=rows[i-1].sessions,cur=rows[i].sessions;
-    if(!cur.length||!prev.length)continue;
-    const prevHeavy=prev.some(s=>HEAVY_CNS.includes(s.type));
-    const curHeavy=cur.some(s=>HEAVY_CNS.includes(s.type));
-    if(prevHeavy&&curHeavy){
-      out.push({date:rows[i].date,warnings:[{level:'warn',msg:'Heavy lifting on consecutive days ('+rows[i-1].dow+'→'+rows[i].dow+') — <24h CNS recovery'}]});
+  for(let i=1;i<seq.length;i++){
+    const a=seq[i-1],b=seq[i];
+    if(!a.sessions.length||!b.sessions.length)continue;             // rest day between → no collision
+    const gapH=(new Date(b.date+'T12:00:00')-new Date(a.date+'T12:00:00'))/3600000;
+    if(gapH>=36)continue;                                           // only <36h pairs
+    const warnings=[];
+    // Same compound movement pattern on consecutive days
+    const pa=dayCompoundPats(a.sessions), pb=dayCompoundPats(b.sessions);
+    const shared=Object.keys(pb).filter(p=>pa[p]);
+    if(shared.length){
+      const names=shared.map(p=>pa[p]+'/'+pb[p]).join(', ');
+      warnings.push({level:'warn',msg:'Same movement pattern ('+shared.join(', ')+': '+names+') on consecutive days ('+a.dow+'→'+b.dow+') — <24h recovery'});
     }
-    const prevLift=prev.some(s=>s.type==='lifting');
-    const curCali=cur.some(s=>s.type==='calisthenics');
-    const prevCali=prev.some(s=>s.type==='calisthenics');
-    const curLift=cur.some(s=>s.type==='lifting');
-    if((prevLift&&curCali)||(prevCali&&curLift)){
-      out.push({date:rows[i].date,warnings:[{level:'info',msg:'Calisthenics abuts lifting ('+rows[i-1].dow+'→'+rows[i].dow+') — watch shared-pattern fatigue'}]});
-    }
+    // Calisthenics abutting lifting (info)
+    const aLift=a.sessions.some(s=>s.type==='lifting'),bCali=b.sessions.some(s=>s.type==='calisthenics');
+    const aCali=a.sessions.some(s=>s.type==='calisthenics'),bLift=b.sessions.some(s=>s.type==='lifting');
+    if((aLift&&bCali)||(aCali&&bLift))warnings.push({level:'info',msg:'Calisthenics abuts lifting ('+a.dow+'→'+b.dow+') — watch shared-pattern fatigue'});
+    if(warnings.length)out.push({date:b.date,warnings});
   }
   return out;
 }
@@ -1636,7 +1671,7 @@ function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse
   // v2→v3 multi-modal migration (idempotent; runs for fresh installs + imported data alike)
   try{migrateV3();save();}catch(e){}
   // Run validator sweep once (non-blocking) to surface any ordering issues in console
-  setTimeout(()=>{try{validateProgram()}catch(e){}},1200);
+  setTimeout(()=>{try{validateProgram();const vw=validateWeek();if(vw.length){console.group('[Hyperion] Cross-session week warnings');vw.forEach(r=>r.warnings.forEach(w=>console.warn(w.level.toUpperCase()+' '+r.date+': '+w.msg)));console.groupEnd();}}catch(e){}},1200);
 }catch(e){}}
 
 // B2: Canonical name→category map. Idempotent: only rewrites if wrong.
@@ -2284,6 +2319,15 @@ function renderTrain(){
   if(DEF_PROGRAM.name!==S.program.name && S.settings._dismissedBlock!==DEF_PROGRAM.name){
     html+=`<div class="block-banner"><div><div class="t-meta" style="color:var(--gold)">NEW BLOCK AVAILABLE</div><div style="font:600 14px var(--sans);margin-top:2px">${DEF_PROGRAM.name}</div></div><div style="display:flex;gap:6px"><button class="btn btn-sm btn-gold" onclick="event.stopPropagation();reviewNewBlock()">Review</button><button class="btn btn-sm btn-g" onclick="event.stopPropagation();dismissNewBlock()">Skip</button></div></div>`;
   }
+  // Cross-session recovery conflicts (validateWeek) — warn banner if the
+  // scheduled week double-trains a movement pattern within 24h.
+  try{
+    const vw=validateWeek().filter(r=>r.warnings.some(w=>w.level==='warn'));
+    if(vw.length){
+      const msgs=vw.flatMap(r=>r.warnings.filter(w=>w.level==='warn').map(w=>w.msg));
+      html+=`<div class="conflict-banner">${icon('pause',16)}<div><div class="t-meta" style="color:var(--warn)">RECOVERY CONFLICT</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">${msgs[0]}</div></div></div>`;
+    }
+  }catch(e){}
   // Gold start button — next available, calendar-ordered
   const startIdx=getNextAvailableDayIdx();
   if(startIdx>=0){
