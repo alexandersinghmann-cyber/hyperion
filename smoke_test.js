@@ -1464,7 +1464,9 @@ assert(dayEffectiveDate(deadD,'2026-06-28')==='2026-07-05', 'Anchor: Deadlift �
 assert(dayEffectiveDate(upperD,'2026-06-28')<dayEffectiveDate(squatD,'2026-06-28') && dayEffectiveDate(squatD,'2026-06-28')<dayEffectiveDate(deadD,'2026-06-28'), 'Anchor: Sunday ordering is Upper(1) → Squat(2) → Deadlift(3)');
 // Up-next badge logic: stable week-rank (rankMap), dedup of the start session
 assert(/const numGlyph=done\?'✓':skipped\?'⊘':\(rankMap\[i\]\|\|''\)/.test(html), 'Up-next badges: use stable week-rank (rankMap), not display index');
-assert(/else if\(i!==startIdx\)upcoming\.push/.test(html), 'Up-next: start session deduped from the list (it is the gold button)');
+// Up-next lists ALL remaining sessions (incl. the soonest) — the whole week is
+// always visible; the soonest is also the gold Start button.
+assert(/else upcoming\.push\(\{idx:i,sort:dayEffectiveDate\(day\),card\}\)/.test(html), 'Up-next: every not-done session is listed (no dedup hiding the Monday session)');
 S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.skips=[];
 
 console.log('\n=== All tests passed ===');

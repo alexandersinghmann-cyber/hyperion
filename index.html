@@ -2328,12 +2328,12 @@ function renderTrain(){
       <div style="margin-top:4px;margin-left:${42+28}px;font:11px var(--mono);color:var(--tx3);letter-spacing:.2px">${subtitle}</div>
     </div>`;
     if(done||skipped)completed.push(card);
-    // Dedup: the soonest session is the gold Start button; don't repeat it in the list.
-    else if(i!==startIdx)upcoming.push({idx:i,sort:dayEffectiveDate(day),card});
+    else upcoming.push({idx:i,sort:dayEffectiveDate(day),card});
   });
 
-  // "Up next" = remaining sessions (after the Start one), date-sorted; badges
-  // already carry their stable week-rank.
+  // "Up next" lists ALL remaining sessions (1..N by stable week-rank), date-sorted.
+  // The soonest one is also the gold Start button above — shown in both so the
+  // full week is always visible.
   upcoming.sort((a,b)=>a.sort<b.sort?-1:a.sort>b.sort?1:a.idx-b.idx);
   let html='';
   // New-block banner (surfaces when the built-in default differs from the loaded block)
