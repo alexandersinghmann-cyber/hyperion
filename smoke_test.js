@@ -245,10 +245,12 @@ const d3 = DEF_PROGRAM.days.find(d => d.id === 3);
 assert(d1 && d1.label === 'Upper (Bench)', 'D1 label is Upper (Bench): got ' + (d1 && d1.label));
 assert(d1 && d1.defaultDay === 'Monday' && d1.sessionType === 'lifting', 'D1 defaultDay Monday + sessionType lifting');
 assert(d1 && d1.exercises.length === 11, 'D1 has 11 main exercises: got ' + (d1 && d1.exercises.length));
-assert(d2 && d2.label === 'Squat', 'D2 label is Squat: got ' + (d2 && d2.label));
+assert(d2 && d2.label === 'Lower (Squat)', 'D2 label standardized to Lower (Squat): got ' + (d2 && d2.label));
 assert(d2 && d2.defaultDay === 'Wednesday', 'D2 defaultDay is Wednesday: got ' + (d2 && d2.defaultDay));
 assert(d2 && d2.exercises.length === 8, 'D2 has 8 main exercises: got ' + (d2 && d2.exercises.length));
-assert(d3 && d3.label === 'Deadlift + Pull', 'D3 label is Deadlift + Pull: got ' + (d3 && d3.label));
+assert(d3 && d3.label === 'Lower (Deadlift)', 'D3 label standardized to Lower (Deadlift): got ' + (d3 && d3.label));
+// Standardized naming: every day matches "<Region> (<Main lift>)"
+DEF_PROGRAM.days.forEach(d=>assert(/^(Upper|Lower) \(.+\)$/.test(d.label), 'Naming: "'+d.label+'" follows Region (Main) pattern'));
 assert(d3 && d3.defaultDay === 'Sunday', 'D3 defaultDay is Sunday: got ' + (d3 && d3.defaultDay));
 assert(d3 && d3.exercises.length === 7, 'D3 has 7 main exercises: got ' + (d3 && d3.exercises.length));
 assert(!DEF_PROGRAM.days.some(d => d.id === 4), 'No D4 in 3-day block');
@@ -1384,12 +1386,13 @@ S.skips=[];
 const todayPick=pickTodayDayIdx('2026-06-21','Sunday'); // today = Sun, Sunday done
 assert(S.program.days[todayPick] && S.program.days[todayPick].label==='Mon Upper', 'BUG3: Sunday done → next is Mon Upper (calendar order), not Thu Swim. Got: '+(S.program.days[todayPick]&&S.program.days[todayPick].label));
 
-// BUG 4: blockDateRange spans full Mon..Sun regardless of which days have sessions
+// BUG 4: blockDateRange spans the full Mon..Sun of the PLANNING week (anchored;
+// rolls to next week on Sunday), regardless of which days have sessions.
 S.program={name:'B4',active:true,days:[{id:1,label:'Mon only',defaultDay:'Monday',dayOfWeek:'Monday',sessionType:'lifting',dur:70,exercises:[],bonus:[]}]};
-const wkd=weekDatesFor(todayStr());
+const wkd=weekDatesFor(weekAnchor(todayStr()));
 const d0=new Date(wkd[0]+'T12:00:00').getDate(), d6=new Date(wkd[6]+'T12:00:00').getDate();
 const br=blockDateRange();
-assert(typeof br==='string' && br.indexOf(String(d0))>=0 && br.indexOf(String(d6))>=0, 'BUG4: blockDateRange spans Mon('+d0+')..Sun('+d6+') even with a single-day program. Got: '+br);
+assert(typeof br==='string' && br.indexOf(String(d0))>=0 && br.indexOf(String(d6))>=0, 'BUG4: blockDateRange spans the planning week Mon('+d0+')..Sun('+d6+'). Got: '+br);
 
 // BUG 5: completed/upcoming split helpers
 assert(typeof dayEffectiveDate==='function', 'BUG5: dayEffectiveDate defined');
@@ -1443,10 +1446,25 @@ assert(/\.day-card\.done\{opacity:\.55\}/.test(html), 'Polish: completed cards a
 assert(typeof DEF_PROGRAM.name==='string' && JSON.parse(JSON.stringify(DEF_PROGRAM)).name===DEF_PROGRAM.name, 'Polish: adopting the built-in carries DEF_PROGRAM.name (block name auto-updates on sync)');
 assert(/function syncProgram\(\)\{[\s\S]*?S\.program=JSON\.parse\(JSON\.stringify\(DEF_PROGRAM\)\)/.test(html), 'Polish: syncProgram adopts DEF_PROGRAM (name included)');
 
-// ===== BUG: Up-next day badges renumber by display order (not stored position) =====
-// renderTrain bakes a %%N%% placeholder for upcoming cards and replaces it 1..N
-// after the date-sort, so a date-sorted list never shows scrambled 2,3,1 badges.
-assert(/numGlyph=done\?'✓':skipped\?'⊘':'%%N%%'/.test(html), 'Up-next badges: upcoming uses a placeholder, not the stored index');
-assert(/upcoming\.forEach\(\(u,n\)=>\{u\.card=u\.card\.replace\('day-num">%%N%%<'/.test(html), 'Up-next badges: renumbered 1..N in display order after sort');
+// ===== WEEK ANCHOR + ORDERING (Sunday-night planning) =====
+// Training week is Monday-anchored; on Sunday it rolls to the upcoming week.
+assert(typeof weekAnchor==='function', 'Anchor: weekAnchor defined');
+assert(weekAnchor('2026-06-28')==='2026-06-29', 'Anchor: Sunday Jun 28 → Monday Jun 29 (roll to next week)');
+assert(weekAnchor('2026-06-24')==='2026-06-24', 'Anchor: mid-week (Wed) does not roll');
+// On Sunday night, the Block 4 W2 days resolve to next week: Upper Mon 29,
+// Squat Wed Jul 1, Deadlift NEXT Sun Jul 5 — so Deadlift is LAST, not today.
+S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();
+const upperD=S.program.days.find(d=>d.label==='Upper (Bench)');
+const squatD=S.program.days.find(d=>d.label==='Lower (Squat)');
+const deadD=S.program.days.find(d=>d.label==='Lower (Deadlift)');
+assert(dayEffectiveDate(upperD,'2026-06-28')==='2026-06-29', 'Anchor: Upper → Mon Jun 29 (tomorrow). Got: '+dayEffectiveDate(upperD,'2026-06-28'));
+assert(dayEffectiveDate(squatD,'2026-06-28')==='2026-07-01', 'Anchor: Squat → Wed Jul 1. Got: '+dayEffectiveDate(squatD,'2026-06-28'));
+assert(dayEffectiveDate(deadD,'2026-06-28')==='2026-07-05', 'Anchor: Deadlift → NEXT Sun Jul 5 (not today). Got: '+dayEffectiveDate(deadD,'2026-06-28'));
+// chronological rank: Upper < Squat < Deadlift
+assert(dayEffectiveDate(upperD,'2026-06-28')<dayEffectiveDate(squatD,'2026-06-28') && dayEffectiveDate(squatD,'2026-06-28')<dayEffectiveDate(deadD,'2026-06-28'), 'Anchor: Sunday ordering is Upper(1) → Squat(2) → Deadlift(3)');
+// Up-next badge logic: stable week-rank (rankMap), dedup of the start session
+assert(/const numGlyph=done\?'✓':skipped\?'⊘':\(rankMap\[i\]\|\|''\)/.test(html), 'Up-next badges: use stable week-rank (rankMap), not display index');
+assert(/else if\(i!==startIdx\)upcoming\.push/.test(html), 'Up-next: start session deduped from the list (it is the gold button)');
+S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.skips=[];
 
 console.log('\n=== All tests passed ===');

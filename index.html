@@ -1240,7 +1240,7 @@ const DEF_PROGRAM={name:"Jun 29 Block 4 W2",active:true,days:[
 ],bonus:[
   {id:"d1b1",name:"Ext. Rotation",cat:"rehab",sets:2,reps:"15",loadKg:5,unit:"kg",rest:60,tags:["rehab"],angle:null,grip:null,equipmentClass:"db"}
 ]},
-{id:2,label:"Squat",defaultDay:"Wednesday",dayOfWeek:"Wednesday",sessionType:"lifting",dur:65,exercises:[
+{id:2,label:"Lower (Squat)",defaultDay:"Wednesday",dayOfWeek:"Wednesday",sessionType:"lifting",dur:65,exercises:[
   {id:"d2e1",name:"Bird Dog",cat:"core",sets:2,reps:"8",loadKg:0,unit:"bw",rest:45,tags:["activation","per side","3-sec hold"],angle:null,grip:null,equipmentClass:"bw"},
   {id:"d2e2",name:"Back Squat",cat:"squat",sets:4,reps:"5",loadKg:92.5,unit:"kg",rest:180,tags:["AMRAP-last-if-easy"],angle:null,grip:null,equipmentClass:"barbell"},
   {id:"d2e3",name:"Bulgarian Split Squat",cat:"squat",sets:3,reps:"8",loadKg:17.5,unit:"kg",rest:120,tags:["per hand","weak-leg-focus"],angle:null,grip:null,equipmentClass:"db"},
@@ -1252,7 +1252,7 @@ const DEF_PROGRAM={name:"Jun 29 Block 4 W2",active:true,days:[
 ],bonus:[
   {id:"d2b1",name:"Ext. Rotation",cat:"rehab",sets:2,reps:"15",loadKg:5,unit:"kg",rest:60,tags:["rehab"],angle:null,grip:null,equipmentClass:"db"}
 ]},
-{id:3,label:"Deadlift + Pull",defaultDay:"Sunday",dayOfWeek:"Sunday",sessionType:"lifting",dur:65,exercises:[
+{id:3,label:"Lower (Deadlift)",defaultDay:"Sunday",dayOfWeek:"Sunday",sessionType:"lifting",dur:65,exercises:[
   {id:"d3e1",name:"Bird Dog",cat:"core",sets:2,reps:"8",loadKg:0,unit:"bw",rest:45,tags:["activation","per side","3-sec hold"],angle:null,grip:null,equipmentClass:"bw"},
   {id:"d3e2",name:"Deadlift",cat:"hinge",sets:4,reps:"5",loadKg:111,unit:"kg",rest:180,tags:["reset-every-rep","NO-AMRAP","RPE-8-cap"],angle:null,grip:null,equipmentClass:"barbell"},
   {id:"d3e3",name:"Leg Press",cat:"squat",sets:3,reps:"10",loadKg:152.5,unit:"kg",rest:120,tags:[],angle:null,grip:null,equipmentClass:"machine"},
@@ -1586,7 +1586,7 @@ function dayCompoundPats(daySessions){
 // concern the old type-only check missed (e.g. hpull on Sun and Mon).
 // Returns [{date,warnings:[{level,msg}]}].
 function validateWeek(weekDates,todayDate){
-  const wd=weekDates||weekDatesFor(todayStr());
+  const wd=weekDates||weekDatesFor(weekAnchor());
   const today=todayDate||todayStr();
   const rows=buildWeek(wd,today);
   // Append the wrap: next Monday repeats this week's Monday session set.
@@ -1743,6 +1743,13 @@ function migrateV3(){
     (d.bonus||[]).forEach(fixEx);
   };
   (S.program&&S.program.days||[]).forEach(fixDay);
+  // --- Standardize legacy day labels to "Region (Main lift)" in place, so the
+  //     rename reaches users already on this block (banner only fires on a name
+  //     change). Targeted + guarded — never touches custom labels.
+  (S.program&&S.program.days||[]).forEach(d=>{
+    if(d.label==='Squat'&&(d.exercises||[]).some(e=>e.name==='Back Squat'))d.label='Lower (Squat)';
+    else if(d.label==='Deadlift + Pull')d.label='Lower (Deadlift)';
+  });
   // --- Sessions: sessionType ---
   (S.sessions||[]).forEach(s=>{if(!s.sessionType)s.sessionType='lifting';});
   // --- Singapore gym: inject into existing profiles + activate once ---
@@ -1973,16 +1980,22 @@ function toggleUnit(){S.settings.unit=S.settings.unit==='kg'?'lb':'kg';document.
 function toggleQuote(){S.settings.showQuote=(S.settings.showQuote===false);save();renderTrain();}
 
 // ===== TRAIN VIEW =====
-function getTodayDayIdx(){const dow=todayDow();return S.program.days.findIndex(d=>(d.defaultDay||d.dayOfWeek)===dow)}
+// A session is "today" only if its planning-week effective date is actually
+// today. On Sunday (planning rolls to next week) nothing is "today".
+function getTodayDayIdx(){const t=todayStr();return S.program.days.findIndex(d=>dayEffectiveDate(d,t)===t)}
 function isDayDone(dayIdx){const day=S.program.days[dayIdx];if(!day)return false;const bn=S.program.name;return S.sessions.some(s=>s.dayLabel===day.label&&(s.blockName===bn||(bn==='Apr 11–16 Block'&&!s.blockName)))}
 function isDaySkipped(dayIdx){const day=S.program.days[dayIdx];if(!day)return false;const bn=S.program.name;return (S.skips||[]).some(sk=>sk.dayLabel===day.label&&sk.blockName===bn)}
 function getDaySkip(dayIdx){const day=S.program.days[dayIdx];if(!day)return null;const bn=S.program.name;return (S.skips||[]).find(sk=>sk.dayLabel===day.label&&sk.blockName===bn)||null}
 // Next unfinished (not-done, not-skipped) day starting from today's day-of-week, wrapping forward through the week.
 function getNextAvailableDayIdx(){
-  // Calendar-ordered next session from today (BUG 3) — delegates to pickTodayDayIdx.
-  if(!S.program.days.length)return -1;
-  const idx=pickTodayDayIdx(todayStr(),todayDow());
-  return idx>=0?idx:-1;
+  // Soonest not-done/not-skipped session by planning-week effective date.
+  const days=S.program.days||[];let best=-1,bestDate=null;
+  days.forEach((d,i)=>{
+    if(isDayDone(i)||isDaySkipped(i))return;
+    const ed=dayEffectiveDate(d);
+    if(bestDate===null||ed<bestDate){bestDate=ed;best=i;}
+  });
+  return best;
 }
 
 // ===== WEEKLY SCHEDULING (Track C) =====
@@ -2048,7 +2061,7 @@ function pickTodayDayIdx(todayDate,todayDowVal){
 let _rescheduleDayIdx=null;
 function renderWeek(){
   const today=todayStr();
-  const dates=weekDatesFor(today);
+  const dates=weekDatesFor(weekAnchor(today)); // planning week (rolls to next week on Sunday)
   const rows=buildWeek(dates,today);
   const rng=document.getElementById('weekRange');if(rng)rng.textContent=fmtDate(dates[0])+' – '+fmtDate(dates[6]);
   const el=document.getElementById('weekList');if(!el)return;
@@ -2228,10 +2241,10 @@ function unskipDay(dayIdx){
   save();renderTrain();
 }
 
-// BUG 4: always span the full Mon–Sun of the current week, regardless of
-// which days carry sessions.
+// Span the full Mon–Sun of the PLANNING week (rolls to next week on Sunday),
+// regardless of which days carry sessions.
 function blockDateRange(){
-  const dates=weekDatesFor(todayStr());
+  const dates=weekDatesFor(weekAnchor());
   const fmt=(ds)=>{const d=new Date(ds+'T12:00:00');return {m:d.getMonth(),day:d.getDate()};};
   const mn=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const a=fmt(dates[0]),b=fmt(dates[6]);
@@ -2255,8 +2268,13 @@ function renderTrain(){
 
   // Block days
   const todayIdx=getTodayDayIdx();
+  const startIdx=getNextAvailableDayIdx();
   const container=document.getElementById('blockDays');
   const upcoming=[],completed=[];
+  // Stable week-rank: chronological position of each day in the planning week
+  // (Upper=Mon=1, Squat=Wed=2, Deadlift=Sun=3). Independent of stored order.
+  const rankMap={};
+  S.program.days.map((d,i)=>({i,ed:dayEffectiveDate(d)})).sort((a,b)=>a.ed<b.ed?-1:a.ed>b.ed?1:a.i-b.i).forEach((o,n)=>{rankMap[o.i]=n+1;});
 
   S.program.days.forEach((day,i)=>{
     const done=isDayDone(i);
@@ -2282,10 +2300,8 @@ function renderTrain(){
       subtitle=mainEx?`${mainEx.name} ${fmtW(mainEx.loadKg,mainEx.unit)}${secondEx?', '+secondEx.name+' '+fmtW(secondEx.loadKg,secondEx.unit):''}`:'';
     }
 
-    // Upcoming cards get a placeholder number, renumbered 1..N in display
-    // (date-sorted) order after the sort — otherwise the stored program
-    // position shows through and the list reads e.g. 2,3,1.
-    const numGlyph=done?'✓':skipped?'⊘':'%%N%%';
+    // Badge = the day's stable chronological rank in the planning week.
+    const numGlyph=done?'✓':skipped?'⊘':(rankMap[i]||'');
     const metaTail=done?' · ✓ Done':skipped?' · Skipped':isToday?' · Today':' · ~'+day.dur+' min';
     const arrowColor=isToday?'var(--acc)':'var(--tx3)';
     const arrowGlyph=isToday?'→':'›';
@@ -2312,12 +2328,13 @@ function renderTrain(){
       <div style="margin-top:4px;margin-left:${42+28}px;font:11px var(--mono);color:var(--tx3);letter-spacing:.2px">${subtitle}</div>
     </div>`;
     if(done||skipped)completed.push(card);
-    else upcoming.push({idx:i,sort:dayEffectiveDate(day),card});
+    // Dedup: the soonest session is the gold Start button; don't repeat it in the list.
+    else if(i!==startIdx)upcoming.push({idx:i,sort:dayEffectiveDate(day),card});
   });
 
-  // BUG 5: split into "Up next" (date-sorted) and a collapsed "Completed" list.
+  // "Up next" = remaining sessions (after the Start one), date-sorted; badges
+  // already carry their stable week-rank.
   upcoming.sort((a,b)=>a.sort<b.sort?-1:a.sort>b.sort?1:a.idx-b.idx);
-  upcoming.forEach((u,n)=>{u.card=u.card.replace('day-num">%%N%%<','day-num">'+(n+1)+'<')});
   let html='';
   // New-block banner (surfaces when the built-in default differs from the loaded block)
   if(DEF_PROGRAM.name!==S.program.name && S.settings._dismissedBlock!==DEF_PROGRAM.name){
@@ -2332,27 +2349,42 @@ function renderTrain(){
       html+=`<div class="conflict-banner">${icon('pause',16)}<div><div class="t-meta" style="color:var(--warn)">RECOVERY CONFLICT</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">${msgs[0]}</div></div></div>`;
     }
   }catch(e){}
-  // Gold start button — next available, calendar-ordered
-  const startIdx=getNextAvailableDayIdx();
+  // Gold start button — the soonest session in the planning week (startIdx
+  // computed above; it's the gold CTA and is excluded from the Up-next list).
   if(startIdx>=0){
     const sDay=S.program.days[startIdx];
     const isTodayStart=startIdx===todayIdx;
     const label=isTodayStart?`Start — ${sDay.label}`:`Start — ${sDay.label} (${sDay.defaultDay||sDay.dayOfWeek})`;
     html+=`<button class="start-btn" onclick="showDayPreview(${startIdx})">${label}</button><div style="height:8px"></div>`;
   }
-  html+=`<div class="section-hdr" style="margin-top:4px">Up next</div>`+(upcoming.map(u=>u.card).join('')||'<div class="t-meta" style="padding:8px 2px">All sessions done — load a new block.</div>');
+  // "Up next" lists the sessions after the Start one. Only show the all-done
+  // message when there's genuinely nothing left (no start session either).
+  if(upcoming.length){
+    html+=`<div class="section-hdr" style="margin-top:4px">Up next</div>`+upcoming.map(u=>u.card).join('');
+  } else if(startIdx<0){
+    html+=`<div class="t-meta" style="padding:8px 2px">All sessions done — load a new block.</div>`;
+  }
   if(completed.length){
     html+=`<div class="comp-toggle" onclick="this.parentNode.querySelector('.comp-list').classList.toggle('open');this.classList.toggle('open')">Completed this block · ${completed.length}<span class="comp-arrow">›</span></div><div class="comp-list">${completed.join('')}</div>`;
   }
   container.innerHTML=html;
 }
-// Effective calendar date a program day next occurs on (for Up-next sorting).
-function dayEffectiveDate(day){
-  const today=todayStr();
-  if(day.scheduledDate&&day.scheduledDate>=today)return day.scheduledDate;
+// The training week is Monday-anchored. On Sunday (its last day) we roll to the
+// upcoming week — Sunday night you plan next week, you don't slot a same-day
+// Sunday session. weekAnchor() is the Monday the planning week is built around.
+function weekAnchor(todayD){
+  const t=todayD||todayStr();
+  return dowOf(t)==='Sunday' ? dateAddDays(t,1) : t;
+}
+// Effective calendar date a program day next occurs on within the planning week
+// (for Up-next sorting + week-rank). Anchored at weekAnchor(), so on Sunday a
+// Sunday session resolves to NEXT Sunday, not today.
+function dayEffectiveDate(day,todayD){
+  const anchor=weekAnchor(todayD);
+  if(day.scheduledDate&&day.scheduledDate>=anchor)return day.scheduledDate;
   const dow=day.defaultDay||day.dayOfWeek;
-  for(let off=0;off<=13;off++){const dt=dateAddDays(today,off);if(dowOf(dt)===dow)return dt;}
-  return today;
+  for(let off=0;off<=13;off++){const dt=dateAddDays(anchor,off);if(dowOf(dt)===dow)return dt;}
+  return anchor;
 }
 // Banner "Review" adopts the built-in DEF_PROGRAM (preserves history) — this is
 // the sync path, distinct from the JSON-paste import button (BUG 6).
