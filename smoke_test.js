@@ -1448,6 +1448,9 @@ assert(/function syncProgram\(\)\{[\s\S]*?S\.program=JSON\.parse\(JSON\.stringif
 
 // ===== WEEK ANCHOR + ORDERING (Sunday-night planning) =====
 // Training week is Monday-anchored; on Sunday it rolls to the upcoming week.
+// todayStr (local date) and todayDow must always agree (no UTC/local seam)
+assert(dowOf(todayStr())===todayDow(), 'TZ: todayDow() derives from todayStr() — they never disagree. Got: '+todayDow()+' vs '+dowOf(todayStr()));
+assert(/^\d{4}-\d{2}-\d{2}$/.test(todayStr()), 'TZ: todayStr() is a YYYY-MM-DD local date');
 assert(typeof weekAnchor==='function', 'Anchor: weekAnchor defined');
 assert(weekAnchor('2026-06-28')==='2026-06-29', 'Anchor: Sunday Jun 28 → Monday Jun 29 (roll to next week)');
 assert(weekAnchor('2026-06-24')==='2026-06-24', 'Anchor: mid-week (Wed) does not roll');
