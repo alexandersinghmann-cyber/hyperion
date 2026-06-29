@@ -1472,4 +1472,14 @@ assert(/const numGlyph=done\?'✓':skipped\?'⊘':\(rankMap\[i\]\|\|''\)/.test(h
 assert(/else upcoming\.push\(\{idx:i,sort:dayEffectiveDate\(day\),card\}\)/.test(html), 'Up-next: every not-done session is listed (no dedup hiding the Monday session)');
 S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.skips=[];
 
+// ===== REFRESH CHUNK 1: modality colour system =====
+assert(/--m-lifting:/.test(html)&&/--m-swim:/.test(html)&&/--m-run:/.test(html)&&/--m-calisthenics:/.test(html)&&/--m-pilates:/.test(html)&&/--m-mobility:/.test(html), 'Modality: all six modality accent tokens defined in :root');
+assert(typeof modalityColor==='function', 'Modality: modalityColor() defined');
+assert(modalityColor('lifting')==='var(--m-lifting)', 'Modality: lifting → var(--m-lifting)');
+assert(modalityColor('swim')==='var(--m-swim)', 'Modality: swim → var(--m-swim)');
+assert(modalityColor('run')==='var(--m-run)', 'Modality: run → var(--m-run)');
+assert(modalityColor('nonsense')==='var(--m-lifting)', 'Modality: unknown type falls back to lifting');
+assert(/border-left:2px solid \$\{mc\}/.test(html), 'Modality: week pills carry a per-type left accent');
+assert(/modalityColor\(s\.sessionType/.test(html), 'Modality: history rows + session header use modalityColor');
+
 console.log('\n=== All tests passed ===');

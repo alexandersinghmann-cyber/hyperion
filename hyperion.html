@@ -36,6 +36,8 @@
   --motion:220ms cubic-bezier(.2,0,0,1);
   /* v3 pace tokens (year-end goal pacing) */
   --pace-ahead:var(--grn);--pace-on:var(--acc);--pace-behind:var(--warn);--pace-critical:var(--red);--pace-muted:var(--tx3);--pace-none:var(--tx3);
+  /* modality accents — one muted signature per session type */
+  --m-lifting:#22D3EE;--m-calisthenics:#C9A96E;--m-swim:#6AA6D8;--m-run:#5E9B7E;--m-pilates:#9D8BD0;--m-mobility:#3FB8AB;--m-rest:#4A5568;
 }
 /* v3 numeric headline utility */
 .tnum{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
@@ -359,6 +361,8 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .wk-pill.done{border-color:var(--grn);color:var(--grn)}
 .wk-pill.skipped{opacity:.5;text-decoration:line-through}
 .wk-pill-l{flex:1}
+.wk-ic{display:inline-flex;align-items:center;flex-shrink:0}
+.history-item{border-radius:var(--rs)}
 .sheet-btn{display:block;width:100%;min-height:48px;padding:12px;margin-top:6px;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx);font:600 14px var(--sans);cursor:pointer;text-align:left}
 .sheet-btn:disabled{opacity:.45;cursor:not-allowed}
 .comp-card{background:var(--s1);border:1px solid var(--gold-dim);border-radius:var(--r);padding:14px;margin-top:14px}
@@ -982,6 +986,10 @@ function icon(name,size){
   const s=size||20;const body=ICONS[name]||'';
   return `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
 }
+// Muted signature colour per session type (CSS var reference). One thread that
+// makes the week + history scannable at a glance.
+const MODALITY_TYPES=['lifting','calisthenics','swim','run','pilates','mobility','rest'];
+function modalityColor(type){return 'var(--m-'+(MODALITY_TYPES.includes(type)?type:'lifting')+')';}
 
 // Exercise name aliases — used to maintain e1RM / history continuity across renames or swaps.
 // Key: any old name. Value: canonical name. When a swap or rename happens, the old name gets mapped
@@ -2070,13 +2078,15 @@ function renderWeek(){
   const isPast=(d)=>d<today;
   el.innerHTML=rows.map(r=>{
     const pills=r.sessions.map(s=>{
-      const ic=icon(s.type,16);
+      const mc=modalityColor(s.type);
+      const ic=`<span class="wk-ic" style="color:${mc}">${icon(s.type,16)}</span>`;
       const moved=s.movedFrom?`<span class="t-meta" style="margin-left:6px">moved from ${s.movedFrom.slice(0,3)}</span>`:'';
       const lock=s.locked?'<span class="t-meta" style="margin-left:4px">🔒</span>':'';
       const stt=s.done?' done':s.skipped?' skipped':'';
       const onclick=s.source==='program'?`openSessionSheet(${s.dayIndex})`:`toast('${(s.label||'').replace(/'/g,"")} — recurring; add via Compose')`;
       const dnd=s.source==='program'?` data-day-idx="${s.dayIndex}" data-locked="${s.locked?1:0}"`:'';
-      return `<button class="wk-pill${stt} tap"${dnd} onclick="${onclick}" aria-label="${s.label}">${ic}<span class="wk-pill-l">${s.label}</span>${lock}${moved}</button>`;
+      const accent=(!s.done&&!s.skipped)?` style="border-left:2px solid ${mc}"`:'';
+      return `<button class="wk-pill${stt} tap"${dnd}${accent} onclick="${onclick}" aria-label="${s.label}">${ic}<span class="wk-pill-l">${s.label}</span>${lock}${moved}</button>`;
     }).join('');
     return `<div class="wk-row${r.isToday?' today':''}${isPast(r.date)?' past':''}" data-date="${r.date}">
       <div class="wk-day"><div class="t-h2">${r.dow.slice(0,3)}</div><div class="t-meta">${fmtDate(r.date).replace(/^[A-Za-z]+ /,'')}</div></div>
@@ -2650,7 +2660,9 @@ function getLastHint(exName){
 function renderEx(){
   const sess=S.activeSession;if(!sess)return;
   const dayMeta=S.program.days[sess.dayIndex];
-  document.getElementById('sDayLbl').textContent='Day '+(sess.dayIndex+1)+' · '+((dayMeta&&(dayMeta.defaultDay||dayMeta.dayOfWeek))||'');
+  const sLbl=document.getElementById('sDayLbl');
+  sLbl.textContent='Day '+(sess.dayIndex+1)+' · '+((dayMeta&&(dayMeta.defaultDay||dayMeta.dayOfWeek))||'');
+  sLbl.style.color=modalityColor(sess.sessionType||'lifting');
   document.getElementById('sTitle').textContent=sess.dayLabel;
 
   // Multi-modal dispatch: activity-log types render a single form, not cards.
@@ -4175,7 +4187,8 @@ function renderProgress(){
     // B3: volume excludes skipped sets. Track skipped count for footnote.
     const vol=s.exercises.reduce((a,e)=>(e.performed||[]).filter(p=>p.type==='working'&&!p.skipped).reduce((b,p)=>b+p.weightKg*p.reps,a),0);
     const skippedN=s.exercises.reduce((a,e)=>a+(e.performed||[]).filter(p=>p.type==='working'&&p.skipped).length,0);
-    return`<div class="history-item" onclick="this.classList.toggle('open')">
+    const hmc=modalityColor(s.sessionType||'lifting');
+    return`<div class="history-item" onclick="this.classList.toggle('open')" style="border-left:2px solid ${hmc}">
       <div class="h-row"><div><div style="font-weight:600;font-size:14px">${s.dayLabel}</div><div style="font-size:12px;color:var(--tx3)">${fmtDate(s.date)} · ${s.duration||'—'}m · ${Math.round(vol)} kg vol${skippedN?' · '+skippedN+' skipped':''}</div></div><span class="chip chip-a" style="font-size:10px">${s.rpe?'RPE '+s.rpe:'✓'}</span></div>
       <div class="h-detail">${s.exercises.map(ex=>{const w=(ex.performed||[]).filter(p=>p.type==='working');const pi=ex.progression==='increase'?'<span class="tg">↑</span>':ex.progression==='flag'?'<span class="tr">⚠</span>':'<span class="td">→</span>';return`<div class="h-line"><span class="nm">${ex.name}</span><span class="val">${w.map(s=>s.skipped?'<span class="td">SKIP'+(s.skipReason?'·'+s.skipReason:'')+'</span>':fmtW(s.weightKg,ex.prescribed?.unit)+'×'+s.reps).join(' / ')} ${pi}</span></div>`}).join('')}
       ${s.sessionNotes?'<div style="margin-top:8px;font-size:12px;color:var(--tx3);font-style:italic">'+s.sessionNotes+'</div>':''}</div>
