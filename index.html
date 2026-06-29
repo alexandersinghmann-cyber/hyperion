@@ -371,8 +371,27 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .comp-add{padding:8px;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx);font:500 12px var(--mono)}
 .comp-rec{font:500 10px var(--mono);color:var(--tx3);display:flex;align-items:center;gap:3px;white-space:nowrap}
 /* Goals dashboard */
-.goal-card{background:var(--s1);border:1px solid var(--s2);border-radius:var(--r);padding:16px;margin-bottom:10px;cursor:pointer}
+.goal-card{background:var(--s1);border:1px solid var(--s2);border-radius:var(--r);padding:16px;margin-bottom:10px;cursor:pointer;border-left-width:2px}
+.goal-card.lift{border-left-color:var(--m-lifting)}.goal-card.cali{border-left-color:var(--m-calisthenics)}.goal-card.swim{border-left-color:var(--m-swim)}.goal-card.run{border-left-color:var(--m-run)}
 .goal-head{display:flex;justify-content:space-between;align-items:baseline}
+/* dashboard v2 */
+.pace2{font:600 9px var(--mono);letter-spacing:.5px}
+.club2{position:relative;display:flex;justify-content:center;margin:10px 0 4px}
+.arc{animation:ringfill 1.4s ease-out}@keyframes ringfill{from{stroke-dashoffset:390}}
+.club2-mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.club2-n{font:700 38px var(--mono);letter-spacing:-2px}
+.club2-l{font:500 11px var(--mono);color:var(--tx3);margin-top:-3px}
+.subs2{display:flex;justify-content:space-between;margin-top:10px;padding-top:12px;border-top:1px solid var(--s2)}
+.sub2{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}
+.sub2.gap{border-left:1px solid var(--s2)}
+.sd2{width:7px;height:7px;border-radius:50%}
+.snm{font:700 18px var(--mono)}.snm.gold{color:var(--gold)}
+.sl{font:600 8px var(--mono);color:var(--tx3);letter-spacing:1px}
+.tagm{font:600 8px var(--mono);letter-spacing:1px;color:var(--tx3);border:1px solid var(--s3);border-radius:4px;padding:2px 6px}
+.bigrow{display:flex;align-items:baseline;gap:8px;margin:9px 0}
+.big{font:700 30px var(--mono);letter-spacing:-1px}
+.bigu{font:500 11px var(--mono);color:var(--tx3)}
+.qlog{margin-left:auto;font:600 11px var(--sans);color:var(--tx2);background:var(--s2);border:1px solid var(--s3);border-radius:7px;padding:7px 12px;cursor:pointer;min-height:34px}
 .goal-bar{height:8px;background:var(--s3);border-radius:4px;overflow:hidden;margin-top:10px}
 .goal-bar-fill{height:100%;border-radius:4px;transition:width var(--motion)}
 .mu-trail{display:flex;gap:6px;margin-top:12px}
@@ -890,6 +909,16 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <div class="field"><label>Hyperion export JSON</label><textarea id="restoreArea" rows="10" placeholder='{"sessions":[...],"program":{...},"settings":{...}}'></textarea></div>
     <button class="btn btn-d btn-w" onclick="doRestore()">Restore (overwrite)</button>
     <button class="btn btn-s btn-w" style="margin-top:8px" onclick="hideModal('restoreModal')">Cancel</button>
+  </div>
+</div>
+
+<div class="overlay" id="quickLogModal">
+  <div class="modal">
+    <div class="modal-t" id="qlTitle">Log activity</div>
+    <div class="field"><label id="qlDistLbl">Distance</label><input type="number" inputmode="decimal" id="qlDist" placeholder="0"></div>
+    <div class="field"><label>Duration (min)</label><input type="number" inputmode="numeric" id="qlDur" placeholder="0"></div>
+    <button class="btn btn-p btn-w" onclick="saveQuickLog()">Save</button>
+    <button class="btn btn-s btn-w" style="margin-top:8px" onclick="hideModal('quickLogModal')">Cancel</button>
   </div>
 </div>
 
@@ -4117,6 +4146,12 @@ function miniRing(pct,color,label,sub){
     <div class="t-meta">${sub}</div>
   </div>`;
 }
+// One concentric ring arc (track + value), cyan family for the strength lifts.
+function ringArc(r,pct,color){
+  const circ=2*Math.PI*r, off=circ*(1-Math.min(1,Math.max(0,pct)));
+  return `<circle cx="70" cy="70" r="${r}" fill="none" stroke="#13161b" stroke-width="8"/>`+
+    `<circle class="arc" cx="70" cy="70" r="${r}" fill="none" stroke="${color}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 70 70)"/>`;
+}
 function renderGoalsDashboard(){
   const dash=document.getElementById('goalsDash');if(!dash)return;
   const today=todayStr();
@@ -4125,53 +4160,74 @@ function renderGoalsDashboard(){
   const b3=getBig3E1rm();
   const tg=S.settings.big3Targets||{squat:166,bench:102,dead:186};
   const lb=v=>Math.round(v*K2L);
-  const totalLb=lb(b3.squat)+lb(b3.bench)+lb(b3.dead);
+  const sqL=lb(b3.squat),bnL=lb(b3.bench),dlL=lb(b3.dead),totalLb=sqL+bnL+dlL;
   const g1=(S.goals||[]).find(g=>g.id==='g1')||{type:'big3-total',target:1000,targetDate:'2026-12-31'};
-  const tok1000=`var(--${computePace(g1,today)})`;
-  const pc=(v,t)=>Math.min(100,v/t*100);
-  // 1000 lb club card
-  const card1000=`<div class="goal-card tap" onclick="goToLiftDetail('squat')">
-    <div class="goal-head"><span class="t-h2">1000 lb Club</span><span class="t-display tnum" style="color:${tok1000}">${totalLb}<span class="t-meta" style="margin-left:4px">/ 1000 lb</span></span></div>
-    <div style="display:flex;justify-content:space-around;margin-top:10px">
-      ${miniRing(pc(b3.squat,tg.squat),tok1000,lb(b3.squat),'squat lb')}
-      ${miniRing(pc(b3.bench,tg.bench),tok1000,lb(b3.bench),'bench lb')}
-      ${miniRing(pc(b3.dead,tg.dead),tok1000,lb(b3.dead),'dead lb')}
+  const pace=computePace(g1,today),paceLabel={'pace-ahead':'AHEAD','pace-on':'ON PACE','pace-behind':'BEHIND','pace-critical':'BEHIND','pace-muted':'BUILDING'}[pace]||'';
+  const toGo=Math.max(0,1000-totalLb);
+  // 1000 lb club — concentric strength rings (squat outer, bench mid, dead inner)
+  const rings=ringArc(62,b3.squat/tg.squat,'#22D3EE')+ringArc(50,b3.bench/tg.bench,'#38BDF8')+ringArc(38,b3.dead/tg.dead,'#0EA5B7');
+  const card1000=`<div class="goal-card lift tap" onclick="goToLiftDetail('squat')">
+    <div class="goal-head"><span class="t-h2">1000 lb Club</span><span class="pace2" style="color:var(--${pace})">${paceLabel}</span></div>
+    <div class="club2"><svg viewBox="0 0 140 140" width="140" height="140" aria-hidden="true">${rings}</svg>
+      <div class="club2-mid"><div class="club2-n tnum">${totalLb}</div><div class="club2-l">/ 1000 lb</div></div></div>
+    <div class="subs2">
+      <div class="sub2"><span class="sd2" style="background:#22D3EE"></span><span class="snm tnum">${sqL}</span><span class="sl">SQUAT</span></div>
+      <div class="sub2"><span class="sd2" style="background:#38BDF8"></span><span class="snm tnum">${bnL}</span><span class="sl">BENCH</span></div>
+      <div class="sub2"><span class="sd2" style="background:#0EA5B7"></span><span class="snm tnum">${dlL}</span><span class="sl">DEAD</span></div>
+      <div class="sub2 gap"><span class="snm tnum gold">${toGo}</span><span class="sl">TO GO · lb</span></div>
     </div></div>`;
-  // Muscle-up card (stepped trail)
+  // Muscle-up trail
   const mu=(S.goals||[]).find(g=>g.id==='g-mu');
   const ms=(mu&&mu.milestones)||[];
   const muDone=ms.filter(m=>m.done).length;
-  // BUG 2: fill maps 1:1 to achieved count. 'cur' is an outline (next-up),
-  // never a fill — at 0/5 nothing reads as done.
   const trail=ms.map((m,i)=>`<div class="mu-seg ${m.done?'done':(i===muDone&&muDone>0?'cur':'')}" title="${m.label}"></div>`).join('');
   let muLabel;
   if(muDone>=5)muLabel='Bar muscle-up achieved';
   else if(muDone===0)muLabel='Log a Strict Pull-Up set to start tracking';
   else muLabel=ms[muDone-1].label+' ✓ — Next: '+ms[muDone].label;
-  const cardMU=`<div class="goal-card tap" onclick="openMuscleUpDetail()">
+  const cardMU=`<div class="goal-card cali tap" onclick="openMuscleUpDetail()">
     <div class="goal-head"><span class="t-h2">Bar Muscle-Up</span><span class="t-meta">${muDone}/5</span></div>
     <div class="mu-trail">${trail}</div>
     <div class="t-meta" style="margin-top:8px;color:var(--tx2)">${muLabel}</div></div>`;
-  // Swim card (distance bar)
+  // Swim — manual best distance + 2-tap quick-log
   const sb=swimBest(S.sessions);
-  const swimGoal=(S.goals||[]).find(g=>g.id==='g-swim')||{type:'distance-progressive',target:1000};
-  const swimTok=`var(--${computePace(swimGoal,today)})`;
-  const cardSwim=`<div class="goal-card tap" onclick="startAdHocSession('swim')">
-    <div class="goal-head"><span class="t-h2">1000m Freestyle</span><span class="t-display tnum" style="color:${swimTok}">${sb}<span class="t-meta" style="margin-left:4px">/ 1000 m</span></span></div>
-    <div class="goal-bar"><div class="goal-bar-fill" style="width:${Math.min(100,sb/1000*100)}%;background:${swimTok}"></div></div>
-    ${sb===0?'<div class="t-meta" style="margin-top:6px;color:var(--acc)">Tap to log a swim</div>':''}</div>`;
-  // Run card (sparkline, no pace color — maintenance)
+  const cardSwim=`<div class="goal-card swim">
+    <div class="goal-head"><span class="t-h2">1000 m Freestyle</span><span class="tagm">manual</span></div>
+    <div class="bigrow"><span class="big" style="color:var(--m-swim)">${sb}</span><span class="bigu">/ 1000 m best</span><button class="qlog" onclick="quickLogActivity('swim')">${sb?'Update':'+ Log swim'}</button></div>
+    <div class="goal-bar"><div class="goal-bar-fill" style="width:${Math.min(100,sb/1000*100)}%;background:var(--m-swim)"></div></div></div>`;
+  // Run — manual weekly + sparkline + 2-tap quick-log
   const series=runWeeklySeries(S.sessions,today,8);
   const thisWk=series[series.length-1]||0;
   const prior=series.slice(0,7);const avg=prior.length?prior.reduce((a,b)=>a+b,0)/prior.length:0;
   const mx=Math.max(1,...series);
-  const spark=series.map((v,i)=>`${(i/(series.length-1||1)*100).toFixed(1)},${(30-v/mx*28).toFixed(1)}`).join(' ');
+  const spark=series.map((v,i)=>`${(i/(series.length-1||1)*100).toFixed(1)},${(28-v/mx*24).toFixed(1)}`).join(' ');
   const runEmpty=series.every(v=>v===0);
-  const cardRun=`<div class="goal-card tap" onclick="startAdHocSession('run')">
-    <div class="goal-head"><span class="t-h2">Weekly Running</span><span class="t-display tnum">${thisWk.toFixed(1)}<span class="t-meta" style="margin-left:4px">km this wk</span></span></div>
-    <svg viewBox="0 0 100 30" width="100%" height="34" style="margin-top:6px"><polyline points="${spark}" fill="none" stroke="var(--acc)" stroke-width="1.5"/></svg>
-    <div class="t-meta">${runEmpty?'Tap to log a run':'4-wk avg '+avg.toFixed(1)+' km'}</div></div>`;
+  const cardRun=`<div class="goal-card run">
+    <div class="goal-head"><span class="t-h2">Weekly Running</span><span class="tagm">manual</span></div>
+    <div class="bigrow"><span class="big" style="color:var(--m-run)">${thisWk.toFixed(1)}</span><span class="bigu">km this wk</span><button class="qlog" onclick="quickLogActivity('run')">+ Log run</button></div>
+    <svg viewBox="0 0 100 28" width="100%" height="30" preserveAspectRatio="none" aria-hidden="true"><polyline points="${spark}" fill="none" stroke="${runEmpty?'#2f4a3f':'var(--m-run)'}" stroke-width="1.5" ${runEmpty?'stroke-dasharray="3 3"':''}/></svg>
+    <div class="t-meta">${runEmpty?'No run logged this week':'4-wk avg '+avg.toFixed(1)+' km'}</div></div>`;
   dash.innerHTML=card1000+cardMU+cardSwim+cardRun;
+}
+// 2-tap quick-log for run/swim (stays on the dashboard, no full session screen).
+let _qlType=null;
+function quickLogActivity(type){
+  _qlType=type;
+  document.getElementById('qlTitle').textContent='Log '+type;
+  document.getElementById('qlDist').value='';
+  document.getElementById('qlDur').value='';
+  document.getElementById('qlDistLbl').textContent='Distance ('+(type==='swim'?'m':'km')+')';
+  showModal('quickLogModal');
+}
+function saveQuickLog(){
+  if(!_qlType)return;
+  const dist=parseFloat(document.getElementById('qlDist').value)||0;
+  const dur=parseFloat(document.getElementById('qlDur').value)||0;
+  const rec=makeActivitySession({startTime:Date.now(),date:todayStr(),dayLabel:_qlType.charAt(0).toUpperCase()+_qlType.slice(1),sessionType:_qlType,activity:{durationMin:dur,distance:dist,effort:null,notes:''}});
+  S.sessions.push(rec);save();
+  hideModal('quickLogModal');
+  toast(_qlType.charAt(0).toUpperCase()+_qlType.slice(1)+' logged');
+  renderProgress();
 }
 function openMuscleUpDetail(){
   const mu=(S.goals||[]).find(g=>g.id==='g-mu');if(!mu)return;

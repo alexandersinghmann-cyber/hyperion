@@ -1438,7 +1438,7 @@ toggleQuote(); assert(S.settings.showQuote===true, 'Polish: toggleQuote OFF→ON
 assert(/Stoic quote on Train/.test(html), 'Polish: quote toggle row present in Settings');
 // tappable empty goal cards
 assert(typeof startAdHocSession==='function', 'Polish: startAdHocSession defined (tappable empty cards)');
-assert(/Tap to log a swim/.test(html) && /Tap to log a run/.test(html), 'Polish: empty swim/run cards prompt to log (no dead-end)');
+assert(/\+ Log swim/.test(html) && /\+ Log run/.test(html), 'Polish: swim/run cards have a quick-log affordance (no dead-end)');
 // completed styling
 assert(/✓ Done/.test(html), 'Polish: completed sessions tagged "✓ Done"');
 assert(/\.day-card\.done\{opacity:\.55\}/.test(html), 'Polish: completed cards at 0.55 opacity');
@@ -1505,5 +1505,22 @@ assert(typeof saveBarPlates==='function', 'Plates: saveBarPlates settings handle
 assert(/class="plate-line"/.test(html), 'Plates: barbell cards render a plate-line');
 assert(/barKg:36/.test(html), 'Plates: DEF_PROGRAM Deadlift tagged barKg:36');
 S.settings.activeGymId='gym-commercial';
+
+// ===== REFRESH CHUNK 3: goals dashboard v2 =====
+assert(typeof ringArc==='function' && typeof renderGoalsDashboard==='function', 'Dash v2: ringArc + renderGoalsDashboard defined');
+assert((ringArc(62,0.5,'#22D3EE').match(/<circle/g)||[]).length===2, 'Dash v2: ringArc renders a track + a value circle');
+assert(/club2-n tnum">\$\{totalLb\}/.test(html), 'Dash v2: centre shows the total');
+assert(/const sqL=lb\(b3\.squat\),bnL=lb\(b3\.bench\),dlL=lb\(b3\.dead\),totalLb=sqL\+bnL\+dlL/.test(html), 'Dash v2: sub-numbers sum to the total by construction');
+assert(/concentric|ringArc\(62[\s\S]{0,80}ringArc\(50[\s\S]{0,80}ringArc\(38/.test(html), 'Dash v2: three concentric strength rings (62/50/38)');
+// quick-log run/swim
+assert(typeof quickLogActivity==='function' && typeof saveQuickLog==='function', 'Dash v2: quick-log fns defined');
+assert(/id="quickLogModal"/.test(html), 'Dash v2: quick-log modal present');
+// a quick-log-shaped session is readable by the goal selectors
+S.sessions=[makeActivitySession({startTime:1,date:'2026-06-29',dayLabel:'Swim',sessionType:'swim',activity:{durationMin:30,distance:700}})];
+assert(swimBest(S.sessions)===700, 'Dash v2: a logged swim feeds swimBest');
+S.sessions=[makeActivitySession({startTime:2,date:'2026-06-29',dayLabel:'Run',sessionType:'run',activity:{durationMin:30,distance:6}})];
+assert(runWeekly(S.sessions,weekDatesFor('2026-06-29'))===6, 'Dash v2: a logged run feeds runWeekly');
+assert(/\.club2-mid|\.subs2|\.qlog/.test(html), 'Dash v2: dashboard CSS present');
+S.sessions=[];
 
 console.log('\n=== All tests passed ===');
