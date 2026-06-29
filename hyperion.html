@@ -863,8 +863,8 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <div style="padding:10px 0;border-bottom:1px solid var(--s2)">
       <div style="margin-bottom:6px">Bar &amp; plates <span style="font:10px var(--mono);color:var(--tx3);margin-left:4px">for plate-math readout</span></div>
       <div style="display:flex;gap:8px">
-        <div style="flex:1"><div style="font:600 9px var(--mono);color:var(--tx3);letter-spacing:1px;margin-bottom:2px">BAR kg</div><input type="number" step="0.5" id="sBarKg" onchange="saveBarPlates()" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx);font:600 13px var(--mono)"></div>
-        <div style="flex:2"><div style="font:600 9px var(--mono);color:var(--tx3);letter-spacing:1px;margin-bottom:2px">PLATES (kg, per side)</div><input type="text" id="sPlates" onchange="saveBarPlates()" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx);font:600 12px var(--mono)"></div>
+        <div style="flex:1"><div style="font:600 9px var(--mono);color:var(--tx3);letter-spacing:1px;margin-bottom:2px">BAR kg</div><input type="number" step="0.5" id="sBarKg" onchange="saveBarPlates()" aria-label="Bar weight in kg" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx);font:600 13px var(--mono)"></div>
+        <div style="flex:2"><div style="font:600 9px var(--mono);color:var(--tx3);letter-spacing:1px;margin-bottom:2px">PLATES (kg, per side)</div><input type="text" id="sPlates" onchange="saveBarPlates()" aria-label="Plate inventory, kg per side, comma separated" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx);font:600 12px var(--mono)"></div>
       </div>
       <div style="font:10px var(--mono);color:var(--tx3);margin-top:5px">Deadlift uses a 36 kg bar by default (per-exercise override).</div>
     </div>
@@ -921,8 +921,8 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 <div class="overlay" id="quickLogModal">
   <div class="modal">
     <div class="modal-t" id="qlTitle">Log activity</div>
-    <div class="field"><label id="qlDistLbl">Distance</label><input type="number" inputmode="decimal" id="qlDist" placeholder="0"></div>
-    <div class="field"><label>Duration (min)</label><input type="number" inputmode="numeric" id="qlDur" placeholder="0"></div>
+    <div class="field"><label id="qlDistLbl" for="qlDist">Distance</label><input type="number" inputmode="decimal" id="qlDist" placeholder="0"></div>
+    <div class="field"><label for="qlDur">Duration (min)</label><input type="number" inputmode="numeric" id="qlDur" placeholder="0"></div>
     <button class="btn btn-p btn-w" onclick="saveQuickLog()">Save</button>
     <button class="btn btn-s btn-w" style="margin-top:8px" onclick="hideModal('quickLogModal')">Cancel</button>
   </div>
@@ -2844,7 +2844,7 @@ function renderEx(){
             const isPR=s.type==='working'&&isSetPR(ex.name,s.weightKg,s.reps);
             return`<div class="set-row ${stCl} compact${s._justLogged?' just-logged':''}">
               <div class="set-num ${wu?'wu':''}"><span class="set-check">${icon('check',14)}</span></div>
-              <div class="set-summary">${fmtW(s.weightKg,ex.prescribed.unit)} <span class="td">×</span> ${repsDisp}${isPR?' <span class="pr-tag">PR</span>':''}</div>
+              <div class="set-summary">${fmtW(s.weightKg,ex.prescribed.unit)} <span class="td">×</span> ${repsDisp}${isPR?' <span class="pr-tag" role="img" aria-label="personal record" title="Personal record">PR</span>':''}</div>
               <button class="set-rpe ${s.rpe?'has':''}" onclick="showRpePicker(this,${i},${si})" style="position:relative" aria-label="rate effort">${s.rpe?'@'+s.rpe:'RPE'}</button>
               <button class="set-edit" onclick="editSet(${i},${si})" title="Edit" aria-label="edit set">✎</button>
             </div>`;
@@ -4125,7 +4125,7 @@ function renderBig3Tiles(){
     return `<div class="big3-tile" onclick="${tileClick}">
       <div class="b3-lbl">${t.name}</div>
       <div class="b3-ring">
-        <svg viewBox="0 0 88 88">
+        <svg viewBox="0 0 88 88" aria-hidden="true">
           <circle class="b3-ring-bg" cx="${CX}" cy="${CY}" r="${R}"/>
           <circle class="b3-ring-fg" cx="${CX}" cy="${CY}" r="${R}" stroke="${color}" stroke-dasharray="${dash.toFixed(2)} ${CIRC.toFixed(2)}"/>
         </svg>
@@ -4163,7 +4163,7 @@ function goToLiftDetail(key){
 function miniRing(pct,color,label,sub){
   const R=24,C=28,circ=2*Math.PI*R,dash=circ*Math.min(100,Math.max(0,pct))/100;
   return `<div style="text-align:center">
-    <svg viewBox="0 0 56 56" width="56" height="56"><circle cx="${C}" cy="${C}" r="${R}" fill="none" stroke="var(--s3)" stroke-width="5"/><circle cx="${C}" cy="${C}" r="${R}" fill="none" stroke="${color}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}" transform="rotate(-90 ${C} ${C})"/></svg>
+    <svg viewBox="0 0 56 56" width="56" height="56" aria-hidden="true"><circle cx="${C}" cy="${C}" r="${R}" fill="none" stroke="var(--s3)" stroke-width="5"/><circle cx="${C}" cy="${C}" r="${R}" fill="none" stroke="${color}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}" transform="rotate(-90 ${C} ${C})"/></svg>
     <div class="t-display tnum" style="font-size:16px;margin-top:-4px">${label}</div>
     <div class="t-meta">${sub}</div>
   </div>`;
@@ -4215,7 +4215,7 @@ function renderGoalsDashboard(){
   const sb=swimBest(S.sessions);
   const cardSwim=`<div class="goal-card swim">
     <div class="goal-head"><span class="t-h2">1000 m Freestyle</span><span class="tagm">manual</span></div>
-    <div class="bigrow"><span class="big" style="color:var(--m-swim)">${sb}</span><span class="bigu">/ 1000 m best</span><button class="qlog" onclick="quickLogActivity('swim')">${sb?'Update':'+ Log swim'}</button></div>
+    <div class="bigrow"><span class="big" style="color:var(--m-swim)">${sb}</span><span class="bigu">/ 1000 m best</span><button class="qlog" onclick="quickLogActivity('swim')" aria-label="${sb?'Update swim best':'Log a swim'}">${sb?'Update':'+ Log swim'}</button></div>
     <div class="goal-bar"><div class="goal-bar-fill" style="width:${Math.min(100,sb/1000*100)}%;background:var(--m-swim)"></div></div></div>`;
   // Run — manual weekly + sparkline + 2-tap quick-log
   const series=runWeeklySeries(S.sessions,today,8);
@@ -4226,7 +4226,7 @@ function renderGoalsDashboard(){
   const runEmpty=series.every(v=>v===0);
   const cardRun=`<div class="goal-card run">
     <div class="goal-head"><span class="t-h2">Weekly Running</span><span class="tagm">manual</span></div>
-    <div class="bigrow"><span class="big" style="color:var(--m-run)">${thisWk.toFixed(1)}</span><span class="bigu">km this wk</span><button class="qlog" onclick="quickLogActivity('run')">+ Log run</button></div>
+    <div class="bigrow"><span class="big" style="color:var(--m-run)">${thisWk.toFixed(1)}</span><span class="bigu">km this wk</span><button class="qlog" onclick="quickLogActivity('run')" aria-label="Log a run">+ Log run</button></div>
     <svg viewBox="0 0 100 28" width="100%" height="30" preserveAspectRatio="none" aria-hidden="true"><polyline points="${spark}" fill="none" stroke="${runEmpty?'#2f4a3f':'var(--m-run)'}" stroke-width="1.5" ${runEmpty?'stroke-dasharray="3 3"':''}/></svg>
     <div class="t-meta">${runEmpty?'No run logged this week':'4-wk avg '+avg.toFixed(1)+' km'}</div></div>`;
   dash.innerHTML=card1000+cardMU+cardSwim+cardRun;

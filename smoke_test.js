@@ -1539,8 +1539,16 @@ assert(bestHistoricalE1rm('Bench Press')===0, 'Log v2: warmup sets do not count 
 S.sessions=[];
 // markup + colour discipline
 assert(/class="ex-headline"/.test(html) && /hl-w tnum/.test(html), 'Log v2: active card renders a headline working weight');
-assert(/<span class="pr-tag">PR<\/span>/.test(html), 'Log v2: a logged PR set renders a gold PR tag');
+assert(/<span class="pr-tag"[^>]*>PR<\/span>/.test(html), 'Log v2: a logged PR set renders a gold PR tag');
 assert(/\.set-log\.ready\{background:var\(--acc\)/.test(html), 'Log v2: Log button is cyan (in-flow action)');
 assert(/\.set-fields input\{[^}]*color:var\(--tx2\)/.test(html) && /\.set-fields input:focus\{color:var\(--tx\)\}/.test(html), 'Log v2: unlogged inputs are faint ghost values, crisp on focus');
+
+// ===== REFRESH FINAL PASS: a11y + motion =====
+assert(/@media \(prefers-reduced-motion: reduce\)\{[\s\S]*animation:none !important/.test(html), 'A11y: reduced-motion disables animations globally');
+assert(/<label id="qlDistLbl" for="qlDist">/.test(html) && /<label for="qlDur">/.test(html), 'A11y: quick-log inputs have associated labels');
+assert(/id="sBarKg"[^>]*aria-label=/.test(html) && /id="sPlates"[^>]*aria-label=/.test(html), 'A11y: bar/plates settings inputs are labelled');
+assert(/class="pr-tag"[^>]*aria-label="personal record"/.test(html), 'A11y: PR tag exposes an accessible label');
+assert(/quickLogActivity\('swim'\)"[^>]*aria-label=/.test(html) && /quickLogActivity\('run'\)"[^>]*aria-label=/.test(html), 'A11y: quick-log buttons are labelled');
+assert(/<svg viewBox="0 0 140 140"[^>]*aria-hidden="true"/.test(html) && /<svg viewBox="0 0 88 88" aria-hidden="true"/.test(html), 'A11y: decorative dashboard rings are aria-hidden (numbers carried as text)');
 
 console.log('\n=== All tests passed ===');
