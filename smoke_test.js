@@ -1523,4 +1523,24 @@ assert(runWeekly(S.sessions,weekDatesFor('2026-06-29'))===6, 'Dash v2: a logged 
 assert(/\.club2-mid|\.subs2|\.qlog/.test(html), 'Dash v2: dashboard CSS present');
 S.sessions=[];
 
+// ===== REFRESH CHUNK 4: logging screen v2 =====
+assert(typeof isSetPR==='function' && typeof bestHistoricalE1rm==='function', 'Log v2: PR helpers defined');
+S.sessions=[{exercises:[{name:'Bench Press',performed:[{type:'working',weightKg:80,reps:5,logged:true}]}]}];
+assert(Math.abs(bestHistoricalE1rm('Bench Press')-e1rm(80,5))<0.1, 'Log v2: bestHistoricalE1rm finds the best logged working set');
+assert(bestHistoricalE1rm('Squat')===0, 'Log v2: a lift with no history → best 0');
+assert(isSetPR('Bench Press',85,5)===true, 'Log v2: a heavier working set beats history → PR');
+assert(isSetPR('Bench Press',80,5)===false, 'Log v2: matching history is not a PR');
+assert(isSetPR('Bench Press',80,4)===false, 'Log v2: a lighter/fewer set is not a PR');
+assert(isSetPR('Squat',60,5)===true, 'Log v2: first-ever logged set of a lift is a PR');
+assert(isSetPR('Bench Press',0,5)===false && isSetPR('Bench Press',80,0)===false, 'Log v2: zero weight/reps is never a PR');
+// warmups in history are ignored by the PR baseline
+S.sessions=[{exercises:[{name:'Bench Press',performed:[{type:'warmup',weightKg:120,reps:1,logged:true}]}]}];
+assert(bestHistoricalE1rm('Bench Press')===0, 'Log v2: warmup sets do not count toward the PR baseline');
+S.sessions=[];
+// markup + colour discipline
+assert(/class="ex-headline"/.test(html) && /hl-w tnum/.test(html), 'Log v2: active card renders a headline working weight');
+assert(/<span class="pr-tag">PR<\/span>/.test(html), 'Log v2: a logged PR set renders a gold PR tag');
+assert(/\.set-log\.ready\{background:var\(--acc\)/.test(html), 'Log v2: Log button is cyan (in-flow action)');
+assert(/\.set-fields input\{[^}]*color:var\(--tx2\)/.test(html) && /\.set-fields input:focus\{color:var\(--tx\)\}/.test(html), 'Log v2: unlogged inputs are faint ghost values, crisp on focus');
+
 console.log('\n=== All tests passed ===');

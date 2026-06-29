@@ -196,6 +196,11 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .ex-name{font-weight:600;font-size:14px}
 .ex-rx{font:500 12px var(--mono);color:var(--tx3);margin-top:1px}
 .plate-line{font:600 11px var(--mono);color:var(--gold);margin-top:4px;letter-spacing:.3px;opacity:.92}
+.ex-headline{display:flex;align-items:baseline;gap:6px;margin:4px 0 12px;padding-bottom:10px;border-bottom:1px solid var(--s3)}
+.ex-headline .hl-w{font:700 30px var(--mono);color:var(--tx);letter-spacing:-.5px;line-height:1}
+.ex-headline .hl-u{font:600 13px var(--mono);color:var(--tx3)}
+.ex-headline .hl-x{font:500 12px var(--mono);color:var(--tx3);margin-left:auto;align-self:center}
+.pr-tag{font:700 9px var(--mono);letter-spacing:.6px;color:var(--gold);background:var(--gold-dim);border:1px solid var(--gold2);padding:1px 5px;border-radius:3px;margin-left:2px}
 .ex-body{padding:0 14px 14px;display:none}
 .ex-card.open .ex-body{display:block}
 
@@ -213,10 +218,11 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .set-num{width:20px;font:600 11px var(--mono);color:var(--tx3);text-align:center;flex-shrink:0}
 .set-num.wu{color:var(--acc)}
 .set-fields{flex:1;display:flex;gap:4px;align-items:center}
-.set-fields input{width:64px;padding:8px 6px;text-align:center;font-size:14px}
+.set-fields input{width:64px;padding:8px 6px;text-align:center;font-size:14px;color:var(--tx2)}
+.set-fields input:focus{color:var(--tx)}
 .set-fields .x{color:var(--tx3);font-size:12px;padding:0 1px}
-.set-log{min-width:48px;height:36px;border-radius:var(--rs);border:none;font:600 13px var(--sans);cursor:pointer;transition:all .12s}
-.set-log.ready{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#0A0B0E;box-shadow:0 2px 6px rgba(201,169,110,0.1)}
+.set-log{min-width:48px;height:36px;border-radius:var(--rs);border:none;font:700 13px var(--sans);cursor:pointer;transition:all .12s}
+.set-log.ready{background:var(--acc);color:#04181c}
 .set-log.ready:active{opacity:.85}
 .set-log.done{background:var(--grn-dim);color:var(--grn);pointer-events:none}
 .set-rpe{min-width:36px;height:36px;padding:0 6px;border-radius:var(--rs);background:var(--s2);border:1px solid var(--s3);color:var(--tx2);font:600 11px var(--mono);cursor:pointer;display:flex;align-items:center;justify-content:center}
@@ -1883,6 +1889,20 @@ function repsUnit(repsStr){
   return null;
 }
 function e1rm(w,r){if(r<=0||w<=0)return 0;if(r===1)return w;return Math.round(w*(1+r/30)*10)/10}
+// Best logged e1RM for a lift across COMPLETED sessions (excludes the live one,
+// which lives in S.activeSession), and PR test for a single set.
+function bestHistoricalE1rm(exName){
+  let best=0;
+  (S.sessions||[]).forEach(s=>(s.exercises||[]).forEach(ex=>{
+    if(canonName(ex.name)!==canonName(exName))return;
+    (ex.performed||[]).filter(p=>p.type==='working'&&p.logged!==false&&!p.skipped).forEach(p=>{const e=e1rm(p.weightKg,p.reps);if(e>best)best=e;});
+  }));
+  return best;
+}
+function isSetPR(exName,weightKg,reps){
+  if(!(weightKg>0)||!(reps>0))return false;
+  return e1rm(weightKg,reps) > bestHistoricalE1rm(exName)+0.01;
+}
 function fmtDate(d){const o=new Date(d+'T12:00:00'),dn=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],mn=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return dn[o.getDay()]+' '+mn[o.getMonth()]+' '+o.getDate()}
 // LOCAL calendar date (not UTC) so todayStr() and todayDow() can never disagree
 // across the midnight TZ seam. dowOf() parses at noon-local, matching this.
@@ -2806,6 +2826,7 @@ function renderEx(){
         ${progArrow}
       </div>
       <div class="ex-body">
+        ${ex.prescribed.loadKg?(()=>{const hu=S.settings.unit||'kg';const hw=hu==='lb'?Math.round(ex.prescribed.loadKg*K2L):ex.prescribed.loadKg;return`<div class="ex-headline"><span class="hl-w tnum">${hw}</span><span class="hl-u">${hu}</span><span class="hl-x">${ex.prescribed.sets} × ${ex.prescribed.reps}</span></div>`;})():''}
         ${getLastHint(ex.name)}
         ${ex.performed.map((s,si)=>{
           const wu=s.type==='warmup';
@@ -2820,9 +2841,10 @@ function renderEx(){
           const ru=repsUnit(ex.prescribed.reps);
           const repsDisp=ru?(s.reps+' '+ru):s.reps;
           if(s.logged&&!isSkipped){
+            const isPR=s.type==='working'&&isSetPR(ex.name,s.weightKg,s.reps);
             return`<div class="set-row ${stCl} compact${s._justLogged?' just-logged':''}">
               <div class="set-num ${wu?'wu':''}"><span class="set-check">${icon('check',14)}</span></div>
-              <div class="set-summary">${fmtW(s.weightKg,ex.prescribed.unit)} <span class="td">×</span> ${repsDisp}</div>
+              <div class="set-summary">${fmtW(s.weightKg,ex.prescribed.unit)} <span class="td">×</span> ${repsDisp}${isPR?' <span class="pr-tag">PR</span>':''}</div>
               <button class="set-rpe ${s.rpe?'has':''}" onclick="showRpePicker(this,${i},${si})" style="position:relative" aria-label="rate effort">${s.rpe?'@'+s.rpe:'RPE'}</button>
               <button class="set-edit" onclick="editSet(${i},${si})" title="Edit" aria-label="edit set">✎</button>
             </div>`;
