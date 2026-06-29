@@ -195,6 +195,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .ex-info{flex:1;min-width:0}
 .ex-name{font-weight:600;font-size:14px}
 .ex-rx{font:500 12px var(--mono);color:var(--tx3);margin-top:1px}
+.plate-line{font:600 11px var(--mono);color:var(--gold);margin-top:4px;letter-spacing:.3px;opacity:.92}
 .ex-body{padding:0 14px 14px;display:none}
 .ex-card.open .ex-body{display:block}
 
@@ -835,6 +836,14 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       <button class="btn btn-sm btn-g" style="margin-top:6px;width:100%" onclick="openGymEditor()">Edit Gym Equipment</button>
     </div>
     <div style="padding:10px 0;border-bottom:1px solid var(--s2)">
+      <div style="margin-bottom:6px">Bar &amp; plates <span style="font:10px var(--mono);color:var(--tx3);margin-left:4px">for plate-math readout</span></div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1"><div style="font:600 9px var(--mono);color:var(--tx3);letter-spacing:1px;margin-bottom:2px">BAR kg</div><input type="number" step="0.5" id="sBarKg" onchange="saveBarPlates()" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx);font:600 13px var(--mono)"></div>
+        <div style="flex:2"><div style="font:600 9px var(--mono);color:var(--tx3);letter-spacing:1px;margin-bottom:2px">PLATES (kg, per side)</div><input type="text" id="sPlates" onchange="saveBarPlates()" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx);font:600 12px var(--mono)"></div>
+      </div>
+      <div style="font:10px var(--mono);color:var(--tx3);margin-top:5px">Deadlift uses a 36 kg bar by default (per-exercise override).</div>
+    </div>
+    <div style="padding:10px 0;border-bottom:1px solid var(--s2)">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <span>Validate Program</span>
         <button class="btn btn-sm btn-g" onclick="runValidatorAndShow()">Run Validator</button>
@@ -1262,7 +1271,7 @@ const DEF_PROGRAM={name:"Jun 29 Block 4 W2",active:true,days:[
 ]},
 {id:3,label:"Lower (Deadlift)",defaultDay:"Sunday",dayOfWeek:"Sunday",sessionType:"lifting",dur:65,exercises:[
   {id:"d3e1",name:"Bird Dog",cat:"core",sets:2,reps:"8",loadKg:0,unit:"bw",rest:45,tags:["activation","per side","3-sec hold"],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"d3e2",name:"Deadlift",cat:"hinge",sets:4,reps:"5",loadKg:111,unit:"kg",rest:180,tags:["reset-every-rep","NO-AMRAP","RPE-8-cap"],angle:null,grip:null,equipmentClass:"barbell"},
+  {id:"d3e2",name:"Deadlift",cat:"hinge",sets:4,reps:"5",loadKg:111,unit:"kg",rest:180,tags:["reset-every-rep","NO-AMRAP","RPE-8-cap"],angle:null,grip:null,equipmentClass:"barbell",barKg:36},
   {id:"d3e3",name:"Leg Press",cat:"squat",sets:3,reps:"10",loadKg:152.5,unit:"kg",rest:120,tags:[],angle:null,grip:null,equipmentClass:"machine"},
   {id:"d3e4",name:"Cable Low Row",cat:"pull",sets:4,reps:"8",loadKg:36,unit:"kg",rest:120,tags:["narrow-grip"],angle:null,grip:"neutral",equipmentClass:"cable"},
   {id:"d3e5",name:"Back Extension",cat:"hinge",sets:3,reps:"12",loadKg:7.5,unit:"kg",rest:90,tags:["weight-held"],angle:null,grip:null,equipmentClass:"bw"},
@@ -1477,6 +1486,37 @@ function rotateAccessories(){
 function roundPlate(kg){return Math.round(kg/2.5)*2.5;}
 // Active gym's DB increment (defaults to 2.5kg if unset).
 function activeGymDbInc(){const g=(S.settings&&S.settings.gyms||[]).find(x=>x.id===S.settings.activeGymId);return (g&&g.dbIncrementKg)||2.5;}
+// ===== BAR + PLATE MATH (display only — does not touch loads) =====
+function _activeGym(){return (S.settings&&S.settings.gyms||[]).find(x=>x.id===S.settings.activeGymId)||null;}
+function activeGymBar(){const g=_activeGym();return (g&&g.defaultBarKg)||20;}
+function activePlates(){const g=_activeGym();return (g&&g.plateInventory)||[25,20,15,10,5,2.5,1.25,1];}
+// Per-exercise bar weight: explicit override > known default > active gym default.
+const BAR_DEFAULTS={'Deadlift':36};
+function exerciseBarKg(ex){
+  if(ex&&typeof ex.barKg==='number')return ex.barKg;
+  const d=BAR_DEFAULTS[canonName(ex&&ex.name||'')];
+  return (typeof d==='number')?d:activeGymBar();
+}
+// Greedy per-side plate decomposition. Returns {plates:[...], remainder} where
+// remainder is the kg per side that can't be made from the inventory.
+function platesPerSide(loadKg,barKg,plates){
+  const inv=(plates||activePlates()).slice().sort((a,b)=>b-a);
+  let per=Math.round(((+loadKg||0)-(+barKg||0))/2*100)/100;
+  const out=[];
+  if(per<=0)return {plates:[],remainder:Math.max(0,per)};
+  inv.forEach(p=>{while(per>=p-1e-9){out.push(p);per=Math.round((per-p)*100)/100;}});
+  return {plates:out,remainder:Math.round(per*100)/100};
+}
+// Human label: "36 kg bar · 25 · 10 · 2.5 / side" (+ "0.25 over" if not exact).
+function plateLabel(ex){
+  const bar=exerciseBarKg(ex),load=ex&&(ex.prescribed?ex.prescribed.loadKg:ex.loadKg)||0;
+  if(!(load>bar))return bar+' kg bar';
+  const r=platesPerSide(load,bar);
+  if(!r.plates.length)return bar+' kg bar';
+  let s=bar+' kg bar · '+r.plates.map(p=>p%1?p:p).join(' · ')+' / side';
+  if(r.remainder>0.01)s+=' · +'+r.remainder+' over';
+  return s;
+}
 // Snap a prescribed load to a valid increment for its equipment class.
 // db→gym DB increment, barbell→2.5kg plate, cable→1kg, machine/sled→pass-through, bw→0.
 function snapLoadToEquipment(loadKg,equipmentClass){
@@ -1768,6 +1808,8 @@ function migrateV3(){
       if(sg)S.settings.gyms.unshift(JSON.parse(JSON.stringify(sg)));
     }
     if(!S.settings._sgActivated){S.settings.activeGymId='gym-singapore';S.settings._sgActivated=true;}
+    // Backfill bar/plate config onto existing gyms (refresh chunk 2).
+    (S.settings.gyms||[]).forEach(g=>{if(g.defaultBarKg==null)g.defaultBarKg=20;if(!Array.isArray(g.plateInventory))g.plateInventory=[25,20,15,10,5,2.5,1.25,1];});
   }catch(e){}
   // --- Version stamp ---
   if(!S.version||S.version<3)S.version=3;
@@ -1868,6 +1910,9 @@ function showSettings(){renderSettings();showModal('settingsModal')}
 function renderSettings(){
   document.getElementById('sUnitBtn').textContent=S.settings.unit.toUpperCase();
   const qB=document.getElementById('sQuoteBtn');if(qB)qB.textContent=(S.settings.showQuote!==false)?'ON':'OFF';
+  const barI=document.getElementById('sBarKg'),plI=document.getElementById('sPlates');
+  if(barI)barI.value=activeGymBar();
+  if(plI)plI.value=activePlates().join(', ');
   const disp=S.settings.unit||'kg';
   const tgts=S.settings.big3Targets||{squat:166,bench:102,dead:186};
   const toDisp=kg=>disp==='lb'?Math.round(kg*K2L):Math.round(kg*10)/10;
@@ -1897,6 +1942,14 @@ function doRotateAccessories(){
   try{if(document.getElementById('vTrain')&&document.getElementById('vTrain').classList.contains('vis'))renderTrain();}catch(e){}
 }
 
+function saveBarPlates(){
+  const g=_activeGym();if(!g)return;
+  const bar=parseFloat(document.getElementById('sBarKg').value);
+  if(bar>0)g.defaultBarKg=bar;
+  const plates=(document.getElementById('sPlates').value||'').split(',').map(x=>parseFloat(x.trim())).filter(x=>x>0).sort((a,b)=>b-a);
+  if(plates.length)g.plateInventory=plates;
+  save();
+}
 function saveBig3Targets(){
   const disp=S.settings.unit||'kg';
   const toKg=v=>disp==='lb'?v*L2K:v;
@@ -1922,10 +1975,10 @@ function resetBig3Targets(){
 // ===== GYM PROFILES =====
 const EQ_TAGS=['cable','pulldown-station','pulley','pull-up-bar','barbell','rack','platform','bench','incline-bench','seal-bench','db','leg-press','hack-squat','v-squat','hamstring-curl','leg-extension','calf-raise','back-extension-bench','chest-press','pec-deck','preacher-bench','band','wall','bodyweight','treadmill','row-erg','assault-bike','ab-wheel','blocks','sled','parallel-bars'];
 const DEFAULT_GYMS=[
-  {id:'gym-singapore',name:'Singapore Gym',equipment:['cable','pulldown-station','pulley','pull-up-bar','barbell','rack','platform','bench','incline-bench','db','leg-press','hack-squat','v-squat','hamstring-curl','leg-extension','calf-raise','back-extension-bench','chest-press','pec-deck','preacher-bench','band','bodyweight','treadmill','row-erg','ab-wheel','parallel-bars'],dbIncrementKg:2.5},
-  {id:'gym-commercial',name:'Commercial Gym',equipment:EQ_TAGS.slice(),dbIncrementKg:2.5},
-  {id:'gym-hotel',name:'Hotel / Travel',equipment:['db','bench','incline-bench','treadmill','bodyweight','band'],dbIncrementKg:2.5},
-  {id:'gym-home',name:'Home Gym',equipment:['barbell','rack','bench','db','pull-up-bar','band','bodyweight'],dbIncrementKg:2.5}
+  {id:'gym-singapore',name:'Singapore Gym',equipment:['cable','pulldown-station','pulley','pull-up-bar','barbell','rack','platform','bench','incline-bench','db','leg-press','hack-squat','v-squat','hamstring-curl','leg-extension','calf-raise','back-extension-bench','chest-press','pec-deck','preacher-bench','band','bodyweight','treadmill','row-erg','ab-wheel','parallel-bars'],dbIncrementKg:2.5,defaultBarKg:20,plateInventory:[25,20,15,10,5,2.5,1.25,1]},
+  {id:'gym-commercial',name:'Commercial Gym',equipment:EQ_TAGS.slice(),dbIncrementKg:2.5,defaultBarKg:20,plateInventory:[25,20,15,10,5,2.5,1.25,1]},
+  {id:'gym-hotel',name:'Hotel / Travel',equipment:['db','bench','incline-bench','treadmill','bodyweight','band'],dbIncrementKg:2.5,defaultBarKg:20,plateInventory:[20,10,5,2.5,1.25]},
+  {id:'gym-home',name:'Home Gym',equipment:['barbell','rack','bench','db','pull-up-bar','band','bodyweight'],dbIncrementKg:2.5,defaultBarKg:20,plateInventory:[20,15,10,5,2.5,1.25,1]}
 ];
 function ensureGyms(){
   if(!S.settings.gyms)S.settings.gyms=JSON.parse(JSON.stringify(DEFAULT_GYMS));
@@ -2718,6 +2771,7 @@ function renderEx(){
         <div class="ex-info">
           <div class="ex-name">${(ex.tags||[]).includes('bonus')?'<span style="color:var(--gold);font-size:10px;margin-right:4px">★</span>':''}${st==='calisthenics'&&(ex.prescribed.unit==='bw'||!ex.prescribed.loadKg)?'<span style="background:var(--acc-dim);color:var(--acc);font:600 9px var(--mono);letter-spacing:.5px;padding:1px 5px;border-radius:3px;margin-right:5px">BW</span>':''}${ex.name}${ex.tags.includes('per side')?' <span class="td" style="font-size:11px">/side</span>':''}${ex.tags.includes('per hand')?' <span class="td" style="font-size:11px">/hand</span>':''}${ex.tags.includes('per leg')?' <span class="td" style="font-size:11px">/leg</span>':''}</div>
           <div class="ex-rx">${catChip}${ex.prescribed.sets}×${ex.prescribed.reps}${ex.prescribed.loadKg?' @ '+fmtW(ex.prescribed.loadKg,ex.prescribed.unit):''}</div>
+          ${(ex.equipmentClass==='barbell'||getMeta(ex.name).eq&&getMeta(ex.name).eq.includes('barbell'))&&ex.prescribed.loadKg?`<div class="plate-line">${plateLabel(ex)}</div>`:''}
           ${st==='calisthenics'&&ex.cue?`<div style="font-size:12px;color:var(--acc);margin-top:3px;line-height:1.4">${ex.cue}</div>`:''}
         </div>
         ${progArrow}

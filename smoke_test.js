@@ -1482,4 +1482,28 @@ assert(modalityColor('nonsense')==='var(--m-lifting)', 'Modality: unknown type f
 assert(/border-left:2px solid \$\{mc\}/.test(html), 'Modality: week pills carry a per-type left accent');
 assert(/modalityColor\(s\.sessionType/.test(html), 'Modality: history rows + session header use modalityColor');
 
+// ===== REFRESH CHUNK 2: configurable plate math =====
+assert(typeof platesPerSide==='function' && typeof exerciseBarKg==='function' && typeof plateLabel==='function', 'Plates: helpers defined');
+S.settings.activeGymId='gym-singapore';
+const STD=[25,20,15,10,5,2.5,1.25,1];
+const p1=platesPerSide(111,36,STD);
+assert(JSON.stringify(p1.plates)===JSON.stringify([25,10,2.5]) && p1.remainder===0, 'Plates: Deadlift 111 on 36kg bar → 25·10·2.5/side exact. Got: '+JSON.stringify(p1));
+const p2=platesPerSide(87.5,20,STD);
+assert(JSON.stringify(p2.plates)===JSON.stringify([25,5,2.5,1.25]) && p2.remainder===0, 'Plates: Bench 87.5 on 20kg bar → 25·5·2.5·1.25/side exact. Got: '+JSON.stringify(p2));
+const p3=platesPerSide(90,20,[25,20,15,10,5,2.5,1]); // no 1.25 → 35/side = 25+10, exact actually
+assert(platesPerSide(91,20,[25,20,15,10,5,2.5,1]).remainder>0, 'Plates: a load needing 1.25 with no 1.25 plate surfaces a remainder');
+assert(platesPerSide(20,20,STD).plates.length===0, 'Plates: empty bar → no plates');
+// bar resolution
+assert(exerciseBarKg({name:'Deadlift'})===36, 'Plates: Deadlift defaults to 36kg bar (BAR_DEFAULTS)');
+assert(exerciseBarKg({name:'Bench Press'})===activeGymBar(), 'Plates: other lifts use gym default bar');
+assert(exerciseBarKg({name:'Bench Press',barKg:25})===25, 'Plates: explicit per-exercise barKg wins');
+// label
+assert(/36 kg bar · 25 · 10 · 2.5 \/ side/.test(plateLabel({name:'Deadlift',prescribed:{loadKg:111}})), 'Plates: plateLabel formats the deadlift readout. Got: '+plateLabel({name:'Deadlift',prescribed:{loadKg:111}}));
+// gym config present + backfilled
+assert(activeGymBar()===20 && Array.isArray(activePlates()) && activePlates().includes(1.25), 'Plates: Singapore gym has 20kg bar + plate inventory incl 1.25');
+assert(typeof saveBarPlates==='function', 'Plates: saveBarPlates settings handler defined');
+assert(/class="plate-line"/.test(html), 'Plates: barbell cards render a plate-line');
+assert(/barKg:36/.test(html), 'Plates: DEF_PROGRAM Deadlift tagged barKg:36');
+S.settings.activeGymId='gym-commercial';
+
 console.log('\n=== All tests passed ===');
