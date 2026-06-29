@@ -1511,7 +1511,10 @@ assert(typeof ringArc==='function' && typeof renderGoalsDashboard==='function', 
 assert((ringArc(62,0.5,'#22D3EE').match(/<circle/g)||[]).length===2, 'Dash v2: ringArc renders a track + a value circle');
 assert(/club2-n tnum">\$\{totalLb\}/.test(html), 'Dash v2: centre shows the total');
 assert(/const sqL=lb\(b3\.squat\),bnL=lb\(b3\.bench\),dlL=lb\(b3\.dead\),totalLb=sqL\+bnL\+dlL/.test(html), 'Dash v2: sub-numbers sum to the total by construction');
-assert(/concentric|ringArc\(62[\s\S]{0,80}ringArc\(50[\s\S]{0,80}ringArc\(38/.test(html), 'Dash v2: three concentric strength rings (62/50/38)');
+assert(/ringArc\(68,[\s\S]{0,60}ringArc\(55,[\s\S]{0,60}ringArc\(42,/.test(html), 'Dash v2: three concentric strength rings (68/55/42)');
+// each lift ring + its sub-row dot share one distinct hue (squat/bench/dead legible apart)
+assert(/cSquat='#22D3EE',cBench='#818CF8',cDead='#C084FC'/.test(html), 'Dash v2: three distinct per-lift ring hues');
+assert(/sd2" style="background:\$\{cSquat\}/.test(html) && /sd2" style="background:\$\{cBench\}/.test(html) && /sd2" style="background:\$\{cDead\}/.test(html), 'Dash v2: sub-row dots mirror the ring hues');
 // quick-log run/swim
 assert(typeof quickLogActivity==='function' && typeof saveQuickLog==='function', 'Dash v2: quick-log fns defined');
 assert(/id="quickLogModal"/.test(html), 'Dash v2: quick-log modal present');
@@ -1549,6 +1552,6 @@ assert(/<label id="qlDistLbl" for="qlDist">/.test(html) && /<label for="qlDur">/
 assert(/id="sBarKg"[^>]*aria-label=/.test(html) && /id="sPlates"[^>]*aria-label=/.test(html), 'A11y: bar/plates settings inputs are labelled');
 assert(/class="pr-tag"[^>]*aria-label="personal record"/.test(html), 'A11y: PR tag exposes an accessible label');
 assert(/quickLogActivity\('swim'\)"[^>]*aria-label=/.test(html) && /quickLogActivity\('run'\)"[^>]*aria-label=/.test(html), 'A11y: quick-log buttons are labelled');
-assert(/<svg viewBox="0 0 140 140"[^>]*aria-hidden="true"/.test(html) && /<svg viewBox="0 0 88 88" aria-hidden="true"/.test(html), 'A11y: decorative dashboard rings are aria-hidden (numbers carried as text)');
+assert(/<svg viewBox="0 0 150 150"[^>]*aria-hidden="true"/.test(html) && /<svg viewBox="0 0 88 88" aria-hidden="true"/.test(html), 'A11y: decorative dashboard rings are aria-hidden (numbers carried as text)');
 
 console.log('\n=== All tests passed ===');

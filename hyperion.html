@@ -385,7 +385,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .club2{position:relative;display:flex;justify-content:center;margin:10px 0 4px}
 .arc{animation:ringfill 1.4s ease-out}@keyframes ringfill{from{stroke-dashoffset:390}}
 .club2-mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.club2-n{font:700 38px var(--mono);letter-spacing:-2px}
+.club2-n{font:700 30px var(--mono);letter-spacing:-1px;line-height:1}
 .club2-l{font:500 11px var(--mono);color:var(--tx3);margin-top:-3px}
 .subs2{display:flex;justify-content:space-between;margin-top:10px;padding-top:12px;border-top:1px solid var(--s2)}
 .sub2{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}
@@ -4171,8 +4171,8 @@ function miniRing(pct,color,label,sub){
 // One concentric ring arc (track + value), cyan family for the strength lifts.
 function ringArc(r,pct,color){
   const circ=2*Math.PI*r, off=circ*(1-Math.min(1,Math.max(0,pct)));
-  return `<circle cx="70" cy="70" r="${r}" fill="none" stroke="#13161b" stroke-width="8"/>`+
-    `<circle class="arc" cx="70" cy="70" r="${r}" fill="none" stroke="${color}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 70 70)"/>`;
+  return `<circle cx="75" cy="75" r="${r}" fill="none" stroke="#13161b" stroke-width="7"/>`+
+    `<circle class="arc" cx="75" cy="75" r="${r}" fill="none" stroke="${color}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 75 75)"/>`;
 }
 function renderGoalsDashboard(){
   const dash=document.getElementById('goalsDash');if(!dash)return;
@@ -4187,15 +4187,18 @@ function renderGoalsDashboard(){
   const pace=computePace(g1,today),paceLabel={'pace-ahead':'AHEAD','pace-on':'ON PACE','pace-behind':'BEHIND','pace-critical':'BEHIND','pace-muted':'BUILDING'}[pace]||'';
   const toGo=Math.max(0,1000-totalLb);
   // 1000 lb club — concentric strength rings (squat outer, bench mid, dead inner)
-  const rings=ringArc(62,b3.squat/tg.squat,'#22D3EE')+ringArc(50,b3.bench/tg.bench,'#38BDF8')+ringArc(38,b3.dead/tg.dead,'#0EA5B7');
+  // Distinct hue per lift (squat outer / bench mid / dead inner) so each ring
+  // is legible against the others; the sub-row dots below mirror these exactly.
+  const cSquat='#22D3EE',cBench='#818CF8',cDead='#C084FC';
+  const rings=ringArc(68,b3.squat/tg.squat,cSquat)+ringArc(55,b3.bench/tg.bench,cBench)+ringArc(42,b3.dead/tg.dead,cDead);
   const card1000=`<div class="goal-card lift tap" onclick="goToLiftDetail('squat')">
     <div class="goal-head"><span class="t-h2">1000 lb Club</span><span class="pace2" style="color:var(--${pace})">${paceLabel}</span></div>
-    <div class="club2"><svg viewBox="0 0 140 140" width="140" height="140" aria-hidden="true">${rings}</svg>
+    <div class="club2"><svg viewBox="0 0 150 150" width="150" height="150" aria-hidden="true">${rings}</svg>
       <div class="club2-mid"><div class="club2-n tnum">${totalLb}</div><div class="club2-l">/ 1000 lb</div></div></div>
     <div class="subs2">
-      <div class="sub2"><span class="sd2" style="background:#22D3EE"></span><span class="snm tnum">${sqL}</span><span class="sl">SQUAT</span></div>
-      <div class="sub2"><span class="sd2" style="background:#38BDF8"></span><span class="snm tnum">${bnL}</span><span class="sl">BENCH</span></div>
-      <div class="sub2"><span class="sd2" style="background:#0EA5B7"></span><span class="snm tnum">${dlL}</span><span class="sl">DEAD</span></div>
+      <div class="sub2"><span class="sd2" style="background:${cSquat}"></span><span class="snm tnum">${sqL}</span><span class="sl">SQUAT</span></div>
+      <div class="sub2"><span class="sd2" style="background:${cBench}"></span><span class="snm tnum">${bnL}</span><span class="sl">BENCH</span></div>
+      <div class="sub2"><span class="sd2" style="background:${cDead}"></span><span class="snm tnum">${dlL}</span><span class="sl">DEAD</span></div>
       <div class="sub2 gap"><span class="snm tnum gold">${toGo}</span><span class="sl">TO GO · lb</span></div>
     </div></div>`;
   // Muscle-up trail
