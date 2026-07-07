@@ -236,13 +236,24 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .prog-flag{background:var(--red-dim);color:var(--red)}
 .prog-stall{background:var(--warn-dim);color:var(--warn)}
 
-/* Rest timer */
-.rest-bar{position:fixed;top:0;left:0;right:0;z-index:90;background:var(--bg);border-bottom:1px solid var(--acc);padding:calc(10px + var(--sat)) 16px 10px;display:none;align-items:center;justify-content:space-between}
+/* Session strip: one fixed slot above the tab bar. Holds the rest timer
+   (while resting, any view) and the backgrounded-session summary — the old
+   fixed-top rest bar overlapped the session header. */
+#sessBar{position:fixed;left:0;right:0;bottom:calc(55px + var(--sab));z-index:95;display:none;background:var(--bg);border-top:1px solid var(--s3)}
+#sessBar.on{display:block}
+.rest-bar{position:relative;background:var(--bg);border-top:1px solid var(--acc);padding:8px 16px;display:none;align-items:center;justify-content:space-between}
 .rest-bar.on{display:flex}
-.rest-t{font:700 26px var(--mono);color:var(--acc);text-shadow:0 0 10px var(--acc-glow)}
+.rest-t{font:700 24px var(--mono);color:var(--acc);text-shadow:0 0 10px var(--acc-glow)}
 .rest-t.go{color:var(--grn);text-shadow:0 0 10px rgba(52,211,153,0.3);animation:blink .5s infinite}
 .rest-prog{position:absolute;bottom:0;left:0;height:2px;background:var(--acc);box-shadow:0 0 6px var(--acc-glow);transition:width 1s linear}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+#sbSummary{display:none;align-items:center;gap:8px;padding:10px 16px;cursor:pointer}
+#sbSummary.on{display:flex}
+#sbSummary .sb-ic{display:inline-flex;color:var(--acc)}
+#sbSummary .sb-lbl{font:600 13px var(--sans);color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#sbSummary .sb-meta{font:600 12px var(--mono);color:var(--tx2);margin-left:auto;white-space:nowrap}
+#sbSummary .sb-resume{font:700 12px var(--sans);color:var(--acc);flex-shrink:0}
+#app.has-sessbar .pad{padding-bottom:calc(126px + var(--sab))}
 
 /* ===== PROGRESS VIEW ===== */
 .prog-ring{width:140px;height:140px;margin:0 auto 16px}
@@ -460,18 +471,6 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 <body>
 <div id="app">
   <!-- REST TIMER -->
-  <div class="rest-bar" id="restBar">
-    <div style="display:flex;align-items:center;gap:10px">
-      <span style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:1px">Rest</span>
-      <span class="rest-t" id="restDisp">2:30</span>
-    </div>
-    <div style="display:flex;gap:6px">
-      <button class="btn btn-sm btn-s" onclick="addRest(30)">+30s</button>
-      <button class="btn btn-sm btn-p" onclick="skipRest()">Skip</button>
-    </div>
-    <div class="rest-prog" id="restProg"></div>
-  </div>
-
   <!-- ===== TRAIN VIEW ===== -->
   <div class="view on pad" id="vTrain">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
@@ -630,6 +629,28 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <div class="t-meta" id="weekRange" style="margin-bottom:14px"></div>
     <div id="weekList"></div>
     <div id="composerCard"></div>
+  </div>
+
+  <!-- Session strip: fixed above the tab bar. Rest controls while resting
+       (any view); session summary + Resume while a live session is backgrounded. -->
+  <div id="sessBar">
+    <div class="rest-bar" id="restBar">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:1px">Rest</span>
+        <span class="rest-t" id="restDisp">2:30</span>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm btn-s" onclick="addRest(30)">+30s</button>
+        <button class="btn btn-sm btn-p" onclick="skipRest()">Skip</button>
+      </div>
+      <div class="rest-prog" id="restProg"></div>
+    </div>
+    <div id="sbSummary" onclick="resumeSession()" role="button" aria-label="Resume session">
+      <span class="sb-ic" id="sbIcon"></span>
+      <span class="sb-lbl" id="sbLabel"></span>
+      <span class="sb-meta"><span id="sbProg"></span> · <span id="sMiniDur">0:00</span></span>
+      <span class="sb-resume">Resume</span>
+    </div>
   </div>
 
   <nav class="bar" id="navBar">
@@ -1652,7 +1673,6 @@ function startCalibrationSession(liftName){
   };
   save();sessionStart=Date.now();startTimer();
   showView('vSession');renderEx();
-  const nb=document.getElementById('navBar');if(nb)nb.style.display='none';
 }
 
 // Called from finishSession — increments counter, prompts if threshold hit.
@@ -2001,9 +2021,43 @@ function go(v){
   if(v==='Train')renderTrain();
   if(v==='Week')renderWeek();
   if(v==='Progress')renderProgress();
+  renderSessionBar();
 }
 function goTrain(){go('Train')}
-function showView(id){document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));document.getElementById(id).classList.add('on')}
+function showView(id){document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));document.getElementById(id).classList.add('on');renderSessionBar(id)}
+// The session strip above the tab bar. A live session never traps the user:
+// tabs stay visible, navigating away backgrounds the session, this strip
+// carries the rest countdown (any view) or a summary + Resume (away views).
+// getElementById/classList/textContent only — runs under the test harness.
+function renderSessionBar(currentViewId){
+  const bar=document.getElementById('sessBar');if(!bar||!bar.classList)return;
+  const app=document.getElementById('app');
+  const resting=restInt!=null;
+  const live=!!S.activeSession;
+  const onSession=currentViewId?currentViewId==='vSession':!!(document.querySelector&&document.querySelector('#vSession.on'));
+  const sum=document.getElementById('sbSummary');
+  const showSummary=live&&!onSession;
+  if(sum&&sum.classList)sum.classList.toggle('on',showSummary);
+  if(showSummary){
+    const sess=S.activeSession;
+    const lbl=document.getElementById('sbLabel');if(lbl)lbl.textContent=sess.dayLabel||'Session';
+    const ic=document.getElementById('sbIcon');if(ic)ic.innerHTML=icon(sess.sessionType==='calisthenics'?'calisthenics':sess.sessionType||'lifting',14);
+    const pr=document.getElementById('sbProg');
+    if(pr){
+      const exs=sess.exercises||[];
+      const done=exs.filter(e=>e.performed&&e.performed.length&&e.performed.every(s=>s.logged)).length;
+      pr.textContent=exs.length?done+'/'+exs.length:(sess.activity?'activity':'');
+    }
+  }
+  const show=resting||showSummary;
+  bar.classList.toggle('on',show);
+  if(app&&app.classList)app.classList.toggle('has-sessbar',show);
+}
+function resumeSession(){
+  if(!S.activeSession)return;
+  document.querySelectorAll('.bar-btn').forEach(b=>b.classList.remove('on'));
+  showView('vSession');renderEx();
+}
 function showModal(id){document.getElementById(id).classList.add('on')}
 function hideModal(id){document.getElementById(id).classList.remove('on')}
 function showSettings(){renderSettings();showModal('settingsModal')}
@@ -2716,7 +2770,6 @@ function startDay(i){
   }
   save();sessionStart=Date.now();startTimer();
   showView('vSession');renderEx();
-  document.getElementById('navBar').style.display='none';
 }
 
 function saveSessionNotes(){if(S.activeSession){S.activeSession.notes=document.getElementById('sessNotes').value;save()}}
@@ -2729,7 +2782,6 @@ function startAdHocSession(type){
   S.activeSession={dayIndex:-1,date:todayStr(),dayLabel:label,sessionType:type,startTime:Date.now(),exercises:[],notes:'',activity:{durationMin:0,distance:0,effort:null,notes:''}};
   save();sessionStart=Date.now();startTimer();
   showView('vSession');renderEx();
-  document.getElementById('navBar').style.display='none';
 }
 
 // ===== ACTIVITY LOG (swim / run / pilates / mobility) =====
@@ -2760,7 +2812,7 @@ function finalizeActivity(){
   S.activeSession=null;save();
   try{stopRest();}catch(e){}
   if(sessionTimer)clearInterval(sessionTimer);sessionTimer=null;
-  document.getElementById('navBar').style.display='flex';
+  renderSessionBar();
   goTrain();
   toast(rec.sessionType.charAt(0).toUpperCase()+rec.sessionType.slice(1)+' logged');
 }
@@ -3605,6 +3657,7 @@ function startRest(sec){
   stopRest();restDur=sec;restEnd=Date.now()+sec*1000;
   const bar=document.getElementById('restBar');bar.classList.add('on');
   document.getElementById('restDisp').classList.remove('go');
+  renderSessionBar();
   restInt=setInterval(()=>{
     const rem=Math.max(0,Math.ceil((restEnd-Date.now())/1000));
     const m=Math.floor(rem/60),s=rem%60;
@@ -3625,7 +3678,7 @@ function startRest(sec){
     }
   },250);
 }
-function stopRest(){cancelBeep();if(_restAutoStopTimer){clearTimeout(_restAutoStopTimer);_restAutoStopTimer=null}if(restInt)clearInterval(restInt);restInt=null;document.getElementById('restBar').classList.remove('on')}
+function stopRest(){cancelBeep();if(_restAutoStopTimer){clearTimeout(_restAutoStopTimer);_restAutoStopTimer=null}if(restInt)clearInterval(restInt);restInt=null;document.getElementById('restBar').classList.remove('on');renderSessionBar()}
 function skipRest(){cancelBeep();stopRest()}
 function addRest(s){if(restEnd){restEnd+=s*1000;restDur+=s;// reschedule beep to new end
   if(_restBeepTimer)clearTimeout(_restBeepTimer);
@@ -3634,7 +3687,7 @@ function addRest(s){if(restEnd){restEnd+=s*1000;restDur+=s;// reschedule beep to
 }}
 
 // ===== SESSION TIMER =====
-function startTimer(){if(sessionTimer)clearInterval(sessionTimer);sessionTimer=setInterval(()=>{if(!sessionStart)return;const e=Math.floor((Date.now()-sessionStart)/1000);document.getElementById('sDur').textContent=Math.floor(e/60)+':'+String(e%60).padStart(2,'0')},1000)}
+function startTimer(){if(sessionTimer)clearInterval(sessionTimer);sessionTimer=setInterval(()=>{if(!sessionStart)return;const e=Math.floor((Date.now()-sessionStart)/1000);const t=Math.floor(e/60)+':'+String(e%60).padStart(2,'0');document.getElementById('sDur').textContent=t;const m=document.getElementById('sMiniDur');if(m)m.textContent=t},1000)}
 
 // ===== PROGRESSION =====
 // B1: base decisions on achieved top working set, not prescribed load.
@@ -3765,7 +3818,7 @@ function cancelSession(){
   }
   stopRest();if(sessionTimer)clearInterval(sessionTimer);sessionTimer=null;
   S.activeSession=null;save();
-  document.getElementById('navBar').style.display='flex';
+  renderSessionBar();
   goTrain();
 }
 
@@ -3817,7 +3870,7 @@ function confirmRpe(){
   // Phase C: increment rotation counter
   try{maybePromptRotation();}catch(e){}
   renderSummary(rec);showView('vSummary');
-  document.getElementById('navBar').style.display='flex';
+  renderSessionBar();
   // Auto-copy report to clipboard
   setTimeout(()=>{try{navigator.clipboard.writeText(document.getElementById('reportBox').textContent)}catch(e){}},300);
 }
@@ -4715,7 +4768,6 @@ function init(){
   if(S.activeSession){
     sessionStart=S.activeSession.startTime||Date.now();startTimer();
     showView('vSession');renderEx();
-    document.getElementById('navBar').style.display='none';
   } else {
     renderTrain();
   }

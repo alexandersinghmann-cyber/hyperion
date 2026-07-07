@@ -1665,4 +1665,32 @@ evalProg(0);
 assert(S.activeSession.exercises[0].nextTarget==='20s', 'evalProg: hold-type BW earns +5 sec (15s→20s). Got: '+S.activeSession.exercises[0].nextTarget);
 S.activeSession=null;S.sessions=[];
 
+// ===== C3: BACKGROUNDABLE SESSION + BOTTOM STRIP =====
+// The trap is gone: no code path hides the tab bar anymore.
+assert(!/navBar'\)\.style\.display='none'/.test(html) && !/navBar'\)\.style\.display\s*=\s*"none"/.test(html), 'Session: zero navBar-hide sites remain (tab bar never hidden)');
+assert(!/navBar'\)\.style\.display='flex'/.test(html), 'Session: zero navBar-restore sites remain (nothing to restore)');
+// Strip markup + placement
+assert(/<div id="sessBar">/.test(html) && /id="sbSummary"/.test(html) && /id="sMiniDur"/.test(html), 'Session: #sessBar strip with summary + mini duration present');
+assert(/#sessBar\{position:fixed;left:0;right:0;bottom:calc\(55px \+ var\(--sab\)\)/.test(html), 'Session: strip is fixed ABOVE the tab bar (not top:0 — the old overlap bug)');
+assert(!/\.rest-bar\{position:fixed;top:0/.test(html), 'Session: rest bar no longer fixed to the top');
+assert(/#app\.has-sessbar \.pad\{padding-bottom/.test(html), 'Session: content pads up when the strip is visible');
+// renderSessionBar is harness-safe and shows the summary for a backgrounded session
+assert(typeof renderSessionBar==='function' && typeof resumeSession==='function', 'Session: renderSessionBar + resumeSession defined');
+S.activeSession={dayIndex:0,date:'2026-07-08',dayLabel:'Upper (Bench)',sessionType:'lifting',startTime:1,exercises:[
+  {name:'Bench Press',performed:[{type:'working',weightKg:87.5,reps:5,logged:true}]},
+  {name:'Face Pull',performed:[{type:'working',weightKg:36,reps:15,logged:false}]}
+]};
+let sbThrew=false;try{renderSessionBar();}catch(e){sbThrew=true;}
+assert(sbThrew===false, 'Session: renderSessionBar runs clean under DOM mocks with a live session');
+let rsThrew=false;try{resumeSession();}catch(e){rsThrew=true;}
+assert(rsThrew===false, 'Session: resumeSession runs clean under DOM mocks');
+S.activeSession=null;
+let sbThrew2=false;try{renderSessionBar();}catch(e){sbThrew2=true;}
+assert(sbThrew2===false, 'Session: renderSessionBar runs clean with no session');
+// startRest/stopRest keep the strip in sync; go()/showView() re-render it
+assert(/function stopRest\(\)\{[\s\S]{0,300}?renderSessionBar\(\)\}/.test(html), 'Session: stopRest syncs the strip');
+assert(/showView\(id\)\{[^}]*renderSessionBar\(id\)/.test(html), 'Session: showView syncs the strip');
+// End/Cancel remain the only session exits (unchanged semantics)
+assert(/function cancelSession\(/.test(html) && /function endSession\(/.test(html) && /confirm\(/.test(html), 'Session: explicit End/Cancel flows intact');
+
 console.log('\n=== All tests passed ===');
