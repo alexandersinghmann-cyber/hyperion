@@ -38,6 +38,9 @@
   --pace-ahead:var(--grn);--pace-on:var(--acc);--pace-behind:var(--warn);--pace-critical:var(--red);--pace-muted:var(--tx3);--pace-none:var(--tx3);
   /* modality accents — one muted signature per session type */
   --m-lifting:#22D3EE;--m-calisthenics:#C9A96E;--m-swim:#6AA6D8;--m-run:#5E9B7E;--m-pilates:#9D8BD0;--m-mobility:#3FB8AB;--m-rest:#4A5568;
+  /* block-rotating brand accent (JS advances per block adoption; semantic
+     tokens — grn/warn/red, pace, gold-achievement — NEVER rotate) */
+  --brand:#FF6A3D;--brand2:#E04E24;--brand-dim:rgba(255,106,61,.12);
 }
 /* v3 numeric headline utility */
 .tnum{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
@@ -76,7 +79,7 @@ html,body{margin:0;padding:0;overflow:hidden;font-family:var(--sans);background:
 /* Session progress pill */
 .sess-progress{display:flex;align-items:center;gap:6px;padding:8px 14px;background:var(--s1);border-radius:20px;margin-bottom:12px;border:1px solid var(--s2)}
 .sess-progress-bar{flex:1;height:3px;background:var(--s3);border-radius:2px;overflow:hidden}
-.sess-progress-fill{height:100%;background:var(--acc);border-radius:2px;transition:width .3s ease;box-shadow:0 0 4px var(--acc-glow)}
+.sess-progress-fill{height:100%;background:var(--brand);border-radius:2px;transition:width .3s ease;box-shadow:0 0 4px var(--brand-dim)}
 .sess-progress-text{font:500 11px var(--mono);color:var(--tx3);white-space:nowrap}
 
 /* Exercise trend row */
@@ -88,7 +91,7 @@ html,body{margin:0;padding:0;overflow:hidden;font-family:var(--sans);background:
 /* Bottom bar */
 .bar{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--bg);border-top:1px solid var(--s3);padding:6px 0 calc(6px + var(--sab));z-index:100}
 .bar-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:var(--tx3);font:600 9px var(--mono);cursor:pointer;padding:6px 0;transition:color .15s;letter-spacing:.5px;text-transform:uppercase}
-.bar-btn.on{color:var(--acc)}
+.bar-btn.on{color:var(--brand)}
 .bar-btn svg{width:20px;height:20px}
 
 /* Type */
@@ -178,7 +181,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .day-done-summary{font-size:12px;color:var(--tx3);margin-top:6px;font-family:var(--mono)}
 
 /* Start button */
-.start-btn{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#0A0B0E;font:700 14px var(--sans);border:none;border-radius:var(--r);padding:16px;width:100%;cursor:pointer;margin-bottom:8px;transition:all .12s;letter-spacing:.5px;position:relative;overflow:hidden;box-shadow:0 4px 20px rgba(201,169,110,0.12)}
+.start-btn{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#0A0B0E;font:700 14px var(--sans);border:none;border-radius:var(--r);padding:16px;width:100%;cursor:pointer;margin-bottom:8px;transition:all .12s;letter-spacing:.5px;position:relative;overflow:hidden;box-shadow:0 4px 20px var(--brand-dim)}
 .start-btn::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.2),transparent)}
 .start-btn:active{transform:scale(.98);opacity:.9}
 
@@ -244,7 +247,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 /* Session strip: one fixed slot above the tab bar. Holds the rest timer
    (while resting, any view) and the backgrounded-session summary — the old
    fixed-top rest bar overlapped the session header. */
-#sessBar{position:fixed;left:0;right:0;bottom:calc(55px + var(--sab));z-index:95;display:none;background:var(--bg);border-top:1px solid var(--s3)}
+#sessBar{position:fixed;left:0;right:0;bottom:calc(55px + var(--sab));z-index:95;display:none;background:var(--bg);border-top:2px solid var(--brand)}
 #sessBar.on{display:block}
 .rest-bar{position:relative;background:var(--bg);border-top:1px solid var(--acc);padding:8px 16px;display:none;align-items:center;justify-content:space-between}
 .rest-bar.on{display:flex}
@@ -410,6 +413,23 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .snm{font:700 18px var(--mono)}.snm.gold{color:var(--gold)}
 .s-tgt{font:600 11px var(--mono);color:var(--tx3)}
 .set-grp{font:700 10px var(--mono);color:var(--tx3);letter-spacing:2px;margin:16px 0 2px;padding-bottom:4px;border-bottom:1px solid var(--s3)}
+/* ===== C9: brand accents + depth + hero ===== */
+.q-mark{font:700 20px Georgia,serif;color:var(--brand);margin-right:2px;vertical-align:-3px;line-height:0}
+/* Depth pass: top-edge highlight + soft ambient shadow on card surfaces.
+   Layout untouched; radius stays var(--r)/var(--rs). */
+.goal-card,.ex-card,.day-card,.big3-tile,.comp-card,.extra-card,.history-item{box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 2px 8px rgba(0,0,0,.35)}
+/* Main-lift cards: faint brand-tinted vertical wash (~3%) */
+.ex-card.main-lift{background:linear-gradient(180deg,color-mix(in srgb,var(--brand) 4%,var(--s1)),var(--s1) 55%)}
+/* One-time glow for numbers that changed since last week */
+.glow-up{animation:valglow 1.2s ease-out 1}
+@keyframes valglow{0%{text-shadow:0 0 12px var(--brand-dim),0 0 4px var(--brand)}100%{text-shadow:none}}
+/* Session-start hero: 1s brand wash, tap to skip */
+#sessionHero{position:fixed;inset:0;z-index:300;display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:linear-gradient(160deg,var(--brand-dim),var(--bg) 70%);backdrop-filter:blur(2px)}
+#sessionHero.on{display:flex;animation:heroin 220ms ease-out}
+@keyframes heroin{from{opacity:0}to{opacity:1}}
+#sessionHero .sh-label{font:700 var(--t-display) var(--sans);color:var(--tx);letter-spacing:-.5px;text-align:center;padding:0 24px}
+#sessionHero .sh-target{font:600 14px var(--mono);color:var(--brand);letter-spacing:.3px}
+#sessionHero .sh-skip{font:500 11px var(--mono);color:var(--tx3);margin-top:18px}
 .sl{font:600 8px var(--mono);color:var(--tx3);letter-spacing:1px}
 .tagm{font:600 8px var(--mono);letter-spacing:1px;color:var(--tx3);border:1px solid var(--s3);border-radius:4px;padding:2px 6px}
 .bigrow{display:flex;align-items:baseline;gap:8px;margin:9px 0}
@@ -486,7 +506,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
           <span style="font:700 10px var(--mono);color:var(--acc);letter-spacing:3px;text-shadow:0 0 12px rgba(34,211,238,0.25)">HYPERION</span>
           <span style="font:500 10px var(--mono);color:var(--tx3);letter-spacing:.5px" id="blockDateRange"></span>
         </div>
-        <div id="greeting" style="margin-top:4px"><span style="font-style:italic;font-size:14px;font-weight:400;color:var(--tx2);line-height:1.4;letter-spacing:.2px" id="quoteText"></span><span style="font:500 11px var(--mono);color:var(--tx3);margin-left:6px;white-space:nowrap;font-style:normal" id="quoteAuthor"></span></div>
+        <div id="greeting" style="margin-top:4px"><span class="q-mark" aria-hidden="true">&ldquo;</span><span style="font-style:italic;font-size:14px;font-weight:400;color:var(--tx2);line-height:1.4;letter-spacing:.2px" id="quoteText"></span><span style="font:500 11px var(--mono);color:var(--tx3);margin-left:6px;white-space:nowrap;font-style:normal" id="quoteAuthor"></span></div>
       </div>
       <div style="display:flex;gap:6px;align-items:center">
         <button class="btn btn-sm btn-g" onclick="copyWeeklyReport()" title="Copy weekly coach report" aria-label="Copy weekly coach report" style="padding:6px 10px;border-radius:2px;display:flex;align-items:center">
@@ -640,6 +660,14 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <div class="t-meta" id="weekRange" style="margin-bottom:14px"></div>
     <div id="weekList"></div>
     <div id="composerCard"></div>
+  </div>
+
+  <!-- Session-start hero: 1s brand wash naming the session + main-lift target.
+       Tap-skippable; skipped entirely under reduced motion. -->
+  <div id="sessionHero" onclick="hideSessionHero()" role="button" aria-label="Continue to session">
+    <div class="sh-label" id="shLabel"></div>
+    <div class="sh-target" id="shTarget"></div>
+    <div class="sh-skip">tap to continue</div>
   </div>
 
   <!-- Session strip: fixed above the tab bar. Rest controls while resting
@@ -1056,6 +1084,57 @@ function icon(name,size){
 // makes the week + history scannable at a glance.
 const MODALITY_TYPES=['lifting','calisthenics','swim','run','pilates','mobility','rest'];
 function modalityColor(type){return 'var(--m-'+(MODALITY_TYPES.includes(type)?type:'lifting')+')';}
+
+// ===== BLOCK-ROTATING BRAND ACCENT =====
+// Each adopted block gets the next accent in the cycle — the app FEELS like a
+// new block. Semantic tokens (grn/warn/red, pace, gold-achievement, per-lift
+// ring hues) never rotate. Index persists in S; Block 4 W3 ships ember.
+const BRAND_CYCLE=[
+  {name:'ember',c:'#FF6A3D',c2:'#E04E24',dim:'rgba(255,106,61,.12)'},
+  {name:'cyan',c:'#22D3EE',c2:'#06B6D4',dim:'rgba(34,211,238,.12)'},
+  {name:'violet',c:'#7C6CFF',c2:'#5B4BE0',dim:'rgba(124,108,255,.12)'},
+  {name:'lime',c:'#A3E635',c2:'#84CC16',dim:'rgba(163,230,53,.12)'},
+  {name:'amber',c:'#F4B942',c2:'#D99B22',dim:'rgba(244,185,66,.12)'},
+  {name:'rose',c:'#FF4D6D',c2:'#E02D52',dim:'rgba(255,77,109,.12)'},
+  {name:'bone',c:'#E8E4D8',c2:'#C9C4B4',dim:'rgba(232,228,216,.12)'}
+];
+function applyBrand(){
+  const e=BRAND_CYCLE[((S.settings&&S.settings.brandIdx)||0)%BRAND_CYCLE.length]||BRAND_CYCLE[0];
+  // Mock-document guard: the harness has no documentElement.
+  if(typeof document==='undefined'||!document.documentElement||!document.documentElement.style||!document.documentElement.style.setProperty)return;
+  document.documentElement.style.setProperty('--brand',e.c);
+  document.documentElement.style.setProperty('--brand2',e.c2);
+  document.documentElement.style.setProperty('--brand-dim',e.dim);
+}
+// Advance exactly once per block-name change, whatever the adoption path
+// (load-after-restore, syncProgram, import). Stamped via brandBlock so it is
+// idempotent across reloads.
+function maybeAdvanceBrand(){
+  if(!S.settings)return;
+  if(S.settings.brandBlock!==S.program.name){
+    S.settings.brandIdx=(((S.settings.brandIdx??-1))+1)%BRAND_CYCLE.length;
+    S.settings.brandBlock=S.program.name;
+    save();
+  }
+  applyBrand();
+}
+
+// Count-up for headline numbers. Falls back to an instant set when rAF or
+// matchMedia are unavailable (test harness) or reduced motion is on.
+function animateCount(el,to,suffix){
+  if(!el)return;
+  const target=+to||0;
+  const reduced=(typeof matchMedia==='function')&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const raf=(typeof requestAnimationFrame==='function')?requestAnimationFrame:null;
+  if(!raf||reduced){el.textContent=String(target)+(suffix||'');return}
+  const dur=600,t0=performance.now();
+  const step=t=>{
+    const p=Math.min(1,(t-t0)/dur),ease=1-Math.pow(1-p,3);
+    el.textContent=String(Math.round(target*ease))+(suffix||'');
+    if(p<1)raf(step);
+  };
+  raf(step);
+}
 
 // Exercise name aliases — used to maintain e1RM / history continuity across renames or swaps.
 // Key: any old name. Value: canonical name. When a swap or rename happens, the old name gets mapped
@@ -1514,7 +1593,7 @@ const FIXED_MAINS=['Back Squat','Bench Press','Deadlift'];
 // Rotation threshold (sessions). Rule #17: every ~14 sessions or 4 wks, whichever first.
 const ROTATION_THRESHOLD=14;
 
-let S={version:2,program:JSON.parse(JSON.stringify(DEF_PROGRAM)),sessions:[],goals:[{id:'g1',name:'1000 lb Total',current:0,target:1000,unit:'lb',auto:true}],settings:{unit:'kg',benchBaseline1RM:95,big3Targets:{squat:166,bench:102,dead:186},variantMemory:{}},skips:[],activeSession:null,block:{sessionsSinceRotate:0,variantCursor:{}}};
+let S={version:2,program:JSON.parse(JSON.stringify(DEF_PROGRAM)),sessions:[],goals:[{id:'g1',name:'1000 lb Total',current:0,target:1000,unit:'lb',auto:true}],settings:{unit:'kg',benchBaseline1RM:95,big3Targets:{squat:166,bench:102,dead:186},variantMemory:{},brandIdx:0,brandBlock:'Jul 8 Block 4 W3'},skips:[],activeSession:null,block:{sessionsSinceRotate:0,variantCursor:{}}};
 let sessionStart=null,sessionTimer=null,restInt=null,restEnd=null,restDur=0,painExI=null,selRpe=null,viewDayI=0,previewDayI=0;
 
 function save(){try{localStorage.setItem(STORE,JSON.stringify(S))}catch(e){}}
@@ -1821,6 +1900,7 @@ function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse
   // Backfill big3Targets (1000 lb-club default split: 365+225+410 lb ≈ 166/102/186 kg)
   if(!S.settings.big3Targets)S.settings.big3Targets={squat:166,bench:102,dead:186};
   if(!S.settings.variantMemory)S.settings.variantMemory={};
+  if(S.settings.brandIdx==null){S.settings.brandIdx=-1;S.settings.brandBlock=S.program&&S.program.name;}
   // Backfill skips array
   if(!Array.isArray(S.skips))S.skips=[];
   // v1→v2 migration
@@ -1847,6 +1927,9 @@ function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse
   try{migrateV3();save();}catch(e){}
   // Run validator sweep once (non-blocking) to surface any ordering issues in console
   setTimeout(()=>{try{validateProgram();const vw=validateWeek();if(vw.length){console.group('[Hyperion] Cross-session week warnings');vw.forEach(r=>r.warnings.forEach(w=>console.warn(w.level.toUpperCase()+' '+r.date+': '+w.msg)));console.groupEnd();}}catch(e){}},1200);
+  // Brand accent: advance if the block changed while we were away (restore/
+  // cross-device), then paint the tokens. Mock-safe (guards inside).
+  try{maybeAdvanceBrand();}catch(e){}
 }catch(e){}}
 
 // B2: Canonical name→category map. Idempotent: only rewrites if wrong.
@@ -2053,8 +2136,17 @@ function go(v){
   const btn=document.querySelector(`[data-v="${v}"]`);if(btn)btn.classList.add('on');
   if(v==='Train')renderTrain();
   if(v==='Week')renderWeek();
-  if(v==='Progress')renderProgress();
+  if(v==='Progress'){renderProgress();animateProgressNumbers();}
   renderSessionBar();
+}
+// Count-up on the headline total when Progress opens (once per open). All
+// guards live in animateCount; querySelector is null under the harness mock.
+function animateProgressNumbers(){
+  try{
+    const el=document.querySelector&&document.querySelector('.club2-n');
+    if(!el)return;
+    animateCount(el,parseInt(el.textContent,10)||0);
+  }catch(e){}
 }
 function goTrain(){go('Train')}
 function showView(id){document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));document.getElementById(id).classList.add('on');renderSessionBar(id)}
@@ -2511,7 +2603,8 @@ function renderTrain(){
   if(greet)greet.style.display=showQuote?'':'none';
   if(showQuote){
     const maxim=getMaxim();
-    document.getElementById('quoteText').textContent='"'+maxim[0]+'"';
+    // Opening mark is the decorative brand .q-mark in the markup.
+    document.getElementById('quoteText').textContent=maxim[0]+'”';
     document.getElementById('quoteAuthor').textContent='— '+maxim[1];
   }
   document.getElementById('unitBtn').textContent=S.settings.unit.toUpperCase();
@@ -2819,6 +2912,27 @@ function startDay(i){
   }
   save();sessionStart=Date.now();startTimer();
   showView('vSession');renderEx();
+  showSessionHero(day);
+}
+
+// 1s brand-washed transition naming the session + today's main-lift target.
+// Skipped under reduced motion / missing rAF (test harness); tap dismisses.
+let _heroTimer=null;
+function showSessionHero(day){
+  if(typeof requestAnimationFrame!=='function')return;
+  if(typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  const h=document.getElementById('sessionHero');if(!h||!h.classList)return;
+  const main=(day.exercises||[]).find(e=>FIXED_MAINS.includes(canonName(e.name)));
+  const lbl=document.getElementById('shLabel');if(lbl)lbl.textContent=day.label;
+  const tgt=document.getElementById('shTarget');
+  if(tgt)tgt.textContent=main?`${main.name} ${main.loadKg} kg${(main.tags||[]).some(t=>/RPE-8/.test(t))?' · RPE 8 cap':''}`:(day.sessionType==='calisthenics'?'RPE 7 cap — quality reps':'');
+  h.classList.add('on');
+  if(_heroTimer)clearTimeout(_heroTimer);
+  _heroTimer=setTimeout(hideSessionHero,1000);
+}
+function hideSessionHero(){
+  if(_heroTimer){clearTimeout(_heroTimer);_heroTimer=null}
+  const h=document.getElementById('sessionHero');if(h&&h.classList)h.classList.remove('on');
 }
 
 function saveSessionNotes(){if(S.activeSession){S.activeSession.notes=document.getElementById('sessNotes').value;save()}}
@@ -2942,6 +3056,7 @@ function setVariantMachine(ei){
 }
 function rememberVariant(ex){
   if(!S.settings.variantMemory)S.settings.variantMemory={};
+  if(S.settings.brandIdx==null){S.settings.brandIdx=-1;S.settings.brandBlock=S.program&&S.program.name;}
   const gid=S.settings.activeGymId||'default';
   if(!S.settings.variantMemory[gid])S.settings.variantMemory[gid]={};
   const key=canonName(ex.name);
@@ -3030,7 +3145,7 @@ function renderEx(){
     const ssTop=ex.supersetNext?' ss-top':'';
     const ssBot=(i>0&&sess.exercises[i-1].supersetNext)?' ss-bot':'';
 
-    return`<div class="ex-card ${autoOpen?'open':''} ${autoOpen&&!allDone?'active':''}${ssTop}${ssBot}" id="ex${i}">
+    return`<div class="ex-card ${autoOpen?'open':''} ${autoOpen&&!allDone?'active':''}${FIXED_MAINS.includes(canonName(ex.name))?' main-lift':''}${ssTop}${ssBot}" id="ex${i}">
       <div class="ex-head" onclick="document.getElementById('ex${i}').classList.toggle('open')">
         <div class="ex-status ${stCls}">${allDone?'✓':anyDone?'◐':'○'}</div>
         <div class="ex-info">
@@ -4517,8 +4632,10 @@ function renderGoalsDashboard(){
         const du=S.settings.unit||'kg';
         const cur=k=>du==='lb'?lb(b3[k]):Math.round(b3[k]);
         const tgt=k=>du==='lb'?lb(tg[k]):Math.round(tg[k]);
+        // One-time glow when a lift's e1RM rose since its previous session.
+        const rose={squat:b3.deltaSquat>0,bench:b3.deltaBench>0,dead:b3.deltaDead>0};
         return[['squat',cSquat,'SQUAT'],['bench',cBench,'BENCH'],['dead',cDead,'DEAD']]
-          .map(([k,c,l])=>`<div class="sub2"><span class="sd2" style="background:${c}"></span><span class="snm tnum">${cur(k)}<span class="s-tgt">/${tgt(k)}</span></span><span class="sl">${l} · ${du}</span></div>`).join('');
+          .map(([k,c,l])=>`<div class="sub2"><span class="sd2" style="background:${c}"></span><span class="snm tnum${rose[k]?' glow-up':''}">${cur(k)}<span class="s-tgt">/${tgt(k)}</span></span><span class="sl">${l} · ${du}</span></div>`).join('');
       })()}
       <div class="sub2 gap"><span class="snm tnum gold">${toGo}</span><span class="sl">TO GO · lb</span></div>
     </div></div>`;

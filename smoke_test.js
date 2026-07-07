@@ -32,7 +32,8 @@ const patched = js
   .replace(/\bconst EQ_TAGS\s*=/g, 'var EQ_TAGS =')
   .replace(/\bconst DEFAULT_GYMS\s*=/g, 'var DEFAULT_GYMS =')
   .replace(/\bconst ICONS\s*=/g, 'var ICONS =')
-  .replace(/\bconst APP_VERSION\s*=/g, 'var APP_VERSION =');
+  .replace(/\bconst APP_VERSION\s*=/g, 'var APP_VERSION =')
+  .replace(/\bconst BRAND_CYCLE\s*=/g, 'var BRAND_CYCLE =');
 (0, eval)(patched);
 // Expose helpers globally (they were `function` declarations, already global when eval'd indirectly)
 
@@ -1835,5 +1836,42 @@ assert(/This is a FULL BACKUP\. Restoring OVERWRITES/.test(html), 'Settings: des
 assert(/runValidatorAuto\(/.test(html) && /maybeAdvanceBrandSafe\(\);/.test(html), 'Settings: validator auto-runs on sync/import');
 // +Add Goal behind the overflow
 assert(/id="goalsMenu"/.test(html) && /toggleGoalsMenu/.test(html), 'Settings: Add Goal moved behind the Progress overflow menu');
+
+// ===== C9: BRAND SYSTEM + MOTION =====
+assert(Array.isArray(BRAND_CYCLE) && BRAND_CYCLE.length===7, 'Brand: 7-colour cycle');
+assert(BRAND_CYCLE[0].name==='ember' && BRAND_CYCLE[0].c==='#FF6A3D', 'Brand: index 0 is ember #FF6A3D (Block 4 W3 ships ember)');
+assert(typeof applyBrand==='function' && typeof maybeAdvanceBrand==='function' && typeof animateCount==='function', 'Brand: functions defined');
+// applyBrand is harness-safe (mock document has no documentElement)
+let abThrew=false;try{applyBrand();}catch(e){abThrew=true;}
+assert(abThrew===false, 'Brand: applyBrand no-ops cleanly under the mock document');
+// advance-once semantics, whatever the adoption path
+S.settings.brandIdx=-1;S.settings.brandBlock='Jun 29 Block 4 W2';S.program.name='Jul 8 Block 4 W3';
+maybeAdvanceBrand();
+assert(S.settings.brandIdx===0 && S.settings.brandBlock==='Jul 8 Block 4 W3', 'Brand: adopting W3 advances -1 → 0 = ember, stamps block. Got idx '+S.settings.brandIdx);
+maybeAdvanceBrand();
+assert(S.settings.brandIdx===0, 'Brand: idempotent — same block never advances twice');
+S.program.name='Next Block';maybeAdvanceBrand();
+assert(S.settings.brandIdx===1, 'Brand: next block advances to cycle[1]');
+S.program.name='Jul 8 Block 4 W3';S.settings.brandIdx=0;S.settings.brandBlock='Jul 8 Block 4 W3';
+// wired into every adoption path
+assert(/maybeAdvanceBrand\(\);\}catch/.test(html.replace(/\s+/g,'')) || /try\{maybeAdvanceBrand\(\);\}catch\(e\)\{\}/.test(html), 'Brand: load() advances after restore/cross-device');
+assert(/function maybeAdvanceBrandSafe/.test(html) && (html.match(/maybeAdvanceBrandSafe\(\);/g)||[]).length>=2, 'Brand: syncProgram + doImport advance via the safe hook');
+// CSS discipline: brand where intended, gold achievement untouched
+assert(/--brand:#FF6A3D;--brand2:#E04E24/.test(html), 'Brand: :root static fallback is ember');
+assert(/\.bar-btn\.on\{color:var\(--brand\)\}/.test(html), 'Brand: active tab uses --brand');
+assert(/\.start-btn\{background:linear-gradient\(135deg,var\(--brand\),var\(--brand2\)\)/.test(html), 'Brand: Start button uses the brand gradient');
+assert(/\.pr-tag\{[^}]*color:var\(--gold\)/.test(html), 'Brand: PR tag STAYS gold (achievement never rotates)');
+assert(/cSquat='#22D3EE',cBench='#818CF8',cDead='#C084FC'/.test(html), 'Brand: per-lift ring hues untouched');
+assert(/class="q-mark"/.test(html) && /\.q-mark\{[^}]*color:var\(--brand\)/.test(html), 'Brand: quote mark carries the brand');
+assert(/#sessBar\{[^}]*border-top:2px solid var\(--brand\)/.test(html), 'Brand: session strip carries the brand');
+// depth pass + hero + count-up
+assert(/\.goal-card,\.ex-card,\.day-card,\.big3-tile,\.comp-card,\.extra-card,\.history-item\{box-shadow:inset 0 1px 0 rgba\(255,255,255,\.04\)/.test(html), 'Depth: top-edge highlight + ambient shadow on cards');
+assert(/\.ex-card\.main-lift\{background:linear-gradient/.test(html) && /main-lift'/.test(html), 'Depth: main-lift cards get the faint brand wash');
+assert(/id="sessionHero"/.test(html) && /function showSessionHero/.test(html) && /typeof requestAnimationFrame!=='function'\)return/.test(html), 'Hero: overlay present, rAF/reduced-motion guarded');
+// animateCount fallback path (no rAF in harness → instant final value)
+const cntEl={textContent:''};
+animateCount(cntEl,751);
+assert(cntEl.textContent==='751', 'Motion: animateCount falls back to the final value without rAF. Got: '+cntEl.textContent);
+assert(/glow-up/.test(html) && /@keyframes valglow/.test(html), 'Motion: changed-value glow wired');
 
 console.log('\n=== All tests passed ===');
