@@ -1767,4 +1767,38 @@ assert(/openMoveExercise/.test(html) && /id="moveExModal"/.test(html), 'Skip: sk
 assert(/SKIPPED \$\{cs\.count\}/.test(html), 'Skip: chronic card renders on Train');
 S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.settings.chronicDismissed={};
 
+// ===== C6: WEEKLY COACH REPORT =====
+assert(typeof buildCoachReport==='function' && typeof isWeekComplete==='function' && typeof copyWeeklyReport==='function', 'Report: weekly builders defined');
+S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.skips=[];
+const wkJul6=weekDatesFor('2026-07-06'); // Mon Jul 6 – Sun Jul 12 (W3 week 1)
+const liftRec=(date,label)=>({date,dayLabel:label,blockName:S.program.name,duration:60,rpe:7,status:'complete',exercises:[{name:'Deadlift',cat:'hinge',prescribed:{sets:1,reps:'5',loadKg:116,unit:'kg'},performed:[{type:'working',weightKg:116,reps:5,rpe:8,logged:true}],progression:'hold',nextLoad:116,variant:null,tags:[]}],painEvents:[]});
+S.sessions=[
+  liftRec('2026-07-12','Deadlift + Pull'),                                   // this week
+  liftRec('2026-06-28','Lower (Deadlift)'),                                  // LAST block+week — must be excluded
+  makeActivitySession({startTime:9,date:'2026-07-11',dayLabel:'Swim',sessionType:'swim',activity:{durationMin:30,distance:700,effort:6,notes:''}})
+];
+const rpt=buildCoachReport(S.sessions,S.program,wkJul6);
+assert(/Week .*Jul 6.*Jul 12/.test(rpt), 'Report: header names the calendar week. Got: '+rpt.split('\n')[0]);
+assert(/Deadlift \+ Pull/.test(rpt), 'Report: this week\'s session included');
+assert(!/Lower \(Deadlift\)/.test(rpt), 'Report: a session from a previous week is EXCLUDED (block-cumulative bug dead)');
+assert(/\(swim\).*30 min.*700 m/.test(rpt), 'Report: a logged swim renders as one activity line. Got: '+(rpt.split('\n').find(l=>/swim/.test(l))||'none'));
+assert(/Sessions: 2 \/ \d+ scheduled/.test(rpt), 'Report: N/M = completed/scheduled this week. Got: '+(rpt.split('\n').find(l=>/Sessions:/.test(l))||'none'));
+// Sunday-evening scope: the report generated ON Sunday must still target THIS week
+assert(weekDatesFor('2026-07-12')[0]==='2026-07-06' && weekDatesFor('2026-07-12').includes('2026-07-12'), 'Report: calendar week on a Sunday includes that Sunday (never weekAnchor-rolled)');
+// variant label in the line
+S.sessions=[{date:'2026-07-12',dayLabel:'Deadlift + Pull',blockName:S.program.name,duration:60,rpe:7,status:'complete',exercises:[{name:'Cable Low Row',cat:'pull',prescribed:{sets:1,reps:'8',loadKg:31.5,unit:'kg'},performed:[{type:'working',weightKg:31.5,reps:8,logged:true}],progression:'hold',nextLoad:31.5,variant:{pulley:'double',grip:'narrow'},tags:[]}],painEvents:[]}];
+assert(/Cable Low Row \(double pulley, narrow\)/.test(buildCoachReport(S.sessions,S.program,wkJul6)), 'Report: variant label rendered inline');
+// isWeekComplete: all four W3 days logged this week → complete; missing one → not
+S.sessions=[liftRec('2026-07-08','Upper (Bench)'),liftRec('2026-07-10','Squat'),liftRec('2026-07-11','Calisthenics (MU Foundation)'),liftRec('2026-07-12','Deadlift + Pull')];
+assert(isWeekComplete(wkJul6)===true, 'Report: all 4 days done this week → week complete');
+S.sessions=S.sessions.slice(0,3);
+assert(isWeekComplete(wkJul6)===false, 'Report: a missing day → not complete');
+// a consciously-skipped day still completes the week
+S.skips=[{dayLabel:'Deadlift + Pull',blockName:S.program.name,date:'2026-07-12',reason:'sick'}];
+assert(isWeekComplete(wkJul6)===true, 'Report: a skipped day counts as resolved');
+S.skips=[];S.sessions=[];
+// end-of-session report is gone
+assert(!/reportBox/.test(html) && !/function copyReport\(/.test(html), 'Report: per-session report box + copyReport removed');
+assert(/copyWeeklyReport\(\)/.test(html) && /WEEK COMPLETE/.test(html), 'Report: header icon + week-complete banner wired');
+
 console.log('\n=== All tests passed ===');

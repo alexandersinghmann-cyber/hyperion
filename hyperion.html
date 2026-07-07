@@ -487,6 +487,9 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
         <div id="greeting" style="margin-top:4px"><span style="font-style:italic;font-size:14px;font-weight:400;color:var(--tx2);line-height:1.4;letter-spacing:.2px" id="quoteText"></span><span style="font:500 11px var(--mono);color:var(--tx3);margin-left:6px;white-space:nowrap;font-style:normal" id="quoteAuthor"></span></div>
       </div>
       <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn btn-sm btn-g" onclick="copyWeeklyReport()" title="Copy weekly coach report" aria-label="Copy weekly coach report" style="padding:6px 10px;border-radius:2px;display:flex;align-items:center">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/></svg>
+        </button>
         <button class="btn btn-sm btn-g" onclick="toggleUnit()" id="unitBtn" style="font-family:var(--mono);padding:6px 10px;font-size:10px;letter-spacing:1px;border-radius:2px">KG</button>
         <button class="btn btn-sm btn-g" onclick="showSettings()" title="Settings" style="padding:6px 10px;border-radius:2px;display:flex;align-items:center;gap:5px">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
@@ -557,12 +560,8 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       <div class="t2c" style="margin-top:4px" id="sumSub"></div>
     </div>
     <div id="sumExs"></div>
-    <div style="margin-top:16px">
-      <div class="t3" style="margin-bottom:8px">Report</div>
-      <div class="report" id="reportBox"></div>
-      <button class="btn btn-p btn-w" style="margin-top:10px" onclick="copyReport()">Copy Report</button>
-      <div id="copyMsg" style="color:var(--grn);font-size:12px;text-align:center;margin-top:6px;display:none">Copied</div>
-    </div>
+    <!-- The report is a WEEKLY artifact — no per-session report action here.
+         Copy it from the Train header icon or the week-complete banner. -->
     <button class="btn btn-s btn-w" style="margin-top:10px" onclick="goTrain()">Back</button>
   </div>
 
@@ -2614,6 +2613,13 @@ function renderTrain(){
       html+=`<div class="conflict-banner">${icon('pause',16)}<div><div class="t-meta" style="color:var(--warn)">RECOVERY CONFLICT</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">${msgs[0]}</div></div></div>`;
     }
   }catch(e){}
+  // Week complete → one-tap coach report (calendar week, NOT weekAnchor —
+  // Sunday evening after the deadlift is exactly when this must fire).
+  try{
+    if(isWeekComplete(weekDatesFor(todayStr()))){
+      html+=`<div class="block-banner"><div><div class="t-meta" style="color:var(--gold)">WEEK COMPLETE</div><div style="font:600 14px var(--sans);margin-top:2px">All sessions done — send it to the coach</div></div><button class="btn btn-sm btn-gold" onclick="event.stopPropagation();copyWeeklyReport()">Copy Coach Report</button></div>`;
+    }
+  }catch(e){}
   // Chronic-skip cards: skipped on the last 3 appearances → make it visible.
   try{
     chronicSkips().forEach(cs=>{
@@ -4061,8 +4067,7 @@ function confirmRpe(){
   try{maybePromptRotation();}catch(e){}
   renderSummary(rec);showView('vSummary');
   renderSessionBar();
-  // Auto-copy report to clipboard
-  setTimeout(()=>{try{navigator.clipboard.writeText(document.getElementById('reportBox').textContent)}catch(e){}},300);
+  // (No per-session report copy — the coach report is a weekly artifact.)
 }
 
 // ===== SUMMARY =====
@@ -4086,26 +4091,6 @@ function renderSummary(rec){
     </div>`;
   }).join('');
 
-  let r=`## HYPERION — Session Report\n${rec.dayLabel} | ${fmtDate(rec.date)} | ${rec.duration} min | RPE ${rec.rpe||'—'}\n\n`;
-  rec.exercises.forEach(ex=>{
-    const w=(ex.performed||[]).filter(s=>s.type==='working');
-    const wu=(ex.performed||[]).filter(s=>s.type==='warmup');
-    const pi=ex.progression==='increase'?'↑':ex.progression==='flag'?'⚠':'→';
-    const st=ex.painEvent&&ex.painEvent.severity!=='none'?'⚠️':'✅';
-    r+=`${st} ${ex.name}: ${w.map(s=>fmtW(s.weightKg,ex.prescribed?.unit)+'×'+s.reps).join(' / ')} ${pi}`;
-    if(ex.progression==='increase'&&ex.nextLoad)r+=` ${fmtW(ex.nextLoad,ex.prescribed?.unit)}`;
-    r+='\n';
-    if(wu.length)r+=`   Warmup: ${wu.map(s=>fmtW(s.weightKg,ex.prescribed?.unit)+'×'+s.reps).join(', ')}\n`;
-  });
-  r+=`\nShoulder: ${(rec.painEvents||[]).length===0?'no events':(rec.painEvents||[]).map(p=>p.exercise+' ('+p.severity+')').join(', ')}`;
-  if(rec.sessionNotes)r+='\n\nNotes: '+rec.sessionNotes;
-  document.getElementById('reportBox').textContent=r;
-}
-
-function copyReport(){
-  navigator.clipboard.writeText(document.getElementById('reportBox').textContent).then(()=>{
-    const m=document.getElementById('copyMsg');m.style.display='block';setTimeout(()=>m.style.display='none',2000);
-  }).catch(()=>{const t=document.createElement('textarea');t.value=document.getElementById('reportBox').textContent;document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);const m=document.getElementById('copyMsg');m.style.display='block';setTimeout(()=>m.style.display='none',2000)});
 }
 
 // ===== PROGRESS VIEW =====
@@ -4853,23 +4838,48 @@ function doImport(){
   try{const j=JSON.parse(document.getElementById('importArea').value);if(j.name&&j.days){S.program=j;save();hideModal('importModal');renderTrain()}else{alert('Needs "name" and "days"')}}catch(e){alert('Invalid JSON: '+e.message)}
 }
 
-// ===== COACH REPORT =====
-function generateCoachReport(){
-  const blockName=S.program.name||'Unnamed Block';
-  const blockSessions=S.sessions.filter(s=>{
-    // Include sessions whose dayLabel matches any day in the current program
-    return S.program.days.some(d=>d.label===s.dayLabel);
-  });
-  if(blockSessions.length===0){
-    const box=document.getElementById('coachReportBox');
-    box.style.display='block';box.textContent='No sessions recorded for block "'+blockName+'".';
-    return;
-  }
+// ===== COACH REPORT (weekly) =====
+// The report is a WEEKLY artifact: current calendar week Mon–Sun via
+// weekDatesFor(todayStr()) — deliberately NOT weekAnchor, which rolls to next
+// week on Sundays (exactly when the last session finishes and the user wants
+// the report). All sessionTypes included; activities render one line each.
+function weeklyScheduled(weekDates,today){
+  // What this week holds: program days placed by buildWeek + dated recurring.
+  let prog=0,rec=0,recTypes=[];
+  try{
+    buildWeek(weekDates,today||todayStr()).forEach(row=>(row.sessions||[]).forEach(s=>{
+      if(s.source==='program')prog++;
+      else if(s.source==='recurring'){rec++;recTypes.push(s.type);}
+    }));
+  }catch(e){}
+  return {prog,rec,recTypes};
+}
+function isWeekComplete(weekDates){
+  const wd=weekDates||weekDatesFor(todayStr());
+  const bn=S.program.name;
+  return (S.program.days||[]).length>0&&(S.program.days||[]).every(d=>
+    (S.skips||[]).some(sk=>sk.dayLabel===d.label&&sk.blockName===bn)||
+    (S.sessions||[]).some(s=>s.dayLabel===d.label&&wd.includes(s.date))
+  );
+}
+function buildCoachReport(sessions,program,weekDates){
+  const wk=(sessions||[]).filter(s=>weekDates.includes(s.date));
+  const sched=weeklyScheduled(weekDates,weekDates[0]);
+  const schedTotal=sched.prog+sched.rec;
+  const schedNote=sched.rec?` (${sched.prog} program + ${sched.rec} ${sched.recTypes.join('/')})`:'';
+  let r=`## COACH REPORT — Week ${fmtDate(weekDates[0])} – ${fmtDate(weekDates[6])}\nBlock: ${program.name||'Unnamed Block'}\nSessions: ${wk.length} / ${schedTotal} scheduled${schedNote}\n\n`;
+  if(!wk.length)return r+'No sessions recorded this week.\n';
+  const blockSessions=wk.slice().sort((a,b)=>a.date<b.date?-1:1);
 
-  let r=`## COACH REPORT — ${blockName}\nGenerated: ${fmtDate(todayStr())}\nSessions: ${blockSessions.length} / ${S.program.days.length}\n\n`;
-
-  // Per-session summary — B3: skipped sets render as SKIPPED · reason and are excluded from volume.
+  // Per-session summary — activities are one line; skipped sets render as
+  // SKIPPED · reason and are excluded from volume.
   blockSessions.forEach(s=>{
+    if(s.activity||['swim','run','pilates','mobility'].includes(s.sessionType)){
+      const a=s.activity||{};
+      const bits=[(a.durationMin?a.durationMin+' min':null),(a.distance?a.distance+(s.sessionType==='swim'?' m':' km'):null),(a.effort?'effort '+a.effort:null),(a.notes||null)].filter(Boolean).join(' · ');
+      r+=`### ${s.dayLabel||s.sessionType} (${s.sessionType}) — ${fmtDate(s.date)}${bits?' — '+bits:''}\n\n`;
+      return;
+    }
     const vol=s.exercises.reduce((a,e)=>(e.performed||[]).filter(p=>p.type==='working'&&!p.skipped).reduce((b,p)=>b+p.weightKg*p.reps,a),0);
     const skippedN=s.exercises.reduce((a,e)=>a+(e.performed||[]).filter(p=>p.type==='working'&&p.skipped).length,0);
     r+=`### ${s.dayLabel} — ${fmtDate(s.date)} — ${s.duration||'?'}m — RPE ${s.rpe||'?'}\n`;
@@ -4879,7 +4889,8 @@ function generateCoachReport(){
       const pi=ex.progression==='increase'?'↑':ex.progression==='flag'?'⚠':ex.progression==='stall'?'⏸':'→';
       const bonus=(ex.tags||[]).includes('bonus')?' [BONUS]':'';
       const setStr=w.map(s=>s.skipped?('SKIPPED'+(s.skipReason?' · '+s.skipReason:'')):(fmtW(s.weightKg,ex.prescribed?.unit)+'×'+s.reps+(s.rpe?' @ RPE '+s.rpe:''))).join(' / ');
-      r+=`  ${pi} ${ex.name}${bonus}: ${setStr}`;
+      const vl=variantLabel(ex.variant);
+      r+=`  ${pi} ${ex.name}${vl?' ('+vl+')':''}${bonus}: ${setStr}`;
       if(ex.progression==='increase'&&ex.nextLoad)r+=` → next ${ex.nextLoad} kg`;
       else if(ex.progression==='increase'&&ex.nextTarget)r+=` → next ${ex.nextTarget}${/^\d+$/.test(ex.nextTarget)?' reps':''}`;
       else if(ex.progression==='hold'&&ex.nextLoad)r+=` → hold ${ex.nextLoad} kg`;
@@ -4893,12 +4904,14 @@ function generateCoachReport(){
     r+=`  Volume: ${Math.round(vol)} kg${skippedN?' (skipped: '+skippedN+' set'+(skippedN===1?'':'s')+')':''}\n\n`;
   });
 
-  // Progression summary
+  // Progression summary (lifting/cali only — activities have no exercises)
   r+=`### PROGRESSION SUMMARY\n`;
   const exProg={};
-  blockSessions.forEach(s=>{s.exercises.forEach(ex=>{
-    if(!exProg[ex.name])exProg[ex.name]=[];
-    exProg[ex.name].push({prog:ex.progression,load:ex.prescribed?.loadKg,next:ex.nextLoad,date:s.date});
+  blockSessions.forEach(s=>{(s.exercises||[]).forEach(ex=>{
+    const vl=variantLabel(ex.variant);
+    const key=ex.name+(vl?' ('+vl+')':'');
+    if(!exProg[key])exProg[key]=[];
+    exProg[key].push({prog:ex.progression,load:ex.prescribed?.loadKg,next:ex.nextLoad,date:s.date});
   })});
   Object.entries(exProg).forEach(([name,entries])=>{
     const last=entries[entries.length-1];
@@ -4914,18 +4927,30 @@ function generateCoachReport(){
     r+=`\n### PAIN EVENTS\n`;
     allPain.forEach(p=>{r+=`  ${fmtDate(p.date)}: ${p.exercise} — ${p.severity}\n`});
   } else {
-    r+=`\nNo pain events this block.\n`;
+    r+=`\nNo pain events this week.\n`;
   }
-
-  // Display & copy
+  return r;
+}
+// Display + copy wrapper (Progress tab box) and the one-tap copy (Train).
+function generateCoachReport(){
+  const r=buildCoachReport(S.sessions,S.program,weekDatesFor(todayStr()));
   const box=document.getElementById('coachReportBox');
-  box.style.display='block';box.textContent=r;
-  navigator.clipboard.writeText(r).then(()=>{
-    const m=document.getElementById('coachReportMsg');m.style.display='block';setTimeout(()=>m.style.display='none',2500);
-  }).catch(()=>{
-    const t=document.createElement('textarea');t.value=r;document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);
-    const m=document.getElementById('coachReportMsg');m.style.display='block';setTimeout(()=>m.style.display='none',2500);
+  if(box){box.style.display='block';box.textContent=r;}
+  copyTextToClipboard(r,()=>{
+    const m=document.getElementById('coachReportMsg');
+    if(m){m.style.display='block';setTimeout(()=>m.style.display='none',2500);}
   });
+}
+function copyWeeklyReport(){
+  const r=buildCoachReport(S.sessions,S.program,weekDatesFor(todayStr()));
+  copyTextToClipboard(r,()=>toast('Coach report copied'));
+}
+function copyTextToClipboard(text,done){
+  try{
+    navigator.clipboard.writeText(text).then(done).catch(()=>{
+      const t=document.createElement('textarea');t.value=text;document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);done();
+    });
+  }catch(e){}
 }
 
 // ===== EXPORT =====
