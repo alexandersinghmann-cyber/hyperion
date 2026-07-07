@@ -51,8 +51,8 @@ b3 = getBig3E1rm();
 const seedSquat = e1rm(100,5);
 assert(Math.abs(b3.squat - seedSquat) < 0.1, 'Squat e1RM from seed session: got ' + b3.squat + ' expected ' + seedSquat);
 assert(b3.bench === 95, 'Bench still baseline (seed has no flat bench)');
-// Block 4 W2: Deadlift is in D3 (4x5 @ 111kg).
-const expDead = e1rm(111, 5);
+// Block 4 W3: Deadlift is in D4 (4x5 @ 116kg).
+const expDead = e1rm(116, 5);
 assert(Math.abs(b3.dead - expDead) < 0.1, 'Dead from program fallback: got ' + b3.dead + ' expected ' + expDead);
 
 S.sessions.push({
@@ -236,50 +236,62 @@ assert(canonName('Seated Row') === 'Cable Low Row', 'canonName: Seated Row → C
 assert(canonName('Low Row') === 'Cable Low Row', 'canonName: Low Row → Cable Low Row');
 assert(canonName('Bench Press') === 'Bench Press', 'canonName: pass-through unknowns');
 
-// ===== PROGRAM: Jun 29 Block 4 W2 structure (3 days, Mon/Wed/Sun) =====
-assert(DEF_PROGRAM.name === 'Jun 29 Block 4 W2', 'Program name is Jun 29 Block 4 W2: got ' + DEF_PROGRAM.name);
-assert(DEF_PROGRAM.days.length === 3, 'Program has 3 days: got ' + DEF_PROGRAM.days.length);
+// ===== PROGRAM: Jul 8 Block 4 W3 structure (4 days, Wed/Fri/Sat/Sun) =====
+assert(DEF_PROGRAM.name === 'Jul 8 Block 4 W3', 'Program name is Jul 8 Block 4 W3: got ' + DEF_PROGRAM.name);
+assert(DEF_PROGRAM.days.length === 4, 'Program has 4 days: got ' + DEF_PROGRAM.days.length);
 const d1 = DEF_PROGRAM.days.find(d => d.id === 1);
 const d2 = DEF_PROGRAM.days.find(d => d.id === 2);
 const d3 = DEF_PROGRAM.days.find(d => d.id === 3);
+const d4 = DEF_PROGRAM.days.find(d => d.id === 4);
 assert(d1 && d1.label === 'Upper (Bench)', 'D1 label is Upper (Bench): got ' + (d1 && d1.label));
-assert(d1 && d1.defaultDay === 'Monday' && d1.sessionType === 'lifting', 'D1 defaultDay Monday + sessionType lifting');
-assert(d1 && d1.exercises.length === 11, 'D1 has 11 main exercises: got ' + (d1 && d1.exercises.length));
-assert(d2 && d2.label === 'Lower (Squat)', 'D2 label standardized to Lower (Squat): got ' + (d2 && d2.label));
-assert(d2 && d2.defaultDay === 'Wednesday', 'D2 defaultDay is Wednesday: got ' + (d2 && d2.defaultDay));
+assert(d1 && d1.defaultDay === 'Wednesday' && d1.sessionType === 'lifting', 'D1 defaultDay Wednesday + sessionType lifting');
+assert(d1 && d1.exercises.length === 10, 'D1 has 10 main exercises: got ' + (d1 && d1.exercises.length));
+assert(d2 && d2.label === 'Squat', 'D2 label is Squat: got ' + (d2 && d2.label));
+assert(d2 && d2.defaultDay === 'Friday', 'D2 defaultDay is Friday: got ' + (d2 && d2.defaultDay));
 assert(d2 && d2.exercises.length === 8, 'D2 has 8 main exercises: got ' + (d2 && d2.exercises.length));
-assert(d3 && d3.label === 'Lower (Deadlift)', 'D3 label standardized to Lower (Deadlift): got ' + (d3 && d3.label));
-// Standardized naming: every day matches "<Region> (<Main lift>)"
-DEF_PROGRAM.days.forEach(d=>assert(/^(Upper|Lower) \(.+\)$/.test(d.label), 'Naming: "'+d.label+'" follows Region (Main) pattern'));
-assert(d3 && d3.defaultDay === 'Sunday', 'D3 defaultDay is Sunday: got ' + (d3 && d3.defaultDay));
-assert(d3 && d3.exercises.length === 7, 'D3 has 7 main exercises: got ' + (d3 && d3.exercises.length));
-assert(!DEF_PROGRAM.days.some(d => d.id === 4), 'No D4 in 3-day block');
+assert(d3 && d3.label === 'Calisthenics (MU Foundation)' && d3.defaultDay === 'Saturday', 'D3 is Saturday Calisthenics (MU Foundation): got ' + (d3 && d3.label));
+assert(d3 && d3.sessionType === 'calisthenics', 'D3 sessionType is calisthenics');
+assert(d3 && d3.exercises.length === 5, 'D3 has 5 exercises: got ' + (d3 && d3.exercises.length));
+assert(d3 && (d3.tags||[]).includes('RPE-7-cap') && (d3.tags||[]).includes('pre-deadlift-day'), 'D3 day-tags: RPE-7-cap + pre-deadlift-day');
+assert(d4 && d4.label === 'Deadlift + Pull' && d4.defaultDay === 'Sunday', 'D4 is Sunday Deadlift + Pull: got ' + (d4 && d4.label));
+assert(d4 && d4.exercises.length === 7, 'D4 has 7 main exercises: got ' + (d4 && d4.exercises.length));
 
-// Bird Dog is the FIRST exercise on every day (activation placement, not end-of-session)
-DEF_PROGRAM.days.forEach(d=>assert(d.exercises[0].name==='Bird Dog' && (d.exercises[0].tags||[]).includes('activation'), 'Block4W2: Bird Dog is activation (first) on '+d.label+'. Got: '+d.exercises[0].name));
+// Bird Dog is the FIRST exercise on every LIFTING day (activation placement)
+DEF_PROGRAM.days.filter(d=>d.sessionType==='lifting').forEach(d=>assert(d.exercises[0].name==='Bird Dog' && (d.exercises[0].tags||[]).includes('activation'), 'Block4W3: Bird Dog is activation (first) on '+d.label+'. Got: '+d.exercises[0].name));
 
-// Calibrated anchors (user overrode upward — no longer re-entry)
+// Calibrated anchors (coach-final loads)
 const benchEx = d1.exercises.find(e => e.name === 'Bench Press');
-assert(benchEx && benchEx.loadKg === 87.5 && benchEx.angle === 'flat', 'Block4W2: Bench Press 87.5kg, flat');
+assert(benchEx && benchEx.loadKg === 87.5 && benchEx.angle === 'flat', 'Block4W3: Bench Press 87.5kg HOLD, flat');
+assert(benchEx && benchEx.tags.includes('HOLD'), 'Block4W3: Bench tagged HOLD');
 const dbShoulder = d1.exercises.find(e => e.name === 'DB Shoulder Press');
-assert(dbShoulder && dbShoulder.loadKg === 22.5, 'Block4W2: DB Shoulder Press up to 22.5kg. Got: ' + (dbShoulder && dbShoulder.loadKg));
-assert(d2.exercises.find(e=>e.name==='Back Squat').loadKg === 92.5, 'Block4W2: Back Squat 92.5kg');
-const dl = d3.exercises.find(e=>e.name==='Deadlift');
-assert(dl && dl.loadKg === 111, 'Block4W2: Deadlift 111kg');
-assert(dl && dl.tags.includes('NO-AMRAP') && dl.tags.includes('RPE-8-cap'), 'Block4W2: Deadlift tagged NO-AMRAP + RPE-8-cap (HOLD)');
+assert(dbShoulder && dbShoulder.loadKg === 25, 'Block4W3: DB Shoulder Press up to 25kg. Got: ' + (dbShoulder && dbShoulder.loadKg));
+assert(d2.exercises.find(e=>e.name==='Back Squat').loadKg === 95, 'Block4W3: Back Squat 95kg');
+assert(d2.exercises.find(e=>e.name==='Back Squat').tags.includes('ramp-first-set-85'), 'Block4W3: Squat ramp tag');
+const dl = d4.exercises.find(e=>e.name==='Deadlift');
+assert(dl && dl.loadKg === 116, 'Block4W3: Deadlift 116kg');
+assert(dl && dl.tags.includes('NO-AMRAP') && dl.tags.includes('RPE-8-hard-cap') && dl.tags.includes('HOLD'), 'Block4W3: Deadlift tagged NO-AMRAP + RPE-8-hard-cap + HOLD');
 
-// Pull-Up + Dip re-introduced on Day 1; they feed MU milestones
-assert(d1.exercises.some(e=>e.name==='Strict Pull-Up'), 'Block4W2: Strict Pull-Up on D1');
-assert(d1.exercises.some(e=>e.name==='Strict Dip'), 'Block4W2: Strict Dip on D1');
-assert(d1.exercises.some(e=>e.name==='Narrow-Grip Cable Pulldown'), 'Block4W2: Narrow-Grip Cable Pulldown on D1');
-assert(!d1.exercises.some(e=>e.name==='DB Curl'), 'Block4W2: DB Curl replaced (not on D1)');
-assert(d1.exercises.find(e=>e.name==='DB Bench Press').angle==='30', 'Block4W2: DB Bench Press angle=30');
-assert(d1.exercises.find(e=>e.name==='Narrow-Grip Cable Pulldown').grip==='underhand', 'Block4W2: Narrow-Grip Pulldown grip=underhand');
+// D1 composition (Face Pull moved up before pulldown; no Pallof Press)
+assert(d1.exercises.some(e=>e.name==='Strict Pull-Up'), 'Block4W3: Strict Pull-Up on D1');
+assert(d1.exercises.some(e=>e.name==='Strict Dip'), 'Block4W3: Strict Dip on D1');
+assert(!d1.exercises.some(e=>e.name==='Pallof Press'), 'Block4W3: Pallof Press removed from D1 (skipped 2/2)');
+const fpIdx=d1.exercises.findIndex(e=>e.name==='Face Pull'), ngIdx=d1.exercises.findIndex(e=>e.name==='Narrow-Grip Cable Pulldown');
+assert(fpIdx>-1 && ngIdx>-1 && fpIdx<ngIdx, 'Block4W3: Face Pull moved up (before pulldown, was skipped 3/3 at session end)');
+assert(d1.exercises.find(e=>e.name==='DB Bench Press').angle==='30', 'Block4W3: DB Bench Press angle=30');
+assert(d1.exercises.find(e=>e.name==='Narrow-Grip Cable Pulldown').grip==='underhand', 'Block4W3: Narrow-Grip Pulldown grip=underhand');
 
-// Cable Crunch eliminated everywhere (DL-day cramp risk); Sun uses Hanging Knee Raise
-assert(!DEF_PROGRAM.days.some(d=>(d.exercises||[]).some(e=>e.name==='Cable Crunch')), 'Block4W2: no Cable Crunch in any day');
-assert(d3.exercises.some(e=>e.name==='Hanging Knee Raise'), 'Block4W2: D3 core is Hanging Knee Raise');
-assert(d3.exercises.some(e=>e.name==='Cable Low Row'), 'Block4W2: D3 has Cable Low Row (only horizontal pull this week)');
+// D3 calisthenics: holds carried as reps-strings (existing repsUnit convention)
+assert(d3.exercises.find(e=>e.name==='False-Grip Hold').reps==='15s', 'Block4W3: False-Grip Hold 3×15s');
+assert(d3.exercises.find(e=>e.name==='Wall Handstand Hold').reps==='25s', 'Block4W3: Wall Handstand Hold 3×25s');
+assert(d3.exercises.find(e=>e.name==='Hollow Body Hold').reps==='20s', 'Block4W3: Hollow Body Hold 3×20s');
+assert(repsUnit('15s')==='s' && repsUnit('25s')==='s', 'repsUnit parses hold strings');
+assert(d3.exercises.find(e=>e.name==='Strict Dip').reps==='6-8', 'Block4W3: Sat dips 6-8 range');
+
+// D4 composition: HKR mid-session (index 4, not last — was skipped 3/3 at end)
+assert(d4.exercises.findIndex(e=>e.name==='Hanging Knee Raise')===4, 'Block4W3: HKR at D4 index 4. Got: '+d4.exercises.findIndex(e=>e.name==='Hanging Knee Raise'));
+assert(d4.exercises.some(e=>e.name==='Cable Low Row'), 'Block4W3: D4 has Cable Low Row');
+assert(d4.exercises.find(e=>e.name==='Cable Low Row').loadKg===31.5, 'Block4W3: Cable Low Row 31.5 (double pulley)');
+assert(d4.exercises.find(e=>e.name==='Leg Press').loadKg===160 && d4.exercises.find(e=>e.name==='Leg Press').tags.includes('HOLD'), 'Block4W3: Leg Press 160 HOLD');
 
 // EX_META additions / changes
 assert(getMeta('Dip').pat === 'dip' && getMeta('Strict Dip').pat === 'dip', 'EX_META: dips have pat=dip (distinct from hpush, avoids false bench adjacency)');
@@ -287,6 +299,13 @@ assert(getMeta('Dip').pat === 'dip' && getMeta('Strict Dip').pat === 'dip', 'EX_
 assert(getMeta('Face Pull').slot === 'rear-delt', 'EX_META: Face Pull slot=rear-delt');
 assert(getMeta('Military Press').slot === 'ohp' && getMeta('DB Shoulder Press').slot === 'ohp', 'EX_META: Military Press + DB Shoulder Press share ohp slot (mutual substitutes)');
 assert(getMeta('Narrow-Grip Cable Pulldown').slot === 'vpull', 'EX_META: Narrow-Grip Cable Pulldown slot=vpull');
+// W3 hold exercises: present, marked hold:true, non-compound (so Sat cali day
+// shares no compound pattern with Sun lifting in validateWeek)
+['False-Grip Hold','Wall Handstand Hold','Hollow Body Hold'].forEach(n=>{
+  assert(EX_META[n] && EX_META[n].hold===true, 'EX_META: '+n+' present with hold:true');
+  assert(!/compound/.test(EX_META[n].fat||''), 'EX_META: '+n+' is not compound-rated');
+});
+assert(getMeta('False-Grip Hold').pat==='vpull' && getMeta('Wall Handstand Hold').pat==='vpush', 'EX_META: hold patterns per spec');
 assert(canonName('Calf Raise (sitting)')==='Calf Raise', 'Alias: Calf Raise (sitting) → Calf Raise');
 assert(canonName('Standing Overhead Barbell Press')==='Military Press', 'Alias: Standing Overhead Barbell Press → Military Press');
 // Military Press surfaces as a substitute for the overhead press
@@ -692,12 +711,14 @@ S.program = JSON.parse(JSON.stringify(DEF_PROGRAM));
 const pa_d1 = S.program.days.find(d => d.id === 1);
 const pa_d2 = S.program.days.find(d => d.id === 2);
 const pa_d3 = S.program.days.find(d => d.id === 3);
+const pa_d4 = S.program.days.find(d => d.id === 4);
 
-// Block 4 W2: Bird Dog activation leads, then the day's main lift.
+// Block 4 W3: Bird Dog activation leads lifting days, then the day's main lift.
 assert(/bird dog/i.test(pa_d1.exercises[0].name), 'Phase A: D1 begins with Bird Dog activation. Got: ' + pa_d1.exercises[0].name);
 assert(/bench press/i.test(pa_d1.exercises[1].name), 'Phase A: D1 second is Bench Press (after activation). Got: ' + pa_d1.exercises[1].name);
 assert(/bird dog/i.test(pa_d2.exercises[0].name) && /back squat/i.test(pa_d2.exercises[1].name), 'Phase A: D2 Bird Dog → Back Squat. Got: ' + pa_d2.exercises[1].name);
-assert(/bird dog/i.test(pa_d3.exercises[0].name) && /deadlift/i.test(pa_d3.exercises[1].name), 'Phase A: D3 Bird Dog → Deadlift. Got: ' + pa_d3.exercises[1].name);
+assert(/strict pull-up/i.test(pa_d3.exercises[0].name), 'Phase A: D3 (calisthenics) leads with Strict Pull-Up. Got: ' + pa_d3.exercises[0].name);
+assert(/bird dog/i.test(pa_d4.exercises[0].name) && /deadlift/i.test(pa_d4.exercises[1].name), 'Phase A: D4 Bird Dog → Deadlift. Got: ' + pa_d4.exercises[1].name);
 
 // ===== PHASE B: Exercise metadata + validator =====
 assert(typeof getMeta === 'function', 'Phase B: getMeta() defined');
@@ -721,20 +742,37 @@ assert(validateSession(badPair,{sessionType:'calisthenics'}).length===0, 'Phase 
 const wlOk=validateSession([{name:'Back Squat'},{name:'Bulgarian Split Squat',tags:['weak-leg-focus']}]);
 assert(!wlOk.some(w=>/shares prime movers/.test(w.msg)), 'Phase B: weak-leg-focus exempts squat→BSS adjacency');
 
-// Block 4 W2: validateProgram runs CLEAN.
-// - dips now pat='dip' so Strict Dip → DB Bench is not a false adjacency.
+// Block 4 W3: validateProgram runs CLEAN.
+// - dips pat='dip' so Strict Dip → DB Bench is not a false adjacency.
 // - rule 2 only flags FIXED_MAINS, so Face Pull → Narrow-Grip Pulldown is fine.
 // - Back Squat → BSS exempted via weak-leg-focus.
+// - D3 is calisthenics → lifting rules short-circuit.
 const progWarns = validateProgram();
 const warnTotal = progWarns.reduce((a,r)=>a+(r.warnings||[]).filter(w=>w.level==='warn').length,0);
 assert(warnTotal === 0, 'Phase B: validateProgram runs clean (0 warnings). Got: '+warnTotal+' ('+progWarns.map(r=>r.day+':'+r.warnings.filter(w=>w.level==='warn').length).join(',')+')');
-// validateWeek defined + clean on the default Mon/Wed/Sun week (no shared
-// compound pattern across <24h, incl. the Sun→Mon wrap).
+// validateWeek defined + clean on the W3 Wed/Fri/Sat/Sun week: Fri→Sat and
+// Sat→Sun are <36h, but the Sat cali day's compounds (vpull/dip) share no
+// pattern with Fri (squat/hinge) or Sun (hinge/squat/hpull) → 0 warns
+// (lifting-abuts-calisthenics infos are fine and don't reach the banner).
 assert(typeof validateWeek === 'function', 'Phase B: validateWeek defined');
 S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.skips=[];
-const vw=validateWeek(weekDatesFor('2026-06-29'),'2026-06-29');
+const vw=validateWeek(weekDatesFor('2026-07-06'),'2026-07-06');
 const vwWarn=vw.reduce((a,r)=>a+(r.warnings||[]).filter(w=>w.level==='warn').length,0);
-assert(vwWarn===0, 'Phase B: validateWeek clean on Block 4 W2 (no cross-session pattern collision). Got: '+vwWarn+' '+JSON.stringify(vw.flatMap(r=>r.warnings.filter(w=>w.level==='warn').map(w=>w.msg))));
+assert(vwWarn===0, 'Phase B: validateWeek clean on Block 4 W3 (no cross-session pattern collision). Got: '+vwWarn+' '+JSON.stringify(vw.flatMap(r=>r.warnings.filter(w=>w.level==='warn').map(w=>w.msg))));
+// The RPE-7-cap calisthenics exception: a capped cali day sharing a compound
+// pattern with the NEXT day is accepted as info, not warn (by-design volume).
+S.program={name:'CaliX',active:true,days:[
+  {id:1,label:'Cali',defaultDay:'Saturday',dayOfWeek:'Saturday',sessionType:'calisthenics',dur:40,tags:['RPE-7-cap'],exercises:[{id:'a',name:'Strict Pull-Up',cat:'pull',sets:3,reps:'3',loadKg:0,unit:'bw',rest:120,tags:[],equipmentClass:'bw'}]},
+  {id:2,label:'Pull Day',defaultDay:'Sunday',dayOfWeek:'Sunday',sessionType:'lifting',dur:60,exercises:[{id:'b',name:'Lat Pulldown',cat:'pull',sets:4,reps:'8',loadKg:50,unit:'kg',rest:90,tags:[],equipmentClass:'cable'}],bonus:[]}
+]};
+const vwCali=validateWeek(weekDatesFor('2026-07-06'),'2026-07-06');
+const caliShared=vwCali.flatMap(r=>r.warnings).filter(w=>/Same movement pattern/.test(w.msg));
+assert(caliShared.length>0 && caliShared.every(w=>w.level==='info'), 'Phase B: RPE-7-cap cali day sharing vpull with next day downgrades to info. Got: '+JSON.stringify(caliShared.map(w=>w.level)));
+// …but WITHOUT the cap tag it still warns (never silenced globally)
+S.program.days[0].tags=[];
+const vwCali2=validateWeek(weekDatesFor('2026-07-06'),'2026-07-06');
+assert(vwCali2.flatMap(r=>r.warnings).some(w=>w.level==='warn'&&/Same movement pattern/.test(w.msg)), 'Phase B: uncapped cali day sharing a pattern still warns');
+S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();
 // BUG: validateWeek must CATCH a same-pattern collision on consecutive days.
 S.program={name:'Collide',active:true,days:[
   {id:1,label:'Pull A',defaultDay:'Monday',dayOfWeek:'Monday',sessionType:'lifting',dur:60,exercises:[{id:'a',name:'Cable Low Row',cat:'pull',sets:4,reps:'8',loadKg:50,unit:'kg',rest:90,tags:[],equipmentClass:'cable'}],bonus:[]},
@@ -832,21 +870,21 @@ assert(Array.isArray(FIXED_MAINS) && FIXED_MAINS.includes('Back Squat') && FIXED
 assert(typeof rotateAccessories === 'function', 'Phase C: rotateAccessories() defined');
 assert(typeof getEligibleVariantsForSlot === 'function', 'Phase C: getEligibleVariantsForSlot() defined');
 
-// Run rotation: Big 3 must NOT change. Jun 22: Bench in D1, Squat leads D2,
-// Deadlift leads D3.
+// Run rotation: Big 3 must NOT change. W3: Bench in D1, Squat leads D2,
+// Deadlift leads D4 (D3 is the calisthenics day).
 S.program = JSON.parse(JSON.stringify(DEF_PROGRAM));
 S.block = {sessionsSinceRotate:14, variantCursor:{}};
-// Block 4 W2: Bird Dog leads each day, so check Big-3 presence by NAME, not index 0.
+// Bird Dog leads lifting days, so check Big-3 presence by NAME, not index 0.
 const hasEx=(id,name)=>S.program.days.find(d=>d.id===id).exercises.some(e=>e.name===name);
 assert(hasEx(1,'Bench Press'), 'Phase C: Pre-rotate D1 contains Bench Press');
 assert(hasEx(2,'Back Squat'), 'Phase C: Pre-rotate D2 contains Back Squat');
-assert(hasEx(3,'Deadlift'), 'Phase C: Pre-rotate D3 contains Deadlift');
+assert(hasEx(4,'Deadlift'), 'Phase C: Pre-rotate D4 contains Deadlift');
 
 const rotRes = rotateAccessories();
 assert(rotRes.rotated.length > 0, 'Phase C: Rotation swapped at least 1 accessory. Got: ' + rotRes.rotated.length);
 assert(hasEx(2,'Back Squat'), 'Phase C: Back Squat unchanged after rotation');
 assert(hasEx(1,'Bench Press'), 'Phase C: Bench Press unchanged after rotation');
-assert(hasEx(3,'Deadlift'), 'Phase C: Deadlift unchanged after rotation');
+assert(hasEx(4,'Deadlift'), 'Phase C: Deadlift unchanged after rotation');
 // Bench stays fixed (Upper A has DB Incline Bench as hpush main, not flat Bench Press — so we test that rotation doesn't TOUCH 'Bench Press' if it's anywhere)
 const benchStill = S.program.days.some(d => d.exercises.some(e => e.name === 'Bench Press'));
 const benchWas = DEF_PROGRAM.days.some(d => d.exercises.some(e => e.name === 'Bench Press'));
@@ -1311,6 +1349,12 @@ assert(det.falsegrip===false && det.negatives===false && det.firstmu===false, 'T
 // kipping Pull-Up does not satisfy strict milestone
 const detKip=detectMuscleUpMilestones([{sessionType:'calisthenics',date:'2026-06-20',exercises:[{name:'Pull-Up',performed:[{type:'working',reps:15,logged:true}]}]}]);
 assert(detKip.pullups===false, 'Track D: kipping Pull-Up (15 reps) does NOT auto-check strict milestone');
+// W3: milestone 3 detects the prescribed False-Grip HOLD (logged reps = seconds)
+const detHold=s=>detectMuscleUpMilestones([{sessionType:'calisthenics',date:'2026-07-11',exercises:[{name:'False-Grip Hold',performed:[{type:'working',reps:s,logged:true}]}]}]);
+assert(detHold(30).falsegrip===true, 'W3: False-Grip Hold ≥30s auto-checks milestone 3');
+assert(detHold(15).falsegrip===false, 'W3: a 15s False-Grip Hold does not check milestone 3');
+// legacy exercise name still counts
+assert(detectMuscleUpMilestones([{sessionType:'calisthenics',date:'2026-07-11',exercises:[{name:'False-Grip Pull-Up',performed:[{type:'working',reps:30,logged:true}]}]}]).falsegrip===true, 'W3: legacy False-Grip Pull-Up 30 still checks milestone 3');
 // refreshMuscleUpGoal syncs count
 S.sessions=muSessions.slice();
 const muCount=refreshMuscleUpGoal();
@@ -1452,24 +1496,36 @@ assert(/function syncProgram\(\)\{[\s\S]*?S\.program=JSON\.parse\(JSON\.stringif
 assert(dowOf(todayStr())===todayDow(), 'TZ: todayDow() derives from todayStr() — they never disagree. Got: '+todayDow()+' vs '+dowOf(todayStr()));
 assert(/^\d{4}-\d{2}-\d{2}$/.test(todayStr()), 'TZ: todayStr() is a YYYY-MM-DD local date');
 assert(typeof weekAnchor==='function', 'Anchor: weekAnchor defined');
-assert(weekAnchor('2026-06-28')==='2026-06-29', 'Anchor: Sunday Jun 28 → Monday Jun 29 (roll to next week)');
-assert(weekAnchor('2026-06-24')==='2026-06-24', 'Anchor: mid-week (Wed) does not roll');
-// On Sunday night, the Block 4 W2 days resolve to next week: Upper Mon 29,
-// Squat Wed Jul 1, Deadlift NEXT Sun Jul 5 — so Deadlift is LAST, not today.
+assert(weekAnchor('2026-07-12')==='2026-07-13', 'Anchor: Sunday Jul 12 → Monday Jul 13 (roll to next week)');
+assert(weekAnchor('2026-07-08')==='2026-07-08', 'Anchor: mid-week (Wed) does not roll');
+// Mid-week Tue Jul 7 (block eve): W3 days resolve to Wed 8 / Fri 10 / Sat 11 / Sun 12.
 S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();
 const upperD=S.program.days.find(d=>d.label==='Upper (Bench)');
-const squatD=S.program.days.find(d=>d.label==='Lower (Squat)');
-const deadD=S.program.days.find(d=>d.label==='Lower (Deadlift)');
-assert(dayEffectiveDate(upperD,'2026-06-28')==='2026-06-29', 'Anchor: Upper → Mon Jun 29 (tomorrow). Got: '+dayEffectiveDate(upperD,'2026-06-28'));
-assert(dayEffectiveDate(squatD,'2026-06-28')==='2026-07-01', 'Anchor: Squat → Wed Jul 1. Got: '+dayEffectiveDate(squatD,'2026-06-28'));
-assert(dayEffectiveDate(deadD,'2026-06-28')==='2026-07-05', 'Anchor: Deadlift → NEXT Sun Jul 5 (not today). Got: '+dayEffectiveDate(deadD,'2026-06-28'));
-// chronological rank: Upper < Squat < Deadlift
-assert(dayEffectiveDate(upperD,'2026-06-28')<dayEffectiveDate(squatD,'2026-06-28') && dayEffectiveDate(squatD,'2026-06-28')<dayEffectiveDate(deadD,'2026-06-28'), 'Anchor: Sunday ordering is Upper(1) → Squat(2) → Deadlift(3)');
+const squatD=S.program.days.find(d=>d.label==='Squat');
+const caliD=S.program.days.find(d=>d.label==='Calisthenics (MU Foundation)');
+const deadD=S.program.days.find(d=>d.label==='Deadlift + Pull');
+assert(dayEffectiveDate(upperD,'2026-07-07')==='2026-07-08', 'Anchor: Upper → Wed Jul 8. Got: '+dayEffectiveDate(upperD,'2026-07-07'));
+assert(dayEffectiveDate(squatD,'2026-07-07')==='2026-07-10', 'Anchor: Squat → Fri Jul 10. Got: '+dayEffectiveDate(squatD,'2026-07-07'));
+assert(dayEffectiveDate(caliD,'2026-07-07')==='2026-07-11', 'Anchor: Calisthenics → Sat Jul 11. Got: '+dayEffectiveDate(caliD,'2026-07-07'));
+assert(dayEffectiveDate(deadD,'2026-07-07')==='2026-07-12', 'Anchor: Deadlift → Sun Jul 12. Got: '+dayEffectiveDate(deadD,'2026-07-07'));
+// chronological rank: Upper < Squat < Cali < Deadlift
+assert(dayEffectiveDate(upperD,'2026-07-07')<dayEffectiveDate(squatD,'2026-07-07') && dayEffectiveDate(squatD,'2026-07-07')<dayEffectiveDate(caliD,'2026-07-07') && dayEffectiveDate(caliD,'2026-07-07')<dayEffectiveDate(deadD,'2026-07-07'), 'Anchor: W3 ordering is Upper(1) → Squat(2) → Cali(3) → Deadlift(4)');
+// On Sunday night the whole 4-day set rolls to next week (Deadlift → NEXT Sunday)
+assert(dayEffectiveDate(deadD,'2026-07-12')==='2026-07-19', 'Anchor: on Sunday, Deadlift resolves to NEXT Sun Jul 19. Got: '+dayEffectiveDate(deadD,'2026-07-12'));
 // Up-next badge logic: stable week-rank (rankMap), dedup of the start session
 assert(/const numGlyph=done\?'✓':skipped\?'⊘':\(rankMap\[i\]\|\|''\)/.test(html), 'Up-next badges: use stable week-rank (rankMap), not display index');
 // Up-next lists ALL remaining sessions (incl. the soonest) — the whole week is
 // always visible; the soonest is also the gold Start button.
 assert(/else upcoming\.push\(\{idx:i,sort:dayEffectiveDate\(day\),card\}\)/.test(html), 'Up-next: every not-done session is listed (no dedup hiding the Monday session)');
+S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.skips=[];
+
+// W3 regression: the legacy "Region (Main lift)" relabel migration is GONE —
+// migrateV3 must not rename the deliberate W3 labels "Squat" / "Deadlift + Pull"
+// (it used to, which would break label-matched isDayDone/skip lookups).
+S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));
+migrateV3();
+assert(S.program.days.find(d=>d.id===2).label==='Squat', 'W3: migrateV3 leaves "Squat" label alone. Got: '+S.program.days.find(d=>d.id===2).label);
+assert(S.program.days.find(d=>d.id===4).label==='Deadlift + Pull', 'W3: migrateV3 leaves "Deadlift + Pull" label alone. Got: '+S.program.days.find(d=>d.id===4).label);
 S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.skips=[];
 
 // ===== REFRESH CHUNK 1: modality colour system =====
@@ -1486,8 +1542,10 @@ assert(/modalityColor\(s\.sessionType/.test(html), 'Modality: history rows + ses
 assert(typeof platesPerSide==='function' && typeof exerciseBarKg==='function' && typeof plateLabel==='function', 'Plates: helpers defined');
 S.settings.activeGymId='gym-singapore';
 const STD=[25,20,15,10,5,2.5,1.25,1];
-const p1=platesPerSide(111,36,STD);
-assert(JSON.stringify(p1.plates)===JSON.stringify([25,10,2.5]) && p1.remainder===0, 'Plates: Deadlift 111 on 36kg bar → 25·10·2.5/side exact. Got: '+JSON.stringify(p1));
+const p1=platesPerSide(116,36,STD);
+assert(JSON.stringify(p1.plates)===JSON.stringify([25,15]) && p1.remainder===0, 'Plates: Deadlift 116 on 36kg bar → 25·15/side exact. Got: '+JSON.stringify(p1));
+const p1b=platesPerSide(111,36,STD);
+assert(JSON.stringify(p1b.plates)===JSON.stringify([25,10,2.5]) && p1b.remainder===0, 'Plates: 111 on 36kg bar → 25·10·2.5/side exact (regression)');
 const p2=platesPerSide(87.5,20,STD);
 assert(JSON.stringify(p2.plates)===JSON.stringify([25,5,2.5,1.25]) && p2.remainder===0, 'Plates: Bench 87.5 on 20kg bar → 25·5·2.5·1.25/side exact. Got: '+JSON.stringify(p2));
 const p3=platesPerSide(90,20,[25,20,15,10,5,2.5,1]); // no 1.25 → 35/side = 25+10, exact actually
@@ -1498,7 +1556,7 @@ assert(exerciseBarKg({name:'Deadlift'})===36, 'Plates: Deadlift defaults to 36kg
 assert(exerciseBarKg({name:'Bench Press'})===activeGymBar(), 'Plates: other lifts use gym default bar');
 assert(exerciseBarKg({name:'Bench Press',barKg:25})===25, 'Plates: explicit per-exercise barKg wins');
 // label
-assert(/36 kg bar · 25 · 10 · 2.5 \/ side/.test(plateLabel({name:'Deadlift',prescribed:{loadKg:111}})), 'Plates: plateLabel formats the deadlift readout. Got: '+plateLabel({name:'Deadlift',prescribed:{loadKg:111}}));
+assert(/36 kg bar · 25 · 15 \/ side/.test(plateLabel({name:'Deadlift',prescribed:{loadKg:116}})), 'Plates: plateLabel formats the W3 deadlift readout. Got: '+plateLabel({name:'Deadlift',prescribed:{loadKg:116}}));
 // gym config present + backfilled
 assert(activeGymBar()===20 && Array.isArray(activePlates()) && activePlates().includes(1.25), 'Plates: Singapore gym has 20kg bar + plate inventory incl 1.25');
 assert(typeof saveBarPlates==='function', 'Plates: saveBarPlates settings handler defined');

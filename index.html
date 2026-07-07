@@ -1084,6 +1084,9 @@ const EX_META={
   'Strict Pull-Up':{pat:'vpull',prim:['lat','bi','rhomboid'],eq:['pull-up-bar'],fat:'heavy-compound',sh:'safe',slot:'vpull'},
   'Narrow-Grip Cable Pulldown':{pat:'vpull',prim:['lat','bi','rhomboid'],eq:['cable','pulldown-station'],fat:'heavy-compound',sh:'safe',slot:'vpull'},
   'False-Grip Pull-Up':{pat:'vpull',prim:['lat','bi','grip'],eq:['pull-up-bar'],fat:'heavy-compound',sh:'safe',slot:'vpull'},
+  'False-Grip Hold':{pat:'vpull',prim:['forearm','grip','lat'],eq:['pull-up-bar'],fat:'light',sh:'safe',slot:null,hold:true},
+  'Wall Handstand Hold':{pat:'vpush',prim:['front-delt','tri','core'],eq:['bodyweight'],fat:'light',sh:'warn',slot:null,hold:true},
+  'Hollow Body Hold':{pat:'core',prim:['abs'],eq:['bodyweight'],fat:'light',sh:'safe',slot:null,hold:true},
   'MU Negative':{pat:'vpull',prim:['lat','bi','tri','chest'],eq:['pull-up-bar'],fat:'heavy-compound',sh:'activation-first',slot:'vpull'},
   'Bar Muscle-Up':{pat:'vpull',prim:['lat','bi','tri','chest'],eq:['pull-up-bar'],fat:'heavy-compound',sh:'activation-first',slot:'vpull'},
   // Biceps iso
@@ -1163,7 +1166,9 @@ function getMeta(name){
   const c=canonName(name);
   return EX_META[c]||{pat:'iso',prim:[],eq:[],fat:'iso',sh:'safe',slot:null};
 }
-// Estimate minutes for one exercise: sets × (rep_time + rest) + transition.
+// Estimate FRACTIONAL minutes for one exercise: sets × (rep_time + rest).
+// Deliberately unrounded — per-exercise ceil-rounding inflated a 10-exercise
+// day by ~5 min of pure rounding, tripping the time-budget validator.
 function estimateExTime(ex){
   if(!ex||!ex.sets)return 0;
   const sets=ex.sets||0;
@@ -1171,11 +1176,11 @@ function estimateExTime(ex){
   const repStr=(ex.reps||'').toString();
   let reps=parseInt(repStr.split('-')[0],10); if(isNaN(reps))reps=10;
   const repTime=reps*3.5+15; // sec for one set
-  return Math.round((sets*(repTime+rest))/60 + 0.5);
+  return sets*(repTime+rest)/60;
 }
 function estimateSessionTime(exList){
   const bulk=(exList||[]).reduce((a,e)=>a+estimateExTime(e),0);
-  return bulk+10; // add 10 min warmup
+  return Math.round(bulk)+10; // round ONCE, add 10 min warmup
 }
 // Validator: returns array of {level,msg,exIdx} objects. level='warn'|'info'. Warnings, not blocks.
 // opts.sessionType — lifting rules run only for lifting (or undefined) days.
@@ -1276,44 +1281,50 @@ function recommendSupersets(exList){
 }
 
 // ===== DEFAULT PROGRAM =====
-const DEF_PROGRAM={name:"Jun 29 Block 4 W2",active:true,days:[
-{id:1,label:"Upper (Bench)",defaultDay:"Monday",dayOfWeek:"Monday",sessionType:"lifting",dur:85,exercises:[
+const DEF_PROGRAM={name:"Jul 8 Block 4 W3",active:true,days:[
+{id:1,label:"Upper (Bench)",defaultDay:"Wednesday",dayOfWeek:"Wednesday",sessionType:"lifting",dur:70,exercises:[
   {id:"d1e1",name:"Bird Dog",cat:"core",sets:2,reps:"8",loadKg:0,unit:"bw",rest:45,tags:["activation","per side","3-sec hold"],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"d1e2",name:"Bench Press",cat:"push",sets:4,reps:"5",loadKg:87.5,unit:"kg",rest:180,tags:["shoulder","AMRAP-last-if-easy"],angle:"flat",grip:null,equipmentClass:"barbell"},
-  {id:"d1e3",name:"DB Shoulder Press",cat:"push",sets:3,reps:"8",loadKg:22.5,unit:"kg",rest:120,tags:["per hand"],angle:null,grip:null,equipmentClass:"db"},
-  {id:"d1e4",name:"Strict Pull-Up",cat:"pull",sets:4,reps:"8",loadKg:0,unit:"bw",rest:120,tags:["AMRAP-first-set","MU-progression","superset-with-dip"],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"d1e5",name:"Strict Dip",cat:"push",sets:3,reps:"10",loadKg:0,unit:"bw",rest:120,tags:["AMRAP-first-set","MU-progression"],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"d1e6",name:"DB Bench Press",cat:"push",sets:3,reps:"8",loadKg:22.5,unit:"kg",rest:120,tags:["per hand"],angle:"30",grip:null,equipmentClass:"db"},
-  {id:"d1e7",name:"Face Pull",cat:"pull",sets:3,reps:"15",loadKg:36,unit:"kg",rest:75,tags:[],angle:null,grip:null,equipmentClass:"cable"},
-  {id:"d1e8",name:"Narrow-Grip Cable Pulldown",cat:"pull",sets:3,reps:"8",loadKg:50,unit:"kg",rest:90,tags:["superset-with-tri"],angle:null,grip:"underhand",equipmentClass:"cable"},
-  {id:"d1e9",name:"Cable Tricep Extension",cat:"isolation",sets:3,reps:"12",loadKg:22.5,unit:"kg",rest:75,tags:[],angle:null,grip:null,equipmentClass:"cable"},
-  {id:"d1e10",name:"Lateral Raise",cat:"isolation",sets:2,reps:"10",loadKg:7,unit:"kg",rest:60,tags:["per hand"],angle:null,grip:null,equipmentClass:"db"},
-  {id:"d1e11",name:"Pallof Press",cat:"core",sets:2,reps:"12",loadKg:20,unit:"kg",rest:60,tags:["per side"],angle:null,grip:null,equipmentClass:"cable"}
+  {id:"d1e2",name:"Bench Press",cat:"push",sets:4,reps:"5",loadKg:87.5,unit:"kg",rest:180,tags:["shoulder","HOLD","AMRAP-last-if-3rd≤RPE7","drop-to-85-if-any-set≥RPE9"],angle:"flat",grip:null,equipmentClass:"barbell"},
+  {id:"d1e3",name:"DB Shoulder Press",cat:"push",sets:3,reps:"8",loadKg:25,unit:"kg",rest:120,tags:["per hand"],angle:null,grip:null,equipmentClass:"db"},
+  {id:"d1e4",name:"Strict Pull-Up",cat:"pull",sets:4,reps:"5",loadKg:0,unit:"bw",rest:120,tags:["RPE-7-8-cap","MU-progression","stop-on-shoulder-twinge"],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"d1e5",name:"Strict Dip",cat:"push",sets:3,reps:"8",loadKg:0,unit:"bw",rest:120,tags:["MU-progression"],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"d1e6",name:"DB Bench Press",cat:"push",sets:3,reps:"8",loadKg:25,unit:"kg",rest:120,tags:["per hand"],angle:"30",grip:null,equipmentClass:"db"},
+  {id:"d1e7",name:"Face Pull",cat:"pull",sets:2,reps:"15",loadKg:36,unit:"kg",rest:75,tags:["moved-up"],angle:null,grip:null,equipmentClass:"cable"},
+  {id:"d1e8",name:"Narrow-Grip Cable Pulldown",cat:"pull",sets:3,reps:"8",loadKg:32,unit:"kg",rest:90,tags:["log-pulley-variant"],angle:null,grip:"underhand",equipmentClass:"cable"},
+  {id:"d1e9",name:"Cable Tricep Extension",cat:"isolation",sets:3,reps:"10",loadKg:23.5,unit:"kg",rest:75,tags:[],angle:null,grip:null,equipmentClass:"cable"},
+  {id:"d1e10",name:"Lateral Raise",cat:"isolation",sets:2,reps:"10",loadKg:7.5,unit:"kg",rest:60,tags:["per hand"],angle:null,grip:null,equipmentClass:"db"}
 ],bonus:[
   {id:"d1b1",name:"Ext. Rotation",cat:"rehab",sets:2,reps:"15",loadKg:5,unit:"kg",rest:60,tags:["rehab"],angle:null,grip:null,equipmentClass:"db"}
 ]},
-{id:2,label:"Lower (Squat)",defaultDay:"Wednesday",dayOfWeek:"Wednesday",sessionType:"lifting",dur:65,exercises:[
-  {id:"d2e1",name:"Bird Dog",cat:"core",sets:2,reps:"8",loadKg:0,unit:"bw",rest:45,tags:["activation","per side","3-sec hold"],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"d2e2",name:"Back Squat",cat:"squat",sets:4,reps:"5",loadKg:92.5,unit:"kg",rest:180,tags:["AMRAP-last-if-easy"],angle:null,grip:null,equipmentClass:"barbell"},
-  {id:"d2e3",name:"Bulgarian Split Squat",cat:"squat",sets:3,reps:"8",loadKg:17.5,unit:"kg",rest:120,tags:["per hand","weak-leg-focus"],angle:null,grip:null,equipmentClass:"db"},
-  {id:"d2e4",name:"DB RDL",cat:"hinge",sets:3,reps:"10",loadKg:30,unit:"kg",rest:120,tags:["per hand"],angle:null,grip:null,equipmentClass:"db"},
-  {id:"d2e5",name:"Sled Push",cat:"squat",sets:4,reps:"10m",loadKg:147.5,unit:"kg",rest:90,tags:[],angle:null,grip:null,equipmentClass:"sled"},
-  {id:"d2e6",name:"Hanging Leg Raise",cat:"core",sets:3,reps:"8",loadKg:0,unit:"bw",rest:60,tags:[],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"d2e7",name:"Suitcase Carry",cat:"core",sets:2,reps:"30m",loadKg:26,unit:"kg",rest:90,tags:["one hand","alternate"],angle:null,grip:null,equipmentClass:"db"},
-  {id:"d2e8",name:"Calf Raise",cat:"isolation",sets:3,reps:"12",loadKg:31,unit:"kg",rest:60,tags:["sitting"],angle:null,grip:null,equipmentClass:"machine"}
+{id:2,label:"Squat",defaultDay:"Friday",dayOfWeek:"Friday",sessionType:"lifting",dur:65,exercises:[
+  {id:"d2e1",name:"Bird Dog",cat:"core",sets:2,reps:"8",loadKg:0,unit:"bw",rest:45,tags:["activation","per side"],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"d2e2",name:"Back Squat",cat:"squat",sets:4,reps:"5",loadKg:95,unit:"kg",rest:180,tags:["ramp-first-set-85","RPE-8-cap","backoff-85x6-if-3rd≥RPE9"],angle:null,grip:null,equipmentClass:"barbell"},
+  {id:"d2e3",name:"Bulgarian Split Squat",cat:"squat",sets:3,reps:"8",loadKg:17.5,unit:"kg",rest:120,tags:["per hand","weak-leg-focus","HOLD"],angle:null,grip:null,equipmentClass:"db"},
+  {id:"d2e4",name:"DB RDL",cat:"hinge",sets:3,reps:"10",loadKg:30,unit:"kg",rest:120,tags:["per hand","HOLD"],angle:null,grip:null,equipmentClass:"db"},
+  {id:"d2e5",name:"Sled Push",cat:"squat",sets:4,reps:"15m",loadKg:152.5,unit:"kg",rest:90,tags:[],angle:null,grip:null,equipmentClass:"sled"},
+  {id:"d2e6",name:"Hanging Leg Raise",cat:"core",sets:3,reps:"10",loadKg:0,unit:"bw",rest:60,tags:[],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"d2e7",name:"Suitcase Carry",cat:"core",sets:2,reps:"30m",loadKg:27.5,unit:"kg",rest:90,tags:["one hand","alternate","HOLD"],angle:null,grip:null,equipmentClass:"db"},
+  {id:"d2e8",name:"Calf Raise",cat:"isolation",sets:3,reps:"12",loadKg:32,unit:"kg",rest:60,tags:["sitting"],angle:null,grip:null,equipmentClass:"machine"}
 ],bonus:[
   {id:"d2b1",name:"Ext. Rotation",cat:"rehab",sets:2,reps:"15",loadKg:5,unit:"kg",rest:60,tags:["rehab"],angle:null,grip:null,equipmentClass:"db"}
 ]},
-{id:3,label:"Lower (Deadlift)",defaultDay:"Sunday",dayOfWeek:"Sunday",sessionType:"lifting",dur:65,exercises:[
-  {id:"d3e1",name:"Bird Dog",cat:"core",sets:2,reps:"8",loadKg:0,unit:"bw",rest:45,tags:["activation","per side","3-sec hold"],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"d3e2",name:"Deadlift",cat:"hinge",sets:4,reps:"5",loadKg:111,unit:"kg",rest:180,tags:["reset-every-rep","NO-AMRAP","RPE-8-cap"],angle:null,grip:null,equipmentClass:"barbell",barKg:36},
-  {id:"d3e3",name:"Leg Press",cat:"squat",sets:3,reps:"10",loadKg:152.5,unit:"kg",rest:120,tags:[],angle:null,grip:null,equipmentClass:"machine"},
-  {id:"d3e4",name:"Cable Low Row",cat:"pull",sets:4,reps:"8",loadKg:36,unit:"kg",rest:120,tags:["narrow-grip"],angle:null,grip:"neutral",equipmentClass:"cable"},
-  {id:"d3e5",name:"Back Extension",cat:"hinge",sets:3,reps:"12",loadKg:7.5,unit:"kg",rest:90,tags:["weight-held"],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"d3e6",name:"Calf Raise",cat:"isolation",sets:3,reps:"12",loadKg:31,unit:"kg",rest:60,tags:["sitting"],angle:null,grip:null,equipmentClass:"machine"},
-  {id:"d3e7",name:"Hanging Knee Raise",cat:"core",sets:3,reps:"8",loadKg:0,unit:"bw",rest:60,tags:[],angle:null,grip:null,equipmentClass:"bw"}
+{id:3,label:"Calisthenics (MU Foundation)",defaultDay:"Saturday",dayOfWeek:"Saturday",sessionType:"calisthenics",dur:40,tags:["RPE-7-cap","pre-deadlift-day"],exercises:[
+  {id:"d3e1",name:"Strict Pull-Up",cat:"pull",sets:3,reps:"3",loadKg:0,unit:"bw",rest:120,tags:["set1-AMRAP","MU-progression"],cue:"Set 1 AMRAP — stop at RPE 8 or twinge; sets 2–3 × 3 submax",angle:null,grip:null,equipmentClass:"bw"},
+  {id:"d3e2",name:"Strict Dip",cat:"push",sets:3,reps:"6-8",loadKg:0,unit:"bw",rest:120,tags:["MU-progression"],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"d3e3",name:"False-Grip Hold",cat:"pull",sets:3,reps:"15s",loadKg:0,unit:"bw",rest:90,tags:["MU-progression"],cue:"Bar in the wrist crease, knuckles over — build toward 30 s",angle:null,grip:null,equipmentClass:"bw"},
+  {id:"d3e4",name:"Wall Handstand Hold",cat:"push",sets:3,reps:"25s",loadKg:0,unit:"bw",rest:90,tags:[],cue:"Chest to wall, ribs down, push tall through the shoulders",angle:null,grip:null,equipmentClass:"bw"},
+  {id:"d3e5",name:"Hollow Body Hold",cat:"core",sets:3,reps:"20s",loadKg:0,unit:"bw",rest:60,tags:[],cue:"Low back pressed flat, arms by ears",angle:null,grip:null,equipmentClass:"bw"}
+]},
+{id:4,label:"Deadlift + Pull",defaultDay:"Sunday",dayOfWeek:"Sunday",sessionType:"lifting",dur:60,exercises:[
+  {id:"d4e1",name:"Bird Dog",cat:"core",sets:2,reps:"8",loadKg:0,unit:"bw",rest:45,tags:["activation","per side"],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"d4e2",name:"Deadlift",cat:"hinge",sets:4,reps:"5",loadKg:116,unit:"kg",rest:180,tags:["HOLD","RPE-8-hard-cap","NO-AMRAP","reset-every-rep"],angle:null,grip:null,equipmentClass:"barbell",barKg:36},
+  {id:"d4e3",name:"Leg Press",cat:"squat",sets:3,reps:"10",loadKg:160,unit:"kg",rest:120,tags:["HOLD"],angle:null,grip:null,equipmentClass:"machine"},
+  {id:"d4e4",name:"Cable Low Row",cat:"pull",sets:4,reps:"8",loadKg:31.5,unit:"kg",rest:120,tags:["narrow-grip","double-pulley"],angle:null,grip:"narrow",equipmentClass:"cable"},
+  {id:"d4e5",name:"Hanging Knee Raise",cat:"core",sets:2,reps:"10",loadKg:0,unit:"bw",rest:60,tags:["moved-mid-session"],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"d4e6",name:"Back Extension",cat:"hinge",sets:3,reps:"12",loadKg:10,unit:"kg",rest:90,tags:["weight-held","HOLD-until-12s"],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"d4e7",name:"Calf Raise",cat:"isolation",sets:3,reps:"12",loadKg:32,unit:"kg",rest:60,tags:["sitting"],angle:null,grip:null,equipmentClass:"machine"}
 ],bonus:[
-  {id:"d3b1",name:"Ext. Rotation",cat:"rehab",sets:2,reps:"15",loadKg:5,unit:"kg",rest:60,tags:["rehab"],angle:null,grip:null,equipmentClass:"db"}
+  {id:"d4b1",name:"Ext. Rotation",cat:"rehab",sets:2,reps:"15",loadKg:5,unit:"kg",rest:60,tags:["rehab"],angle:null,grip:null,equipmentClass:"db"}
 ]}
 ]};
 
@@ -1686,7 +1697,15 @@ function validateWeek(weekDates,todayDate){
     const shared=Object.keys(pb).filter(p=>pa[p]);
     if(shared.length){
       const names=shared.map(p=>pa[p]+'/'+pb[p]).join(', ');
-      warnings.push({level:'warn',msg:'Same movement pattern ('+shared.join(', ')+': '+names+') on consecutive days ('+a.dow+'→'+b.dow+') — <24h recovery'});
+      // Exception: an RPE-capped calisthenics day feeding into lifting is low
+      // pull volume BY DESIGN (e.g. Sat MU-foundation → Sun deadlift) — accept
+      // as info, not warn. Keyed to the day's own tags, never silenced globally.
+      const aCapCali=a.sessions.some(s=>{
+        if(s.source!=='program'||s.dayIndex==null)return false;
+        const d=S.program.days[s.dayIndex];
+        return d&&d.sessionType==='calisthenics'&&(d.tags||[]).includes('RPE-7-cap');
+      });
+      warnings.push({level:aCapCali?'info':'warn',msg:'Same movement pattern ('+shared.join(', ')+': '+names+') on consecutive days ('+a.dow+'→'+b.dow+') — '+(aCapCali?'accepted: RPE-7-capped calisthenics volume':'<24h recovery')});
     }
     // Calisthenics abutting lifting (info)
     const aLift=a.sessions.some(s=>s.type==='lifting'),bCali=b.sessions.some(s=>s.type==='calisthenics');
@@ -1826,13 +1845,10 @@ function migrateV3(){
     (d.bonus||[]).forEach(fixEx);
   };
   (S.program&&S.program.days||[]).forEach(fixDay);
-  // --- Standardize legacy day labels to "Region (Main lift)" in place, so the
-  //     rename reaches users already on this block (banner only fires on a name
-  //     change). Targeted + guarded — never touches custom labels.
-  (S.program&&S.program.days||[]).forEach(d=>{
-    if(d.label==='Squat'&&(d.exercises||[]).some(e=>e.name==='Back Squat'))d.label='Lower (Squat)';
-    else if(d.label==='Deadlift + Pull')d.label='Lower (Deadlift)';
-  });
+  // (The legacy "Region (Main lift)" relabel migration is gone: Block 4 W3
+  //  deliberately names days "Squat" and "Deadlift + Pull", and the relabel —
+  //  which ran on every load — would have renamed them, breaking label-matched
+  //  isDayDone/skip lookups. Its purpose was spent once W2 users were renamed.)
   // --- Sessions: sessionType ---
   (S.sessions||[]).forEach(s=>{if(!s.sessionType)s.sessionType='lifting';});
   // --- Singapore gym: inject into existing profiles + activate once ---
@@ -3837,7 +3853,9 @@ function detectMuscleUpMilestones(sessions){
       const maxReps=sets.reduce((m,p)=>Math.max(m,+p.reps||0),0);
       if(ex.name==='Strict Pull-Up'&&maxReps>=8)done.pullups=true;
       if(ex.name==='Strict Dip'&&maxReps>=10)done.dips=true;
-      if(ex.name==='False-Grip Pull-Up'&&maxReps>=30)done.falsegrip=true; // hold logged as "30s" → reps 30
+      // Hold logged as "30s" → reps 30. The prescribed exercise is False-Grip Hold
+      // (the 30-sec hold IS the milestone); legacy False-Grip Pull-Up still counts.
+      if((ex.name==='False-Grip Pull-Up'||canonName(ex.name)==='False-Grip Hold')&&maxReps>=30)done.falsegrip=true;
       if(ex.name==='MU Negative'&&maxReps>=5)done.negatives=true;
       if(ex.name==='Bar Muscle-Up')done.firstmu=true;
     });
