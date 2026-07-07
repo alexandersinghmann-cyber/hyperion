@@ -1612,4 +1612,57 @@ assert(/class="pr-tag"[^>]*aria-label="personal record"/.test(html), 'A11y: PR t
 assert(/quickLogActivity\('swim'\)"[^>]*aria-label=/.test(html) && /quickLogActivity\('run'\)"[^>]*aria-label=/.test(html), 'A11y: quick-log buttons are labelled');
 assert(/<svg viewBox="0 0 150 150"[^>]*aria-hidden="true"/.test(html) && /<svg viewBox="0 0 88 88" aria-hidden="true"/.test(html), 'A11y: decorative dashboard rings are aria-hidden (numbers carried as text)');
 
+// ===== C2: PROGRESSION SNAPPING + BW RULES =====
+assert(typeof snapSuggestion==='function' && typeof snapIncrement==='function' && typeof bwNextTarget==='function', 'Snap: helpers defined');
+// The 20%-of-increment rule: round UP only within 20% of the upper step, else DOWN
+assert(snapSuggestion(93.8,'barbell')===92.5, 'Snap: 93.8 barbell → 92.5 (a +1.3 earned bump must not become +2.5). Got: '+snapSuggestion(93.8,'barbell'));
+assert(snapSuggestion(94.6,'barbell')===95, 'Snap: 94.6 barbell → 95 (within 20% of upper step). Got: '+snapSuggestion(94.6,'barbell'));
+assert(snapSuggestion(95,'barbell')===95, 'Snap: exact multiple passes through');
+S.settings.activeGymId='gym-commercial';
+assert(snapSuggestion(23.5,'db')===22.5, 'Snap: 23.5 db (2.5 step) → 22.5. Got: '+snapSuggestion(23.5,'db'));
+assert(snapSuggestion(118.5,'barbell')===117.5, 'Snap: 118.5 barbell → 117.5 (not 120). Got: '+snapSuggestion(118.5,'barbell'));
+assert(snapSuggestion(31.4,'cable')===31, 'Snap: cable snaps to 1 kg. Got: '+snapSuggestion(31.4,'cable'));
+assert(snapSuggestion(152.7,'sled')===152.7 && snapSuggestion(152.7,'machine')===152.7, 'Snap: machine/sled pass through');
+// BW target helper
+assert(bwNextTarget('15s',true)==='20s', 'BW: hold 15s → 20s (+5 sec)');
+assert(bwNextTarget('8',false)==='9', 'BW: reps 8 → 9 (+1 rep)');
+assert(bwNextTarget('6-8',false)===null, 'BW: ranges are coach-managed (no suggestion)');
+assert(bwNextTarget('10 min',false)===null, 'BW: minute prescriptions are coach-managed');
+// evalProg end-to-end: RPE-8 half-increment on a barbell squat SNAPS (93.75 → 92.5 → demoted to hold)
+S.sessions=[];
+S.activeSession={dayIndex:0,date:'2026-07-10',dayLabel:'T',sessionType:'lifting',startTime:1,exercises:[
+  {name:'Back Squat',cat:'squat',prescribed:{sets:2,reps:'5',loadKg:92.5,unit:'kg'},equipmentClass:'barbell',
+   performed:[{type:'working',weightKg:92.5,reps:5,rpe:8,logged:true},{type:'working',weightKg:92.5,reps:5,rpe:8,logged:true}],tags:[],progression:null,nextLoad:null}
+]};
+evalProg(0);
+const sqEx=S.activeSession.exercises[0];
+assert(sqEx.progression==='hold' && sqEx.nextLoad===92.5, 'evalProg: RPE-8 +half (93.75) snaps below step → demoted to HOLD at 92.5, not a phantom 93.8. Got: '+sqEx.progression+' '+sqEx.nextLoad);
+assert(/below the smallest loadable step/.test(sqEx.progressionReason||''), 'evalProg: demotion carries an honest reason');
+// RPE-7 full-increment path lands on a real plate load
+S.activeSession.exercises[0]={name:'Back Squat',cat:'squat',prescribed:{sets:2,reps:'5',loadKg:92.5,unit:'kg'},equipmentClass:'barbell',
+  performed:[{type:'working',weightKg:92.5,reps:5,rpe:7,logged:true},{type:'working',weightKg:92.5,reps:5,rpe:7,logged:true}],tags:[],progression:null,nextLoad:null};
+evalProg(0);
+assert(S.activeSession.exercises[0].progression==='increase' && S.activeSession.exercises[0].nextLoad===95, 'evalProg: RPE-7 92.5+2.5 → 95 (loadable). Got: '+S.activeSession.exercises[0].nextLoad);
+// Deload: exact-multiple result passes through…
+S.activeSession.exercises[0]={name:'Back Squat',cat:'squat',prescribed:{sets:2,reps:'5',loadKg:100,unit:'kg'},equipmentClass:'barbell',
+  performed:[{type:'working',weightKg:100,reps:5,rpe:10,logged:true}],tags:[],progression:null,nextLoad:null};
+evalProg(0);
+assert(S.activeSession.exercises[0].progression==='flag' && S.activeSession.exercises[0].nextLoad===95, 'evalProg: deload 100→95 (exact multiple) passes through. Got: '+S.activeSession.exercises[0].nextLoad);
+// …and a non-loadable deload snaps DOWN (never up): 97.5*0.95=92.6 → 92.5
+S.activeSession.exercises[0]={name:'Back Squat',cat:'squat',prescribed:{sets:2,reps:'5',loadKg:97.5,unit:'kg'},equipmentClass:'barbell',
+  performed:[{type:'working',weightKg:97.5,reps:5,rpe:10,logged:true}],tags:[],progression:null,nextLoad:null};
+evalProg(0);
+assert(S.activeSession.exercises[0].nextLoad===92.5, 'evalProg: deload 92.6 floor-snaps to 92.5 (never rounds a deload up). Got: '+S.activeSession.exercises[0].nextLoad);
+// BW exercise: never a kg suggestion (the Bird Dog "next 1 kg" bug)
+S.activeSession.exercises[0]={name:'Hanging Leg Raise',cat:'core',prescribed:{sets:2,reps:'10',loadKg:0,unit:'bw'},equipmentClass:'bw',
+  performed:[{type:'working',weightKg:0,reps:10,rpe:7,logged:true},{type:'working',weightKg:0,reps:10,rpe:7,logged:true}],tags:[],progression:null,nextLoad:null};
+evalProg(0);
+assert(S.activeSession.exercises[0].progression==='increase' && S.activeSession.exercises[0].nextLoad===null && S.activeSession.exercises[0].nextTarget==='11', 'evalProg: BW HLR earns +1 rep (11), never kg. Got: load='+S.activeSession.exercises[0].nextLoad+' target='+S.activeSession.exercises[0].nextTarget);
+// BW hold exercise: +5 sec
+S.activeSession.exercises[0]={name:'False-Grip Hold',cat:'pull',prescribed:{sets:2,reps:'15s',loadKg:0,unit:'bw'},equipmentClass:'bw',
+  performed:[{type:'working',weightKg:0,reps:15,rpe:6,logged:true},{type:'working',weightKg:0,reps:15,rpe:6,logged:true}],tags:[],progression:null,nextLoad:null};
+evalProg(0);
+assert(S.activeSession.exercises[0].nextTarget==='20s', 'evalProg: hold-type BW earns +5 sec (15s→20s). Got: '+S.activeSession.exercises[0].nextTarget);
+S.activeSession=null;S.sessions=[];
+
 console.log('\n=== All tests passed ===');

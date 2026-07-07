@@ -1576,6 +1576,28 @@ function snapLoadToEquipment(loadKg,equipmentClass){
     default: return kg; // machine, sled, null — pass through
   }
 }
+// The loadable step for a class, or null when anything goes (machine/sled/null).
+function snapIncrement(equipmentClass){
+  switch(equipmentClass){
+    case 'db': return activeGymDbInc();
+    case 'barbell': return 2.5;
+    case 'cable': return 1;
+    default: return null;
+  }
+}
+// Snap a PROGRESSION SUGGESTION to a loadable weight. Conservative by design:
+// round UP only when the raw suggestion is within 20% of the increment below
+// the upper step; otherwise round DOWN — a +1.3% earned bump must not silently
+// become a +2.7% jump (e.g. 93.8 on a barbell → 92.5, not 95).
+function snapSuggestion(raw,equipmentClass){
+  const kg=+raw||0;
+  const inc=snapIncrement(equipmentClass);
+  if(!inc||kg<=0)return kg;
+  const lower=Math.round(Math.floor(kg/inc+1e-9)*inc*100)/100;
+  const upper=Math.round((lower+inc)*100)/100;
+  if(Math.abs(kg-lower)<1e-9)return lower;           // already loadable
+  return (upper-kg)<=inc*0.2+1e-9?upper:lower;
+}
 // Infer equipmentClass from an exercise's EX_META eq[] tags. Order matters:
 // barbell > sled > db > cable > machine > bw.
 function inferEquipmentClass(name){
@@ -1893,6 +1915,19 @@ function syncProgram(){
 
 // ===== HELPERS =====
 function repRange(s){const p=String(s);if(p.includes('-')||p.includes('–')){const a=p.split(/[-–]/).map(Number);return{min:a[0],max:a[1]}}const n=parseInt(p);return{min:n,max:n}}
+// Next prescription for a BODYWEIGHT exercise that earned an increase.
+// Holds progress +5 sec ('15s'→'20s'); plain reps +1 ('8'→'9'). Ranges and
+// min-prescriptions return null (coach-managed) — better no suggestion than a
+// wrong one. Returned string is a drop-in for prescribed.reps.
+function bwNextTarget(repsStr,isHold){
+  const p=String(repsStr||'').trim();
+  if(p.includes('-')||p.includes('–'))return null;          // range: coach decides
+  const u=repsUnit(p);
+  if(u==='min'||u==='m')return null;                         // duration-min / distance
+  const n=parseInt(p,10);if(isNaN(n))return null;
+  if(isHold||u==='s')return (n+5)+'s';
+  return String(n+1);
+}
 // Reps unit hint for distance/time-prescribed exercises (Sled Push, DB Carry,
 // Plank, Incline Walk). Returns 'm' / 's' / 'min' / null. Schema unchanged —
 // the numeric value still lives in s.reps; only the input label and summary
@@ -2910,7 +2945,7 @@ function renderEx(){
         ${ex.painEvent?`<div style="margin-top:8px;padding:8px 10px;border-radius:var(--rs);background:var(--red-dim);font-size:12px;color:var(--red)">⚠ ${ex.painEvent.severity} pain${ex.painEvent.action?' — '+ex.painEvent.action:''}</div>`:''}
         ${allDone&&ex.progression?`<div class="prog-badge prog-${ex.progression==='increase'?'up':ex.progression==='flag'?'flag':ex.progression==='stall'?'stall':ex.progression==='skipped'?'skip':'hold'}">
           <span>${ex.progression==='increase'?'↑ Increase':ex.progression==='flag'?'⚠ Flagged':ex.progression==='stall'?'⏸ Stall':ex.progression==='skipped'?'⏭ Skipped':'→ Hold'}</span>
-          ${ex.nextLoad&&ex.progression==='increase'?`<span class="tm">${fmtW(ex.nextLoad,ex.prescribed.unit)}</span>`:''}
+          ${ex.nextLoad&&ex.progression==='increase'?`<span class="tm">${fmtW(ex.nextLoad,ex.prescribed.unit)}</span>`:ex.nextTarget&&ex.progression==='increase'?`<span class="tm">next ${ex.nextTarget}${/^\d+$/.test(ex.nextTarget)?' reps':''}</span>`:''}
         </div>${ex.progression==='flag'&&ex.progressionReason?`<div style="margin-top:6px;padding:7px 10px;background:var(--s2);border-left:2px solid var(--warn);border-radius:var(--rs);font:500 11px var(--mono);color:var(--tx2);line-height:1.4">${ex.progressionReason}</div>`:''}`:''}
       </div>
     </div>`;
@@ -3627,6 +3662,7 @@ function evalProg(ei){
   const hitTop=working.filter(s=>s.weightKg===topW).every(s=>s.reps>=rr.max);
 
   const rnd=v=>Math.round(v*10)/10;
+  const isBW=ex.prescribed.unit==='bw'||ex.equipmentClass==='bw';
 
   if(ex.painEvent&&ex.painEvent.severity!=='none'){
     ex.progression='flag';ex.nextLoad=topW||ex.prescribed.loadKg;
@@ -3655,6 +3691,28 @@ function evalProg(ei){
       ex.progressionReason='Top set under target reps — hold and review';
     }
     else{ex.progression='hold';ex.nextLoad=topW;}
+  }
+
+  // --- Make the suggestion actionable ---
+  ex.nextTarget=null;
+  if(isBW){
+    // BW progression is reps/seconds, never kg (Bird Dog "next 1 kg" bug).
+    ex.nextLoad=null;
+    if(ex.progression==='increase')ex.nextTarget=bwNextTarget(ex.prescribed.reps,getMeta(ex.name).hold===true);
+  } else if(ex.nextLoad!=null){
+    if(ex.progression==='flag'&&ex.nextLoad<topW){
+      // Deload: snap DOWN to the nearest loadable step (never round a deload up).
+      const dinc=snapIncrement(ex.equipmentClass);
+      if(dinc)ex.nextLoad=Math.round(Math.floor(ex.nextLoad/dinc+1e-9)*dinc*100)/100;
+    } else if(ex.progression==='increase'){
+      // Route earned bumps through the equipment snap (93.8 → 92.5, not 95).
+      const snapped=snapSuggestion(ex.nextLoad,ex.equipmentClass);
+      if(snapped<=topW){
+        const earned=rnd(ex.nextLoad-topW);
+        ex.progression='hold';ex.nextLoad=topW;
+        ex.progressionReason='+'+earned+' kg earned — below the smallest loadable step, holding';
+      } else ex.nextLoad=snapped;
+    }
   }
 
   // Stall check — compare against last 2 sessions' top achieved weight (not prescribed).
@@ -3739,7 +3797,7 @@ function confirmRpe(){
 
   const rec={id:'s_'+Date.now(),date:sess.date,dayLabel:sess.dayLabel,blockName:S.program.name,duration:dur,rpe:selRpe,status:'complete',
     sessionNotes:sess.notes||'',
-    exercises:sess.exercises.map(ex=>({name:ex.name,cat:ex.cat,prescribed:ex.prescribed,performed:ex.performed.filter(s=>s.logged),notes:ex.notes,progression:ex.progression,nextLoad:ex.nextLoad,painEvent:ex.painEvent,tags:ex.tags})),
+    exercises:sess.exercises.map(ex=>({name:ex.name,cat:ex.cat,prescribed:ex.prescribed,performed:ex.performed.filter(s=>s.logged),notes:ex.notes,progression:ex.progression,nextLoad:ex.nextLoad,nextTarget:ex.nextTarget||null,painEvent:ex.painEvent,tags:ex.tags})),
     painEvents:sess.exercises.filter(e=>e.painEvent&&e.painEvent.severity!=='none').map(e=>({exercise:e.name,...e.painEvent}))
   };
   S.sessions.push(rec);
@@ -3747,8 +3805,11 @@ function confirmRpe(){
   // Update program loads by day index + exercise index (skip bonus exercises)
   const dayExs=S.program.days[sess.dayIndex]?.exercises||[];
   sess.exercises.forEach((rx,ei)=>{
-    if(rx.progression==='increase'&&rx.nextLoad&&!(rx.tags||[]).includes('bonus')&&ei<dayExs.length){
-      if(dayExs[ei].name===rx.name)dayExs[ei].loadKg=rx.nextLoad;
+    if(rx.progression==='increase'&&!(rx.tags||[]).includes('bonus')&&ei<dayExs.length&&dayExs[ei].name===rx.name){
+      if(rx.nextLoad)dayExs[ei].loadKg=rx.nextLoad;
+      // BW parallel: earned rep/hold bump rewrites the reps prescription
+      // ('15s'→'20s', '8'→'9'); suffix preserved by bwNextTarget.
+      else if(rx.nextTarget)dayExs[ei].reps=rx.nextTarget;
     }
   });
 
@@ -3777,7 +3838,7 @@ function renderSummary(rec){
         </div>
         <div class="${pc}" style="font-weight:700;font-size:16px">${pi}</div>
       </div>
-      ${ex.nextLoad&&ex.progression==='increase'?`<div style="font-size:11px;color:var(--grn);margin-top:3px">Next: ${fmtW(ex.nextLoad,ex.prescribed?.unit)}</div>`:''}
+      ${ex.nextLoad&&ex.progression==='increase'?`<div style="font-size:11px;color:var(--grn);margin-top:3px">Next: ${fmtW(ex.nextLoad,ex.prescribed?.unit)}</div>`:ex.nextTarget&&ex.progression==='increase'?`<div style="font-size:11px;color:var(--grn);margin-top:3px">Next: ${ex.nextTarget}${/^\d+$/.test(ex.nextTarget)?' reps':''}</div>`:''}
       ${ex.progression==='flag'&&ex.progressionReason?`<div style="font-size:11px;color:var(--warn);margin-top:3px;line-height:1.4">${ex.progressionReason}</div>`:''}
     </div>`;
   }).join('');
@@ -4573,6 +4634,7 @@ function generateCoachReport(){
       const setStr=w.map(s=>s.skipped?('SKIPPED'+(s.skipReason?' · '+s.skipReason:'')):(fmtW(s.weightKg,ex.prescribed?.unit)+'×'+s.reps+(s.rpe?' @ RPE '+s.rpe:''))).join(' / ');
       r+=`  ${pi} ${ex.name}${bonus}: ${setStr}`;
       if(ex.progression==='increase'&&ex.nextLoad)r+=` → next ${ex.nextLoad} kg`;
+      else if(ex.progression==='increase'&&ex.nextTarget)r+=` → next ${ex.nextTarget}${/^\d+$/.test(ex.nextTarget)?' reps':''}`;
       else if(ex.progression==='hold'&&ex.nextLoad)r+=` → hold ${ex.nextLoad} kg`;
       else if(ex.progression==='flag'&&ex.nextLoad)r+=` → deload to ${ex.nextLoad} kg`;
       r+='\n';
