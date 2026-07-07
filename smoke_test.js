@@ -1731,4 +1731,40 @@ assert(/variant:ex\.variant\|\|null/.test(html), 'Variant: session records persi
 assert(/class="variant-chips"/.test(html) && /setVariant\(/.test(html), 'Variant: chips rendered on the logging card');
 assert(/equipmentClass:ex\.equipmentClass\|\|inferEquipmentClass\(ex\.name\)/.test(html), 'Variant: session exercises carry equipmentClass (progression snapping depends on it)');
 
+// ===== C5: SKIP-REFLOW + CHRONIC-SKIP =====
+assert(typeof chronicSkips==='function' && typeof confirmMoveExercise==='function' && typeof movableDays==='function', 'Skip: reflow + chronic helpers defined');
+// chronic detection: 3 consecutive skipped appearances trigger; a completed one resets
+const mkSkipRec=(date,skipped)=>({date,dayLabel:'X',blockName:S.program.name,exercises:[{name:'Face Pull',tags:[],progression:skipped?'skipped':'hold',performed:[{type:'working',weightKg:36,reps:skipped?0:15,logged:true,skipped:!!skipped}]}]});
+S.settings.chronicDismissed={};
+S.sessions=[mkSkipRec('2026-06-24',true),mkSkipRec('2026-06-26',true),mkSkipRec('2026-06-28',true)];
+assert(chronicSkips().some(c=>c.name==='Face Pull'&&c.count===3), 'Skip: 3 consecutive skips → chronic. Got: '+JSON.stringify(chronicSkips()));
+S.sessions=[mkSkipRec('2026-06-24',true),mkSkipRec('2026-06-26',true)];
+assert(chronicSkips().length===0, 'Skip: 2 skips is not chronic');
+S.sessions=[mkSkipRec('2026-06-20',true),mkSkipRec('2026-06-22',true),mkSkipRec('2026-06-24',false),mkSkipRec('2026-06-26',true),mkSkipRec('2026-06-28',true)];
+assert(chronicSkips().length===0, 'Skip: a completed appearance resets the streak');
+// dismissal is per-block
+S.sessions=[mkSkipRec('2026-06-24',true),mkSkipRec('2026-06-26',true),mkSkipRec('2026-06-28',true)];
+S.settings.chronicDismissed={'Face Pull':S.program.name};
+assert(chronicSkips().length===0, 'Skip: dismissed-this-block stays hidden');
+S.settings.chronicDismissed={'Face Pull':'some old block'};
+assert(chronicSkips().length===1, 'Skip: a dismissal from a previous block does not carry over');
+S.settings.chronicDismissed={};S.sessions=[];
+// move: appends a deep copy to the target day, marks (not splices) the session exercise
+S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();
+S.activeSession={dayIndex:0,date:'2026-07-08',dayLabel:'Upper (Bench)',sessionType:'lifting',startTime:1,exercises:S.program.days[0].exercises.map(ex=>({name:ex.name,cat:ex.cat,prescribed:{sets:ex.sets,reps:ex.reps,loadKg:ex.loadKg,unit:ex.unit||'kg'},equipmentClass:ex.equipmentClass,performed:[{type:'working',weightKg:ex.loadKg,reps:5,rpe:null,logged:false}],tags:ex.tags||[],rest:ex.rest,progression:null,nextLoad:null})),notes:''};
+const preLen=S.activeSession.exercises.length;
+const preTargetLen=S.program.days[3].exercises.length;
+const fpIdx2=S.activeSession.exercises.findIndex(e=>e.name==='Face Pull');
+confirmMoveExercise(fpIdx2,3);
+assert(S.activeSession.exercises.length===preLen, 'Skip: move does NOT splice the session (index pairing with confirmRpe preserved)');
+assert(S.activeSession.exercises[fpIdx2].progression==='skipped' && S.activeSession.exercises[fpIdx2].performed[0].skipReason==='moved', 'Skip: moved exercise marked skipped/moved in-session');
+assert(S.program.days[3].exercises.length===preTargetLen+1 && S.program.days[3].exercises.some(e=>e.name==='Face Pull'&&(e.tags||[]).includes('moved-in')), 'Skip: deep copy appended to the target day');
+// chronic actions: move earlier + drop
+S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.activeSession=null;
+chronicMoveEarlier('Lateral Raise');
+assert(S.program.days[0].exercises[1].name==='Lateral Raise', 'Skip: Move earlier → index 1 (right after activation). Got: '+S.program.days[0].exercises[1].name);
+assert(/openMoveExercise/.test(html) && /id="moveExModal"/.test(html), 'Skip: skip sheet offers the move action + picker modal exists');
+assert(/SKIPPED \$\{cs\.count\}/.test(html), 'Skip: chronic card renders on Train');
+S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.settings.chronicDismissed={};
+
 console.log('\n=== All tests passed ===');

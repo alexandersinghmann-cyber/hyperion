@@ -817,6 +817,14 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   </div>
 </div>
 
+<div class="overlay" id="moveExModal">
+  <div class="modal">
+    <div class="modal-t">Move <span id="moveExName"></span> to…</div>
+    <div id="moveExList" style="display:flex;flex-direction:column;gap:6px;margin-top:8px"></div>
+    <button class="btn btn-s btn-w" style="margin-top:12px" onclick="hideModal('moveExModal')">Cancel</button>
+  </div>
+</div>
+
 <div class="overlay" id="dayEditModal">
   <div class="modal">
     <div class="modal-t" id="dayEditTitle">Edit Day</div>
@@ -2606,6 +2614,12 @@ function renderTrain(){
       html+=`<div class="conflict-banner">${icon('pause',16)}<div><div class="t-meta" style="color:var(--warn)">RECOVERY CONFLICT</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">${msgs[0]}</div></div></div>`;
     }
   }catch(e){}
+  // Chronic-skip cards: skipped on the last 3 appearances → make it visible.
+  try{
+    chronicSkips().forEach(cs=>{
+      html+=`<div class="conflict-banner" style="align-items:center"><div style="flex:1"><div class="t-meta" style="color:var(--warn)">SKIPPED ${cs.count}×</div><div style="font:600 14px var(--sans);color:var(--tx);margin-top:2px">${cs.name}</div></div><div style="display:flex;gap:5px;flex-shrink:0"><button class="btn btn-sm btn-g" onclick="event.stopPropagation();chronicMoveEarlier('${cs.name.replace(/'/g,"\\'")}')">Move earlier</button><button class="btn btn-sm btn-g" onclick="event.stopPropagation();chronicDropFromBlock('${cs.name.replace(/'/g,"\\'")}')">Drop</button><button class="btn btn-sm btn-g" onclick="event.stopPropagation();chronicDismiss('${cs.name.replace(/'/g,"\\'")}')">Keep</button></div></div>`;
+    });
+  }catch(e){}
   // Gold start button — the soonest session in the planning week (startIdx
   // computed above; it's the gold CTA and is excluded from the Up-next list).
   if(startIdx>=0){
@@ -3613,7 +3627,8 @@ function skipSet(ei,si){
     // Fallback if modal not mounted (older cached shell) — write with 'other'.
     confirmSkipSet('other');return;
   }
-  list.innerHTML=SKIP_SET_REASONS.map(r=>`<button class="btn btn-sm btn-g" style="text-align:left;padding:10px 12px;font:500 12px var(--mono);letter-spacing:.2px" onclick="confirmSkipSet('${r.key}')">${r.label}</button>`).join('');
+  list.innerHTML=SKIP_SET_REASONS.map(r=>`<button class="btn btn-sm btn-g" style="text-align:left;padding:10px 12px;font:500 12px var(--mono);letter-spacing:.2px" onclick="confirmSkipSet('${r.key}')">${r.label}</button>`).join('')
+    +`<button class="btn btn-sm btn-g" style="text-align:left;padding:10px 12px;font:600 12px var(--mono);letter-spacing:.2px;color:var(--acc)" onclick="hideModal('skipSetModal');openMoveExercise(${ei})">→ Move exercise to another session</button>`;
   showModal('skipSetModal');
 }
 function confirmSkipSet(reasonKey){
@@ -3645,6 +3660,81 @@ function toggleExMenu(i){
 }
 function closeExMenus(){document.querySelectorAll('.ex-menu.on').forEach(m=>m.classList.remove('on'))}
 function skipExercise(ei){const ex=S.activeSession.exercises[ei];ex.performed.forEach(s=>{if(!s.logged){s.logged=true;s.skipped=true;s.reps=0;s.weightKg=0;s.skipReason=s.skipReason||'other'}});ex.progression='skipped';save();renderEx()}
+
+// ===== SKIP-REFLOW: move an exercise to another session this block =====
+// The session exercise is MARKED skipped/moved, never spliced — confirmRpe
+// pairs session index ei with program index for load write-back; splicing
+// would shift every later exercise's pairing.
+function movableDays(){
+  const cur=S.activeSession?S.activeSession.dayIndex:-1;
+  return (S.program.days||[]).map((d,i)=>({d,i}))
+    .filter(({d,i})=>i!==cur&&!isDayDone(i)&&!isDaySkipped(i)&&((d.sessionType||'lifting')==='lifting'||d.sessionType==='calisthenics'));
+}
+function openMoveExercise(ei){
+  const days=movableDays();
+  if(!days.length){alert('No remaining session this block to move to.');return}
+  const list=document.getElementById('moveExList');if(!list){return}
+  const ex=S.activeSession.exercises[ei];
+  document.getElementById('moveExName').textContent=ex.name;
+  list.innerHTML=days.map(({d,i})=>`<button class="btn btn-sm btn-g" style="text-align:left;padding:10px 12px" onclick="confirmMoveExercise(${ei},${i})">${d.label} <span class="td" style="font-size:11px">· ${d.defaultDay||d.dayOfWeek}</span></button>`).join('');
+  showModal('moveExModal');
+}
+function confirmMoveExercise(ei,targetDayIdx){
+  const sess=S.activeSession;if(!sess)return;
+  const ex=sess.exercises[ei];const target=S.program.days[targetDayIdx];
+  if(!ex||!target)return;
+  // Prefer the program day's own entry (keeps id/equipment fields); fall back
+  // to reconstructing from the session exercise.
+  const srcDay=S.program.days[sess.dayIndex];
+  const progEx=(srcDay&&srcDay.exercises||[])[ei];
+  const copy=progEx&&progEx.name===ex.name
+    ?JSON.parse(JSON.stringify(progEx))
+    :{id:'mv_'+Date.now(),name:ex.name,cat:ex.cat,sets:ex.prescribed.sets,reps:ex.prescribed.reps,loadKg:ex.prescribed.loadKg,unit:ex.prescribed.unit,rest:ex.rest,tags:(ex.tags||[]).slice(),angle:null,grip:null,equipmentClass:ex.equipmentClass||inferEquipmentClass(ex.name)};
+  (copy.tags=copy.tags||[]).indexOf('moved-in')<0&&copy.tags.push('moved-in');
+  target.exercises=target.exercises||[];target.exercises.push(copy);
+  // Mark, don't splice (see note above).
+  ex.performed.forEach(s=>{if(!s.logged){s.logged=true;s.skipped=true;s.reps=0;s.weightKg=0;s.skipReason='moved'}});
+  ex.progression='skipped';
+  save();hideModal('moveExModal');renderEx();
+  toast('Moved to '+target.label);
+}
+
+// ===== CHRONIC-SKIP DETECTION =====
+// An exercise skipped on its last 3 consecutive appearances (across completed
+// sessions) is invisible pain — surface it. A completed appearance resets the
+// streak. Dismissals are per-block (S.settings.chronicDismissed).
+function exerciseWasSkipped(recEx){
+  return recEx.progression==='skipped'||((recEx.performed||[]).length>0&&recEx.performed.every(p=>p.skipped));
+}
+function chronicSkips(){
+  const streaks={};
+  (S.sessions||[]).forEach(s=>(s.exercises||[]).forEach(ex=>{
+    const key=canonName(ex.name);
+    if((ex.tags||[]).includes('bonus'))return;
+    streaks[key]=exerciseWasSkipped(ex)?(streaks[key]||0)+1:0;
+  }));
+  const dismissed=S.settings.chronicDismissed||{};
+  return Object.entries(streaks)
+    .filter(([name,n])=>n>=3&&dismissed[name]!==S.program.name)
+    .map(([name,n])=>({name,count:n}));
+}
+function chronicMoveEarlier(name){
+  const day=(S.program.days||[]).find(d=>(d.exercises||[]).some(e=>canonName(e.name)===canonName(name)));
+  if(!day)return;
+  const idx=day.exercises.findIndex(e=>canonName(e.name)===canonName(name));
+  if(idx>1){const [ex]=day.exercises.splice(idx,1);day.exercises.splice(1,0,ex);}
+  chronicDismiss(name);toast('Moved earlier in '+day.label);
+}
+function chronicDropFromBlock(name){
+  if(!confirm('Drop '+name+' from this block? The coach programs the next one.'))return;
+  (S.program.days||[]).forEach(d=>{d.exercises=(d.exercises||[]).filter(e=>canonName(e.name)!==canonName(name));});
+  chronicDismiss(name);toast(name+' dropped from block');
+}
+function chronicDismiss(name){
+  if(!S.settings.chronicDismissed)S.settings.chronicDismissed={};
+  S.settings.chronicDismissed[canonName(name)]=S.program.name;
+  save();renderTrain();
+}
 
 // Pure setter for a working/logged set's RPE — testable without DOM.
 function setSetRpe(ei,si,v){
