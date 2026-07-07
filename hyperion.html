@@ -423,6 +423,20 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 /* One-time glow for numbers that changed since last week */
 .glow-up{animation:valglow 1.2s ease-out 1}
 @keyframes valglow{0%{text-shadow:0 0 12px var(--brand-dim),0 0 4px var(--brand)}100%{text-shadow:none}}
+/* Week Wrapped overlay */
+#wrapOverlay{position:fixed;inset:0;z-index:290;display:none;align-items:center;justify-content:center;background:rgba(4,5,7,.92);padding:20px}
+#wrapOverlay.on{display:flex}
+.wr-card{width:100%;max-width:360px;background:linear-gradient(170deg,var(--brand-dim),var(--s1) 45%);border:1px solid var(--s3);border-radius:var(--r);padding:22px 20px;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.wr-hdr{font:700 11px var(--mono);color:var(--brand);letter-spacing:3px;margin-bottom:10px}
+.wr-week{font:500 12px var(--mono);color:var(--tx3);margin-bottom:12px}
+.wr-big{font:700 34px var(--mono);color:var(--tx);line-height:1.15}
+.wr-big .wr-sm{font:600 12px var(--mono);color:var(--tx3);margin-left:8px}
+.wr-lifts{margin-top:14px;border-top:1px solid var(--s3);padding-top:10px}
+.wr-lift{display:flex;align-items:baseline;gap:8px;padding:4px 0}
+.wr-ln{font:600 12px var(--sans);color:var(--tx2);flex:1}
+.wr-lv{font:700 15px var(--mono);color:var(--tx)}
+.wr-ld{font:700 12px var(--mono)}
+.wr-meta{font:600 10px var(--mono);color:var(--tx3);letter-spacing:1px;margin-top:12px}
 /* Session-start hero: 1s brand wash, tap to skip */
 #sessionHero{position:fixed;inset:0;z-index:300;display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:linear-gradient(160deg,var(--brand-dim),var(--bg) 70%);backdrop-filter:blur(2px)}
 #sessionHero.on{display:flex;animation:heroin 220ms ease-out}
@@ -660,6 +674,18 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <div class="t-meta" id="weekRange" style="margin-bottom:14px"></div>
     <div id="weekList"></div>
     <div id="composerCard"></div>
+  </div>
+
+  <!-- Week Wrapped: full-screen recap, filled on tap from buildWeekWrappedData -->
+  <div id="wrapOverlay">
+    <div class="wr-card">
+      <div class="wr-hdr">WEEK WRAPPED</div>
+      <div id="wrapBody"></div>
+      <div style="display:flex;gap:8px;margin-top:18px">
+        <button class="btn btn-p" style="flex:1" onclick="shareWrappedPNG()">Share / save PNG</button>
+        <button class="btn btn-g" style="flex:1" onclick="dismissWeekWrapped()">Done</button>
+      </div>
+    </div>
   </div>
 
   <!-- Session-start hero: 1s brand wash naming the session + main-lift target.
@@ -1051,7 +1077,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 
 
 const K2L=2.20462,L2K=0.453592,STORE='hyperion_v2';
-const APP_VERSION='v3';
+const APP_VERSION='v4';
 const COMPOUNDS=['squat','hinge','push'];
 
 // ===== ICON LIBRARY (inline SVG, stroke-based, 20px default) =====
@@ -2695,10 +2721,15 @@ function renderTrain(){
     }
   }catch(e){}
   // Week complete → one-tap coach report (calendar week, NOT weekAnchor —
-  // Sunday evening after the deadlift is exactly when this must fire).
+  // Sunday evening after the deadlift is exactly when this must fire) +
+  // the Week Wrapped card (once per week; dismiss stamps wrappedSeen).
   try{
-    if(isWeekComplete(weekDatesFor(todayStr()))){
+    const _wd=weekDatesFor(todayStr());
+    if(isWeekComplete(_wd)){
       html+=`<div class="block-banner"><div><div class="t-meta" style="color:var(--gold)">WEEK COMPLETE</div><div style="font:600 14px var(--sans);margin-top:2px">All sessions done — send it to the coach</div></div><button class="btn btn-sm btn-gold" onclick="event.stopPropagation();copyWeeklyReport()">Copy Coach Report</button></div>`;
+      if(S.settings.wrappedSeen!==_wd[0]){
+        html+=`<div class="block-banner" style="background:var(--brand-dim);border-color:var(--brand)"><div><div class="t-meta" style="color:var(--brand)">WEEK WRAPPED</div><div style="font:600 14px var(--sans);margin-top:2px">View your week</div></div><button class="btn btn-sm btn-p" onclick="event.stopPropagation();showWeekWrapped()">View</button></div>`;
+      }
     }
   }catch(e){}
   // Chronic-skip cards: skipped on the last 3 appearances → make it visible.
@@ -3974,7 +4005,6 @@ function startRest(sec){
   stopRest();restDur=sec;restEnd=Date.now()+sec*1000;
   const bar=document.getElementById('restBar');bar.classList.add('on');
   document.getElementById('restDisp').classList.remove('go');
-  renderSessionBar();
   restInt=setInterval(()=>{
     const rem=Math.max(0,Math.ceil((restEnd-Date.now())/1000));
     const m=Math.floor(rem/60),s=rem%60;
@@ -3994,6 +4024,9 @@ function startRest(sec){
       }
     }
   },250);
+  // AFTER restInt is set — renderSessionBar keys "resting" off restInt, so an
+  // earlier call would leave the strip hidden for the whole rest.
+  renderSessionBar();
 }
 function stopRest(){cancelBeep();if(_restAutoStopTimer){clearTimeout(_restAutoStopTimer);_restAutoStopTimer=null}if(restInt)clearInterval(restInt);restInt=null;document.getElementById('restBar').classList.remove('on');renderSessionBar()}
 function skipRest(){cancelBeep();stopRest()}
@@ -5108,6 +5141,96 @@ function buildCoachReport(sessions,program,weekDates){
   }
   return r;
 }
+// ===== WEEK WRAPPED =====
+// Full-screen recap when the week's last scheduled session completes. Pure
+// data builder (harness-tested); canvas/share only ever run from tap handlers.
+function buildWeekWrappedData(weekDates){
+  const wk=(S.sessions||[]).filter(s=>weekDates.includes(s.date));
+  const sched=weeklyScheduled(weekDates,weekDates[0]);
+  let volume=0;
+  wk.forEach(s=>(s.exercises||[]).forEach(e=>(e.performed||[]).filter(p=>p.type==='working'&&!p.skipped).forEach(p=>{volume+=(p.weightKg||0)*(p.reps||0);})));
+  // Big-3: best set this week + e1RM delta vs the best BEFORE this week.
+  const lifts=['Back Squat','Bench Press','Deadlift'].map(name=>{
+    let best=null,bestE=0;
+    wk.forEach(s=>(s.exercises||[]).forEach(e=>{
+      if(canonName(e.name)!==name)return;
+      (e.performed||[]).filter(p=>p.type==='working'&&!p.skipped&&p.logged!==false).forEach(p=>{const v=e1rm(p.weightKg,p.reps);if(v>bestE){bestE=v;best=p;}});
+    }));
+    let prevE=0;
+    (S.sessions||[]).filter(s=>!weekDates.includes(s.date)&&s.date<weekDates[0]).forEach(s=>(s.exercises||[]).forEach(e=>{
+      if(canonName(e.name)!==name)return;
+      (e.performed||[]).filter(p=>p.type==='working'&&!p.skipped&&p.logged!==false).forEach(p=>{const v=e1rm(p.weightKg,p.reps);if(v>prevE)prevE=v;});
+    }));
+    return {name,top:best?best.weightKg+'×'+best.reps:null,e1rm:bestE?Math.round(bestE*10)/10:null,delta:bestE&&prevE?Math.round((bestE-prevE)*10)/10:null};
+  });
+  const g1=(S.goals||[]).find(g=>g.id==='g1');
+  const mu=(S.goals||[]).find(g=>g.id==='g-mu');
+  return {
+    weekLabel:fmtDate(weekDates[0])+' – '+fmtDate(weekDates[6]),
+    done:wk.length,scheduled:sched.prog+sched.rec,
+    volume:Math.round(volume),
+    lifts,
+    pace:g1?computePace(g1,weekDates[6]):'pace-none',
+    muDone:mu?(mu.milestones||[]).filter(m=>m.done).length:0
+  };
+}
+function showWeekWrapped(){
+  const o=document.getElementById('wrapOverlay');if(!o)return;
+  const wd=weekDatesFor(todayStr());
+  const d=buildWeekWrappedData(wd);
+  const paceLabel={'pace-ahead':'AHEAD OF PACE','pace-on':'ON PACE','pace-behind':'BEHIND PACE','pace-critical':'BEHIND PACE','pace-muted':'BUILDING'}[d.pace]||'';
+  const el=document.getElementById('wrapBody');
+  if(el)el.innerHTML=`
+    <div class="wr-week">${d.weekLabel}</div>
+    <div class="wr-big tnum">${d.done}<span class="wr-sm">/${d.scheduled} sessions</span></div>
+    <div class="wr-big tnum">${d.volume.toLocaleString?d.volume.toLocaleString():d.volume}<span class="wr-sm">kg total volume</span></div>
+    <div class="wr-lifts">${d.lifts.map(l=>`<div class="wr-lift"><span class="wr-ln">${l.name}</span><span class="wr-lv tnum">${l.top||'—'}</span>${l.delta!=null?`<span class="wr-ld ${l.delta>=0?'tg':'tr'}">${l.delta>=0?'↑':'↓'} ${Math.abs(l.delta)}</span>`:''}</div>`).join('')}</div>
+    <div class="wr-meta">${paceLabel?paceLabel+' · ':''}MU milestones ${d.muDone}/5</div>`;
+  o.classList.add('on');
+}
+function dismissWeekWrapped(){
+  const o=document.getElementById('wrapOverlay');if(o)o.classList.remove('on');
+  S.settings.wrappedSeen=weekDatesFor(todayStr())[0];
+  save();renderTrain();
+}
+// PNG share — lazily builds a canvas INSIDE the tap handler only (the smoke
+// harness never reaches this; createElement/canvas/share are all guarded).
+function shareWrappedPNG(){
+  if(typeof document.createElement!=='function')return;
+  const d=buildWeekWrappedData(weekDatesFor(todayStr()));
+  const cv=document.createElement('canvas');if(!cv.getContext)return;
+  cv.width=720;cv.height=900;
+  const x=cv.getContext('2d');
+  const brand=(BRAND_CYCLE[(S.settings.brandIdx||0)%BRAND_CYCLE.length]||BRAND_CYCLE[0]).c;
+  x.fillStyle='#08090C';x.fillRect(0,0,720,900);
+  x.fillStyle=brand;x.fillRect(0,0,720,6);
+  x.fillStyle=brand;x.font='700 28px monospace';x.fillText('HYPERION — WEEK WRAPPED',40,80);
+  x.fillStyle='#8B95A5';x.font='500 24px monospace';x.fillText(d.weekLabel,40,120);
+  x.fillStyle='#E8ECF1';x.font='700 96px monospace';x.fillText(d.done+'/'+d.scheduled,40,240);
+  x.fillStyle='#8B95A5';x.font='500 24px monospace';x.fillText('sessions',40,275);
+  x.fillStyle='#E8ECF1';x.font='700 72px monospace';x.fillText(String(d.volume),40,380);
+  x.fillStyle='#8B95A5';x.font='500 24px monospace';x.fillText('kg total volume',40,415);
+  let y=500;
+  d.lifts.forEach(l=>{
+    x.fillStyle='#8B95A5';x.font='600 24px monospace';x.fillText(l.name,40,y);
+    x.fillStyle='#E8ECF1';x.font='700 32px monospace';x.fillText(l.top||'—',330,y);
+    if(l.delta!=null){x.fillStyle=l.delta>=0?'#34D399':'#F87171';x.font='700 28px monospace';x.fillText((l.delta>=0?'↑ ':'↓ ')+Math.abs(l.delta),560,y);}
+    y+=70;
+  });
+  x.fillStyle='#4A5568';x.font='500 22px monospace';x.fillText('MU milestones '+d.muDone+'/5 · Dec 31 goals',40,y+40);
+  const url=cv.toDataURL('image/png');
+  if(typeof navigator.share==='function'&&typeof fetch==='function'){
+    fetch(url).then(r=>r.blob()).then(b=>{
+      const f=new File([b],'hyperion-week.png',{type:'image/png'});
+      navigator.share({files:[f],title:'Hyperion — Week Wrapped'}).catch(()=>{});
+    }).catch(()=>{downloadDataUrl(url);});
+  } else downloadDataUrl(url);
+}
+function downloadDataUrl(url){
+  const a=document.createElement('a');a.href=url;a.download='hyperion-week.png';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+
 // Display + copy wrapper (Progress tab box) and the one-tap copy (Train).
 function generateCoachReport(){
   const r=buildCoachReport(S.sessions,S.program,weekDatesFor(todayStr()));

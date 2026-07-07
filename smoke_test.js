@@ -1140,7 +1140,7 @@ assert(typeof ICONS === 'object' && ICONS, 'v3 icons: ICONS map defined');
 assert(typeof icon === 'function', 'v3 icons: icon() helper defined');
 assert(/^<svg /.test(icon('check')) && /viewBox/.test(icon('check')), 'v3 icons: icon() returns an <svg> string');
 assert(/width="28"/.test(icon('swim',28)), 'v3 icons: icon() honors size arg');
-assert(typeof APP_VERSION === 'string' && APP_VERSION === 'v3', 'v3: APP_VERSION === "v3"');
+assert(typeof APP_VERSION === 'string' && APP_VERSION === 'v4', 'v4: APP_VERSION === "v4" (W3 build cache-bust)');
 
 // ===== TRACK A: SCHEMA MIGRATION + LOAD SNAPPING (Commit 2) =====
 // snapLoadToEquipment
@@ -1873,5 +1873,27 @@ const cntEl={textContent:''};
 animateCount(cntEl,751);
 assert(cntEl.textContent==='751', 'Motion: animateCount falls back to the final value without rAF. Got: '+cntEl.textContent);
 assert(/glow-up/.test(html) && /@keyframes valglow/.test(html), 'Motion: changed-value glow wired');
+
+// ===== C10: WEEK WRAPPED =====
+assert(typeof buildWeekWrappedData==='function' && typeof showWeekWrapped==='function' && typeof dismissWeekWrapped==='function', 'Wrapped: functions defined');
+S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.skips=[];
+const wwWk=weekDatesFor('2026-07-06');
+const wwRec=(date,label,name,w,reps)=>({date,dayLabel:label,blockName:S.program.name,duration:60,rpe:7,status:'complete',exercises:[{name,cat:'hinge',prescribed:{sets:1,reps:'5',loadKg:w,unit:'kg'},performed:[{type:'working',weightKg:w,reps,logged:true}],progression:'hold',nextLoad:w,variant:null,tags:[]}],painEvents:[]});
+S.sessions=[
+  wwRec('2026-06-28','Old','Deadlift',111,5),          // before this week → delta baseline
+  wwRec('2026-07-08','Upper (Bench)','Bench Press',87.5,5),
+  wwRec('2026-07-12','Deadlift + Pull','Deadlift',116,5)
+];
+const ww=buildWeekWrappedData(wwWk);
+assert(ww.done===2, 'Wrapped: counts only this week\'s sessions. Got: '+ww.done);
+assert(ww.volume===Math.round(87.5*5+116*5), 'Wrapped: volume sums this week\'s working sets. Got: '+ww.volume);
+const wwDl=ww.lifts.find(l=>l.name==='Deadlift');
+assert(wwDl.top==='116×5' && wwDl.delta>0, 'Wrapped: deadlift top set + positive e1RM delta vs pre-week best. Got: '+JSON.stringify(wwDl));
+assert(typeof ww.muDone==='number' && ww.weekLabel.length>0, 'Wrapped: MU status + week label present');
+// gating: card only when week complete AND not yet seen
+assert(/S\.settings\.wrappedSeen!==_wd\[0\]/.test(html) && /showWeekWrapped\(\)/.test(html), 'Wrapped: Train card gated by isWeekComplete + wrappedSeen');
+assert(/id="wrapOverlay"/.test(html) && /shareWrappedPNG/.test(html), 'Wrapped: overlay + share affordance present');
+assert(/if\(typeof document\.createElement!=='function'\)return;/.test(html), 'Wrapped: canvas path guarded, tap-handler only');
+S.sessions=[];
 
 console.log('\n=== All tests passed ===');
