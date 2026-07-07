@@ -1572,7 +1572,7 @@ assert(/const sqL=lb\(b3\.squat\),bnL=lb\(b3\.bench\),dlL=lb\(b3\.dead\),totalLb
 assert(/ringArc\(68,[\s\S]{0,60}ringArc\(55,[\s\S]{0,60}ringArc\(42,/.test(html), 'Dash v2: three concentric strength rings (68/55/42)');
 // each lift ring + its sub-row dot share one distinct hue (squat/bench/dead legible apart)
 assert(/cSquat='#22D3EE',cBench='#818CF8',cDead='#C084FC'/.test(html), 'Dash v2: three distinct per-lift ring hues');
-assert(/sd2" style="background:\$\{cSquat\}/.test(html) && /sd2" style="background:\$\{cBench\}/.test(html) && /sd2" style="background:\$\{cDead\}/.test(html), 'Dash v2: sub-row dots mirror the ring hues');
+assert(/\['squat',cSquat,'SQUAT'\],\['bench',cBench,'BENCH'\],\['dead',cDead,'DEAD'\]/.test(html) && /sd2" style="background:\$\{c\}/.test(html), 'Dash v2: sub-row dots mirror the ring hues');
 // quick-log run/swim
 assert(typeof quickLogActivity==='function' && typeof saveQuickLog==='function', 'Dash v2: quick-log fns defined');
 assert(/id="quickLogModal"/.test(html), 'Dash v2: quick-log modal present');
@@ -1800,5 +1800,23 @@ S.skips=[];S.sessions=[];
 // end-of-session report is gone
 assert(!/reportBox/.test(html) && !/function copyReport\(/.test(html), 'Report: per-session report box + copyReport removed');
 assert(/copyWeeklyReport\(\)/.test(html) && /WEEK COMPLETE/.test(html), 'Report: header icon + week-complete banner wired');
+
+// ===== C7: BIG-3 TARGETS SURFACED =====
+assert(typeof e1rmChartBounds==='function' && typeof mainTargetLine==='function', 'Targets: helpers defined');
+// chart bounds include the target even when data is far below it
+const bnds=e1rmChartBounds([{y:100},{y:120}],{squat:166,bench:102,dead:186});
+assert(bnds.maxY>=186, 'Targets: chart maxY includes the highest target (was clipped before). Got: '+bnds.maxY);
+assert(e1rmChartBounds([{y:200}],{squat:166}).maxY>=200*1.05, 'Targets: data above target still pads from data');
+// main-lift card line: today · e1RM · target, FIXED_MAINS only, unit-respecting
+S.settings.unit='kg';S.sessions=[{date:'2026-07-05',dayLabel:'X',exercises:[{name:'Deadlift',performed:[{type:'working',weightKg:111,reps:5,logged:true}]}]}];
+const mtl=mainTargetLine({name:'Deadlift',prescribed:{loadKg:116,unit:'kg'}});
+assert(/today <span class="tnum">116<\/span>/.test(mtl) && /target <span class="tnum">186<\/span> kg/.test(mtl) && /e1RM/.test(mtl), 'Targets: deadlift card line shows today 116 · e1RM · target 186 kg. Got: '+mtl.replace(/<[^>]+>/g,''));
+assert(mainTargetLine({name:'Face Pull',prescribed:{loadKg:36,unit:'kg'}})==='', 'Targets: accessories get no target line (FIXED_MAINS only)');
+S.settings.unit='lb';
+assert(/ lb</.test(mainTargetLine({name:'Deadlift',prescribed:{loadKg:116,unit:'kg'}})), 'Targets: line respects display unit');
+S.settings.unit='kg';S.sessions=[];
+// dashboard sub-row shows current/target per lift + dashed chart target lines
+assert(/class="s-tgt">\/\$\{tgt\(k\)\}/.test(html), 'Targets: 1000lb sub-row renders current/target per lift');
+assert(/stroke-dasharray="4 3"/.test(html) && /tgts\.squat\],\['Bench',tgts\.bench\],\['Deadlift',tgts\.dead\]/.test(html), 'Targets: e1RM chart draws dashed per-lift target lines');
 
 console.log('\n=== All tests passed ===');

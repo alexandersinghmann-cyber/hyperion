@@ -408,6 +408,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .sub2.gap{border-left:1px solid var(--s2)}
 .sd2{width:7px;height:7px;border-radius:50%}
 .snm{font:700 18px var(--mono)}.snm.gold{color:var(--gold)}
+.s-tgt{font:600 11px var(--mono);color:var(--tx3)}
 .sl{font:600 8px var(--mono);color:var(--tx3);letter-spacing:1px}
 .tagm{font:600 8px var(--mono);letter-spacing:1px;color:var(--tx3);border:1px solid var(--s3);border-radius:4px;padding:2px 6px}
 .bigrow{display:flex;align-items:baseline;gap:8px;margin:9px 0}
@@ -2901,6 +2902,20 @@ function renderActivityLog(sess){
     </div>`;
 }
 
+// Big-3 target context on the main-lift card: "today 116 · e1RM 135 · target
+// 186" — the Settings targets, surfaced where the work happens. Display unit
+// respected; FIXED_MAINS only.
+function mainTargetLine(ex){
+  const keyMap={'Back Squat':'squat','Bench Press':'bench','Deadlift':'dead'};
+  const k=keyMap[canonName(ex.name)];
+  if(!k||!FIXED_MAINS.includes(canonName(ex.name)))return'';
+  const tg=(S.settings.big3Targets||{})[k];if(!tg)return'';
+  const cur=bestHistoricalE1rm(ex.name);
+  const du=S.settings.unit||'kg';
+  const cv=v=>du==='lb'?Math.round(v*K2L):Math.round(v*10)/10;
+  return`<div class="t-meta main-target" style="margin-top:4px;color:var(--tx2)">today <span class="tnum">${cv(ex.prescribed.loadKg)}</span>${cur?` · e1RM <span class="tnum">${cv(cur)}</span>`:''} · target <span class="tnum">${cv(tg)}</span> ${du}</div>`;
+}
+
 // Variant selector chips — machine/pulley/grip changes are logged, not lost.
 // Cable gear: pulley + grip. DB/barbell benches etc: angle. Machine: free-text.
 // Tapping a selected chip clears it. Selection is remembered per gym.
@@ -3035,6 +3050,7 @@ function renderEx(){
           <div class="ex-name">${(ex.tags||[]).includes('bonus')?'<span style="color:var(--gold);font-size:10px;margin-right:4px">★</span>':''}${st==='calisthenics'&&(ex.prescribed.unit==='bw'||!ex.prescribed.loadKg)?'<span style="background:var(--acc-dim);color:var(--acc);font:600 9px var(--mono);letter-spacing:.5px;padding:1px 5px;border-radius:3px;margin-right:5px">BW</span>':''}${ex.name}${ex.tags.includes('per side')?' <span class="td" style="font-size:11px">/side</span>':''}${ex.tags.includes('per hand')?' <span class="td" style="font-size:11px">/hand</span>':''}${ex.tags.includes('per leg')?' <span class="td" style="font-size:11px">/leg</span>':''}</div>
           <div class="ex-rx">${catChip}${ex.prescribed.sets}×${ex.prescribed.reps}${ex.prescribed.loadKg?' @ '+fmtW(ex.prescribed.loadKg,ex.prescribed.unit):''}</div>
           ${(ex.equipmentClass==='barbell'||getMeta(ex.name).eq&&getMeta(ex.name).eq.includes('barbell'))&&ex.prescribed.loadKg?`<div class="plate-line">${plateLabel(ex)}</div>`:''}
+          ${mainTargetLine(ex)}
           ${st==='calisthenics'&&ex.cue?`<div style="font-size:12px;color:var(--acc);margin-top:3px;line-height:1.4">${ex.cue}</div>`:''}
         </div>
         ${progArrow}
@@ -4503,9 +4519,15 @@ function renderGoalsDashboard(){
     <div class="club2"><svg viewBox="0 0 150 150" width="150" height="150" aria-hidden="true">${rings}</svg>
       <div class="club2-mid"><div class="club2-n tnum">${totalLb}</div><div class="club2-l">/ 1000 lb</div></div></div>
     <div class="subs2">
-      <div class="sub2"><span class="sd2" style="background:${cSquat}"></span><span class="snm tnum">${sqL}</span><span class="sl">SQUAT</span></div>
-      <div class="sub2"><span class="sd2" style="background:${cBench}"></span><span class="snm tnum">${bnL}</span><span class="sl">BENCH</span></div>
-      <div class="sub2"><span class="sd2" style="background:${cDead}"></span><span class="snm tnum">${dlL}</span><span class="sl">DEAD</span></div>
+      ${(()=>{
+        // Per-lift current/target in the DISPLAY unit (rings already encode the
+        // fill; the numbers say how far). Targets from S.settings.big3Targets.
+        const du=S.settings.unit||'kg';
+        const cur=k=>du==='lb'?lb(b3[k]):Math.round(b3[k]);
+        const tgt=k=>du==='lb'?lb(tg[k]):Math.round(tg[k]);
+        return[['squat',cSquat,'SQUAT'],['bench',cBench,'BENCH'],['dead',cDead,'DEAD']]
+          .map(([k,c,l])=>`<div class="sub2"><span class="sd2" style="background:${c}"></span><span class="snm tnum">${cur(k)}<span class="s-tgt">/${tgt(k)}</span></span><span class="sl">${l} · ${du}</span></div>`).join('');
+      })()}
       <div class="sub2 gap"><span class="snm tnum gold">${toGo}</span><span class="sl">TO GO · lb</span></div>
     </div></div>`;
   // Muscle-up trail
@@ -4639,6 +4661,15 @@ function renderProgress(){
 }
 
 // ===== E1RM CHART =====
+// Chart Y-bounds must INCLUDE the targets — a target above the data was
+// previously clipped off the top (maxY was data-derived only).
+function e1rmChartBounds(points,targets){
+  const ys=points.map(p=>p.y);
+  const tv=Object.values(targets||{}).filter(v=>v>0);
+  const minY=Math.min(...ys)*0.9;
+  const maxY=Math.max(Math.max(...ys)*1.05,tv.length?Math.max(...tv)*1.02:0);
+  return {minY,maxY};
+}
 function renderE1rmChart(){
   const chart=document.getElementById('e1rmChart');
   const legend=document.getElementById('e1rmLegend');
@@ -4675,8 +4706,8 @@ function renderE1rmChart(){
   if(allPts.length===0){chart.innerHTML='<text x="50%" y="60" text-anchor="middle" fill="var(--tx3)" font-size="12">No big 3 data yet</text>';legend.innerHTML='';return}
 
   const maxX=S.sessions.length-1||1;
-  const minY=Math.min(...allPts.map(p=>p.y))*0.9;
-  const maxY=Math.max(...allPts.map(p=>p.y))*1.05;
+  const tgts=S.settings.big3Targets||{};
+  const {minY,maxY}=e1rmChartBounds(allPts,tgts);
   const w=300,h=100,pad=4;
   const sx=v=>pad+(v/maxX)*(w-2*pad);
   const sy=v=>h-pad-((v-minY)/(maxY-minY||1))*(h-2*pad);
@@ -4684,6 +4715,10 @@ function renderE1rmChart(){
   let svg=`<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" width="100%" height="120">`;
   // Grid lines
   for(let i=0;i<=3;i++){const y=pad+i*((h-2*pad)/3);svg+=`<line x1="${pad}" y1="${y}" x2="${w-pad}" y2="${y}" stroke="var(--s3)" stroke-width="0.5"/>`}
+  // Target reference lines — dashed, per lift, in each lift's hue
+  [['Squat',tgts.squat],['Bench',tgts.bench],['Deadlift',tgts.dead]].forEach(([name,t])=>{
+    if(t>0&&lifts[name])svg+=`<line x1="${pad}" y1="${sy(t)}" x2="${w-pad}" y2="${sy(t)}" stroke="${lifts[name].color}" stroke-width="0.75" stroke-dasharray="4 3" opacity="0.55"/>`;
+  });
 
   Object.entries(lifts).forEach(([name,lift])=>{
     if(lift.points.length<1)return;
