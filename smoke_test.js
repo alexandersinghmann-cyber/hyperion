@@ -1693,4 +1693,42 @@ assert(/showView\(id\)\{[^}]*renderSessionBar\(id\)/.test(html), 'Session: showV
 // End/Cancel remain the only session exits (unchanged semantics)
 assert(/function cancelSession\(/.test(html) && /function endSession\(/.test(html) && /confirm\(/.test(html), 'Session: explicit End/Cancel flows intact');
 
+// ===== C4: VARIANTS FIRST-CLASS =====
+assert(typeof variantKey==='function' && typeof variantLabel==='function' && typeof histMatch==='function' && typeof resolveSessionVariant==='function', 'Variant: helpers defined');
+// key normalization
+assert(variantKey(null)==='' && variantKey({pulley:null,grip:null,angle:null,machine:null})==='', 'Variant: empty/null variant keys as ""');
+assert(variantKey({pulley:'double',grip:'narrow'})==='pulley:double|grip:narrow', 'Variant: key normalizes fields. Got: '+variantKey({pulley:'double',grip:'narrow'}));
+assert(variantLabel({pulley:'double',grip:'narrow'})==='double pulley, narrow', 'Variant: label reads naturally. Got: '+variantLabel({pulley:'double',grip:'narrow'}));
+// histMatch matrix: legacy '' matches anything; two explicit variants never cross-match
+const recLegacy={name:'Cable Low Row'};                       // pre-variant history
+const recDouble={name:'Cable Low Row',variant:{pulley:'double',grip:'narrow'}};
+const recSingle={name:'Cable Low Row',variant:{pulley:'single'}};
+const kDouble=variantKey({pulley:'double',grip:'narrow'});
+assert(histMatch(recLegacy,'Cable Low Row',kDouble)===true, 'Variant: legacy record matches a variant query');
+assert(histMatch(recDouble,'Cable Low Row','')===true, 'Variant: variant record matches a no-variant query');
+assert(histMatch(recDouble,'Cable Low Row',kDouble)===true, 'Variant: same variant matches');
+assert(histMatch(recSingle,'Cable Low Row',kDouble)===false, 'Variant: different explicit variants never cross-match');
+assert(histMatch(recDouble,'Bench Press',kDouble)===false, 'Variant: name must still match');
+// suggestion isolation: variant A history does not feed variant B
+S.sessions=[
+  {date:'2026-07-01',dayLabel:'A',exercises:[{name:'Cable Low Row',variant:{pulley:'single'},prescribed:{sets:1,reps:'8',loadKg:50,unit:'kg'},performed:[{type:'working',weightKg:50,reps:8,logged:true}]}]},
+  {date:'2026-07-03',dayLabel:'B',exercises:[{name:'Cable Low Row',variant:{pulley:'double'},prescribed:{sets:1,reps:'8',loadKg:31.5,unit:'kg'},performed:[{type:'working',weightKg:31.5,reps:8,logged:true}]}]}
+];
+assert(bestHistoricalE1rm('Cable Low Row',{pulley:'double'})<bestHistoricalE1rm('Cable Low Row',{pulley:'single'}), 'Variant: per-variant e1RM tracks are independent');
+assert(isSetPR('Cable Low Row',33,8,{pulley:'double'})===true, 'Variant: 33kg double-pulley beats its OWN track (not judged vs single-pulley 50)');
+assert(isSetPR('Cable Low Row',33,8,{pulley:'single'})===false, 'Variant: 33kg is no PR on the single-pulley track');
+S.sessions=[];
+// per-gym memory + precedence: program prescription wins; else gym memory; else null
+S.settings.activeGymId='gym-commercial';
+S.settings.variantMemory={'gym-commercial':{'Cable Low Row':{pulley:'single',grip:null,angle:null,machine:null}}};
+assert(variantKey(resolveSessionVariant({name:'Cable Low Row',variant:{pulley:'double',grip:'narrow'}}))===kDouble, 'Variant: program-prescribed variant wins over gym memory');
+assert(variantKey(resolveSessionVariant({name:'Cable Low Row'}))==='pulley:single', 'Variant: gym memory fills in when program has none');
+assert(resolveSessionVariant({name:'Bench Press'})===null, 'Variant: no prescription + no memory → null');
+S.settings.variantMemory={};
+// program seeds + record shape + chip markup
+assert(variantKey(DEF_PROGRAM.days.find(d=>d.id===4).exercises.find(e=>e.name==='Cable Low Row').variant)===kDouble, 'Variant: W3 Cable Low Row prescribed double-pulley narrow');
+assert(/variant:ex\.variant\|\|null/.test(html), 'Variant: session records persist the variant');
+assert(/class="variant-chips"/.test(html) && /setVariant\(/.test(html), 'Variant: chips rendered on the logging card');
+assert(/equipmentClass:ex\.equipmentClass\|\|inferEquipmentClass\(ex\.name\)/.test(html), 'Variant: session exercises carry equipmentClass (progression snapping depends on it)');
+
 console.log('\n=== All tests passed ===');

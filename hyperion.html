@@ -196,6 +196,11 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .ex-name{font-weight:600;font-size:14px}
 .ex-rx{font:500 12px var(--mono);color:var(--tx3);margin-top:1px}
 .plate-line{font:600 11px var(--mono);color:var(--gold);margin-top:4px;letter-spacing:.3px;opacity:.92}
+.variant-chips{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 10px;align-items:center}
+.variant-chips .vc-lbl{font:600 9px var(--mono);color:var(--tx3);letter-spacing:1px;text-transform:uppercase;margin-right:1px}
+.v-chip{font:600 11px var(--mono);color:var(--tx2);background:var(--s2);border:1px solid var(--s3);border-radius:10px;padding:3px 9px;cursor:pointer;transition:all .12s}
+.v-chip.sel{color:#04181c;background:var(--acc);border-color:var(--acc)}
+.v-chip:active{transform:scale(.95)}
 .ex-headline{display:flex;align-items:baseline;gap:6px;margin:4px 0 12px;padding-bottom:10px;border-bottom:1px solid var(--s3)}
 .ex-headline .hl-w{font:700 30px var(--mono);color:var(--tx);letter-spacing:-.5px;line-height:1}
 .ex-headline .hl-u{font:600 13px var(--mono);color:var(--tx3)}
@@ -1071,6 +1076,35 @@ const NAME_ALIASES={
 };
 function canonName(n){return NAME_ALIASES[n]||n}
 
+// ===== VARIANTS (first-class) =====
+// A machine/pulley/grip change is a DIFFERENT loading context — "Cable Low Row
+// 50 → 36 → 31.5" was three configurations sharing one progression track.
+// exercise.variant = {pulley:'single'|'double'|null, grip, angle, machine}|null.
+// Legacy history carries NO variant data, so '' (no variant) matches anything —
+// continuity preserved; two different explicit variants never cross-match.
+function variantKey(v){
+  if(!v)return'';
+  return ['pulley:'+(v.pulley||''),'grip:'+(v.grip||''),'angle:'+(v.angle||''),'machine:'+(v.machine||'')]
+    .filter(p=>!p.endsWith(':')).join('|').toLowerCase();
+}
+function variantLabel(v){
+  if(!v)return'';
+  return [v.pulley?v.pulley+' pulley':null,v.grip||null,v.angle?(String(v.angle).match(/^\d/)?v.angle+'°':v.angle):null,v.machine||null].filter(Boolean).join(', ');
+}
+function histMatch(recEx,name,vKey){
+  if(canonName(recEx.name)!==canonName(name))return false;
+  const rk=variantKey(recEx.variant);
+  return rk===''||vKey===''||vKey==null||rk===vKey;
+}
+// Session-start variant: the program's prescription wins; else the variant
+// last used for this exercise at the active gym; else none.
+function resolveSessionVariant(ex){
+  if(ex.variant)return JSON.parse(JSON.stringify(ex.variant));
+  const mem=(S.settings.variantMemory||{})[S.settings.activeGymId]||{};
+  const m=mem[canonName(ex.name)];
+  return m?JSON.parse(JSON.stringify(m)):null;
+}
+
 // ===== EXERCISE METADATA =====
 // Keyed by canonical name. pat=pattern, prim=prime movers, eq=equipment tags,
 // fat=fatigue class, sh=shoulder handling, slot=rotation slot (for variant picker).
@@ -1311,7 +1345,7 @@ const DEF_PROGRAM={name:"Jul 8 Block 4 W3",active:true,days:[
   {id:"d1e5",name:"Strict Dip",cat:"push",sets:3,reps:"8",loadKg:0,unit:"bw",rest:120,tags:["MU-progression"],angle:null,grip:null,equipmentClass:"bw"},
   {id:"d1e6",name:"DB Bench Press",cat:"push",sets:3,reps:"8",loadKg:25,unit:"kg",rest:120,tags:["per hand"],angle:"30",grip:null,equipmentClass:"db"},
   {id:"d1e7",name:"Face Pull",cat:"pull",sets:2,reps:"15",loadKg:36,unit:"kg",rest:75,tags:["moved-up"],angle:null,grip:null,equipmentClass:"cable"},
-  {id:"d1e8",name:"Narrow-Grip Cable Pulldown",cat:"pull",sets:3,reps:"8",loadKg:32,unit:"kg",rest:90,tags:["log-pulley-variant"],angle:null,grip:"underhand",equipmentClass:"cable"},
+  {id:"d1e8",name:"Narrow-Grip Cable Pulldown",cat:"pull",sets:3,reps:"8",loadKg:32,unit:"kg",rest:90,tags:["log-pulley-variant"],angle:null,grip:"underhand",equipmentClass:"cable",variant:{pulley:null,grip:"underhand",angle:null,machine:null}},
   {id:"d1e9",name:"Cable Tricep Extension",cat:"isolation",sets:3,reps:"10",loadKg:23.5,unit:"kg",rest:75,tags:[],angle:null,grip:null,equipmentClass:"cable"},
   {id:"d1e10",name:"Lateral Raise",cat:"isolation",sets:2,reps:"10",loadKg:7.5,unit:"kg",rest:60,tags:["per hand"],angle:null,grip:null,equipmentClass:"db"}
 ],bonus:[
@@ -1340,7 +1374,7 @@ const DEF_PROGRAM={name:"Jul 8 Block 4 W3",active:true,days:[
   {id:"d4e1",name:"Bird Dog",cat:"core",sets:2,reps:"8",loadKg:0,unit:"bw",rest:45,tags:["activation","per side"],angle:null,grip:null,equipmentClass:"bw"},
   {id:"d4e2",name:"Deadlift",cat:"hinge",sets:4,reps:"5",loadKg:116,unit:"kg",rest:180,tags:["HOLD","RPE-8-hard-cap","NO-AMRAP","reset-every-rep"],angle:null,grip:null,equipmentClass:"barbell",barKg:36},
   {id:"d4e3",name:"Leg Press",cat:"squat",sets:3,reps:"10",loadKg:160,unit:"kg",rest:120,tags:["HOLD"],angle:null,grip:null,equipmentClass:"machine"},
-  {id:"d4e4",name:"Cable Low Row",cat:"pull",sets:4,reps:"8",loadKg:31.5,unit:"kg",rest:120,tags:["narrow-grip","double-pulley"],angle:null,grip:"narrow",equipmentClass:"cable"},
+  {id:"d4e4",name:"Cable Low Row",cat:"pull",sets:4,reps:"8",loadKg:31.5,unit:"kg",rest:120,tags:["narrow-grip","double-pulley"],angle:null,grip:"narrow",equipmentClass:"cable",variant:{pulley:"double",grip:"narrow",angle:null,machine:null}},
   {id:"d4e5",name:"Hanging Knee Raise",cat:"core",sets:2,reps:"10",loadKg:0,unit:"bw",rest:60,tags:["moved-mid-session"],angle:null,grip:null,equipmentClass:"bw"},
   {id:"d4e6",name:"Back Extension",cat:"hinge",sets:3,reps:"12",loadKg:10,unit:"kg",rest:90,tags:["weight-held","HOLD-until-12s"],angle:null,grip:null,equipmentClass:"bw"},
   {id:"d4e7",name:"Calf Raise",cat:"isolation",sets:3,reps:"12",loadKg:32,unit:"kg",rest:60,tags:["sitting"],angle:null,grip:null,equipmentClass:"machine"}
@@ -1484,7 +1518,7 @@ const FIXED_MAINS=['Back Squat','Bench Press','Deadlift'];
 // Rotation threshold (sessions). Rule #17: every ~14 sessions or 4 wks, whichever first.
 const ROTATION_THRESHOLD=14;
 
-let S={version:2,program:JSON.parse(JSON.stringify(DEF_PROGRAM)),sessions:[],goals:[{id:'g1',name:'1000 lb Total',current:0,target:1000,unit:'lb',auto:true}],settings:{unit:'kg',benchBaseline1RM:95,big3Targets:{squat:166,bench:102,dead:186}},skips:[],activeSession:null,block:{sessionsSinceRotate:0,variantCursor:{}}};
+let S={version:2,program:JSON.parse(JSON.stringify(DEF_PROGRAM)),sessions:[],goals:[{id:'g1',name:'1000 lb Total',current:0,target:1000,unit:'lb',auto:true}],settings:{unit:'kg',benchBaseline1RM:95,big3Targets:{squat:166,bench:102,dead:186},variantMemory:{}},skips:[],activeSession:null,block:{sessionsSinceRotate:0,variantCursor:{}}};
 let sessionStart=null,sessionTimer=null,restInt=null,restEnd=null,restDur=0,painExI=null,selRpe=null,viewDayI=0,previewDayI=0;
 
 function save(){try{localStorage.setItem(STORE,JSON.stringify(S))}catch(e){}}
@@ -1790,6 +1824,7 @@ function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse
   if(S.settings.benchBaseline1RM==null)S.settings.benchBaseline1RM=95;
   // Backfill big3Targets (1000 lb-club default split: 365+225+410 lb ≈ 166/102/186 kg)
   if(!S.settings.big3Targets)S.settings.big3Targets={squat:166,bench:102,dead:186};
+  if(!S.settings.variantMemory)S.settings.variantMemory={};
   // Backfill skips array
   if(!Array.isArray(S.skips))S.skips=[];
   // v1→v2 migration
@@ -1962,17 +1997,20 @@ function repsUnit(repsStr){
 function e1rm(w,r){if(r<=0||w<=0)return 0;if(r===1)return w;return Math.round(w*(1+r/30)*10)/10}
 // Best logged e1RM for a lift across COMPLETED sessions (excludes the live one,
 // which lives in S.activeSession), and PR test for a single set.
-function bestHistoricalE1rm(exName){
+// variant (optional): scope to one loading configuration via histMatch — a
+// double-pulley 31.5 must not be judged against single-pulley 50 history.
+function bestHistoricalE1rm(exName,variant){
   let best=0;
+  const vKey=variantKey(variant);
   (S.sessions||[]).forEach(s=>(s.exercises||[]).forEach(ex=>{
-    if(canonName(ex.name)!==canonName(exName))return;
+    if(!histMatch(ex,exName,vKey))return;
     (ex.performed||[]).filter(p=>p.type==='working'&&p.logged!==false&&!p.skipped).forEach(p=>{const e=e1rm(p.weightKg,p.reps);if(e>best)best=e;});
   }));
   return best;
 }
-function isSetPR(exName,weightKg,reps){
+function isSetPR(exName,weightKg,reps,variant){
   if(!(weightKg>0)||!(reps>0))return false;
-  return e1rm(weightKg,reps) > bestHistoricalE1rm(exName)+0.01;
+  return e1rm(weightKg,reps) > bestHistoricalE1rm(exName,variant)+0.01;
 }
 function fmtDate(d){const o=new Date(d+'T12:00:00'),dn=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],mn=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return dn[o.getDay()]+' '+mn[o.getMonth()]+' '+o.getDate()}
 // LOCAL calendar date (not UTC) so todayStr() and todayDow() can never disagree
@@ -2760,6 +2798,9 @@ function startDay(i){
     S.activeSession.exercises=(day.exercises||[]).map(ex=>({
       name:ex.name,cat:ex.cat,cue:ex.cue||null,
       prescribed:{sets:ex.sets,reps:ex.reps,loadKg:ex.loadKg,unit:ex.unit||'kg'},
+      // equipmentClass drives suggestion snapping; variant keys the history track.
+      equipmentClass:ex.equipmentClass||inferEquipmentClass(ex.name),
+      variant:resolveSessionVariant(ex),
       performed:[],notes:'',progression:null,nextLoad:null,painEvent:null,tags:ex.tags||[],rest:ex.rest||(COMPOUNDS.includes(ex.cat)?150:90)
     }));
     S.activeSession.exercises.forEach(ex=>{
@@ -2840,9 +2881,59 @@ function renderActivityLog(sess){
     </div>`;
 }
 
-function getLastHint(exName){
+// Variant selector chips — machine/pulley/grip changes are logged, not lost.
+// Cable gear: pulley + grip. DB/barbell benches etc: angle. Machine: free-text.
+// Tapping a selected chip clears it. Selection is remembered per gym.
+function variantChips(ex,ei){
+  const cls=ex.equipmentClass;
+  if(cls==='bw'||cls==='sled')return'';
+  const v=ex.variant||{};
+  const chip=(field,val,lbl)=>`<button class="v-chip ${v[field]===val?'sel':''}" onclick="setVariant(${ei},'${field}','${val}')">${lbl||val}</button>`;
+  let rows='';
+  if(cls==='cable'){
+    rows+=`<span class="vc-lbl">Pulley</span>`+['single','double'].map(p=>chip('pulley',p)).join('');
+    rows+=`<span class="vc-lbl" style="margin-left:6px">Grip</span>`+['narrow','neutral','wide','underhand'].map(g=>chip('grip',g)).join('');
+  } else if(cls==='db'||cls==='barbell'){
+    rows+=`<span class="vc-lbl">Angle</span>`+['flat','30','45'].map(a=>chip('angle',a,a==='flat'?'flat':a+'°')).join('');
+  } else if(cls==='machine'){
+    rows+=`<button class="v-chip ${v.machine?'sel':''}" onclick="setVariantMachine(${ei})">${v.machine||'+ machine'}</button>`;
+  }
+  if(!rows)return'';
+  return`<div class="variant-chips">${rows}</div>`;
+}
+function setVariant(ei,field,val){
+  const ex=S.activeSession&&S.activeSession.exercises[ei];if(!ex)return;
+  if(!ex.variant)ex.variant={pulley:null,grip:null,angle:null,machine:null};
+  ex.variant[field]=ex.variant[field]===val?null:val;   // tap selected → clear
+  if(!variantKey(ex.variant))ex.variant=null;            // all cleared → no variant
+  rememberVariant(ex);save();renderEx();
+}
+function setVariantMachine(ei){
+  const ex=S.activeSession&&S.activeSession.exercises[ei];if(!ex)return;
+  const cur=(ex.variant&&ex.variant.machine)||'';
+  const m=prompt('Machine (free text, e.g. "Hammer iso row")',cur);
+  if(m===null)return;
+  if(!ex.variant)ex.variant={pulley:null,grip:null,angle:null,machine:null};
+  ex.variant.machine=m.trim()||null;
+  if(!variantKey(ex.variant))ex.variant=null;
+  rememberVariant(ex);save();renderEx();
+}
+function rememberVariant(ex){
+  if(!S.settings.variantMemory)S.settings.variantMemory={};
+  const gid=S.settings.activeGymId||'default';
+  if(!S.settings.variantMemory[gid])S.settings.variantMemory[gid]={};
+  const key=canonName(ex.name);
+  if(ex.variant)S.settings.variantMemory[gid][key]=JSON.parse(JSON.stringify(ex.variant));
+  else delete S.settings.variantMemory[gid][key];
+}
+
+// Accepts a name string (legacy) or the session-exercise object — the object
+// form scopes "last time" to the SAME variant track.
+function getLastHint(exOrName){
+  const name=typeof exOrName==='string'?exOrName:exOrName.name;
+  const vKey=typeof exOrName==='string'?'':variantKey(exOrName.variant);
   for(let i=S.sessions.length-1;i>=0;i--){
-    const sx=S.sessions[i].exercises.find(e=>e.name===exName);
+    const sx=S.sessions[i].exercises.find(e=>histMatch(e,name,vKey));
     if(sx){
       const w=(sx.performed||[]).filter(p=>p.type==='working'&&p.logged!==false);
       const wu=(sx.performed||[]).filter(p=>p.type==='warmup'&&p.logged!==false);
@@ -2930,7 +3021,8 @@ function renderEx(){
       </div>
       <div class="ex-body">
         ${ex.prescribed.loadKg?(()=>{const hu=S.settings.unit||'kg';const hw=hu==='lb'?Math.round(ex.prescribed.loadKg*K2L):ex.prescribed.loadKg;return`<div class="ex-headline"><span class="hl-w tnum">${hw}</span><span class="hl-u">${hu}</span><span class="hl-x">${ex.prescribed.sets} × ${ex.prescribed.reps}</span></div>`;})():''}
-        ${getLastHint(ex.name)}
+        ${variantChips(ex,i)}
+        ${getLastHint(ex)}
         ${ex.performed.map((s,si)=>{
           const wu=s.type==='warmup';
           const wn=wu?'W':(ex.performed.slice(0,si).filter(x=>x.type==='working').length+1);
@@ -2944,7 +3036,7 @@ function renderEx(){
           const ru=repsUnit(ex.prescribed.reps);
           const repsDisp=ru?(s.reps+' '+ru):s.reps;
           if(s.logged&&!isSkipped){
-            const isPR=s.type==='working'&&isSetPR(ex.name,s.weightKg,s.reps);
+            const isPR=s.type==='working'&&isSetPR(ex.name,s.weightKg,s.reps,ex.variant);
             return`<div class="set-row ${stCl} compact${s._justLogged?' just-logged':''}">
               <div class="set-num ${wu?'wu':''}"><span class="set-check">${icon('check',14)}</span></div>
               <div class="set-summary">${fmtW(s.weightKg,ex.prescribed.unit)} <span class="td">×</span> ${repsDisp}${isPR?' <span class="pr-tag" role="img" aria-label="personal record" title="Personal record">PR</span>':''}</div>
@@ -3320,6 +3412,9 @@ function doSwap(encName){
   ex.performed=ex.performed.map(p=>p.logged?p:{type:'working',weightKg:swapLoad,reps:targetReps,rpe:null,logged:false});
   // If new prescription has more sets than current, pad
   while(ex.performed.length<c.sets)ex.performed.push({type:'working',weightKg:swapLoad,reps:targetReps,rpe:null,logged:false});
+  // Different exercise = different loading context: re-resolve class + variant.
+  ex.equipmentClass=inferEquipmentClass(ex.name);
+  ex.variant=resolveSessionVariant({name:ex.name});
   ex.nextLoad=null;ex.progression=null;
   (ex.tags=ex.tags||[]).indexOf('swapped')<0&&ex.tags.push('swapped');
   save();hideModal('swapModal');_swapEi=null;renderEx();
@@ -3440,6 +3535,9 @@ function doSubstitute(encName){
   ex.prescribed.loadKg=newLoad;
   const rr=repRange(ex.prescribed.reps);const targetReps=rr.max||parseInt(ex.prescribed.reps)||8;
   ex.performed=ex.performed.map(p=>p.logged?p:{type:'working',weightKg:newLoad,reps:targetReps,rpe:null,logged:false});
+  // Different exercise = different loading context: re-resolve class + variant.
+  ex.equipmentClass=inferEquipmentClass(ex.name);
+  ex.variant=resolveSessionVariant({name:ex.name});
   ex.nextLoad=null;ex.progression=null;
   (ex.tags=ex.tags||[]).indexOf('substituted')<0&&ex.tags.push('substituted');
   save();hideModal('subModal');_subEi=null;renderEx();
@@ -3768,12 +3866,14 @@ function evalProg(ei){
     }
   }
 
-  // Stall check — compare against last 2 sessions' top achieved weight (not prescribed).
-  const hist=S.sessions.filter(s=>s.exercises.some(e=>e.name===ex.name));
+  // Stall check — compare against last 2 sessions' top achieved weight (not
+  // prescribed), on the SAME variant track (legacy no-variant records match).
+  const vKey=variantKey(ex.variant);
+  const hist=S.sessions.filter(s=>s.exercises.some(e=>histMatch(e,ex.name,vKey)));
   if(hist.length>=2&&ex.progression==='hold'){
     const rec=hist.slice(-2);
     const same=rec.every(s=>{
-      const e=s.exercises.find(e=>e.name===ex.name);
+      const e=s.exercises.find(e=>histMatch(e,ex.name,vKey));
       if(!e)return false;
       const w=(e.performed||[]).filter(p=>p.type==='working'&&p.logged&&!p.skipped);
       if(!w.length)return false;
@@ -3850,7 +3950,7 @@ function confirmRpe(){
 
   const rec={id:'s_'+Date.now(),date:sess.date,dayLabel:sess.dayLabel,blockName:S.program.name,duration:dur,rpe:selRpe,status:'complete',
     sessionNotes:sess.notes||'',
-    exercises:sess.exercises.map(ex=>({name:ex.name,cat:ex.cat,prescribed:ex.prescribed,performed:ex.performed.filter(s=>s.logged),notes:ex.notes,progression:ex.progression,nextLoad:ex.nextLoad,nextTarget:ex.nextTarget||null,painEvent:ex.painEvent,tags:ex.tags})),
+    exercises:sess.exercises.map(ex=>({name:ex.name,cat:ex.cat,prescribed:ex.prescribed,performed:ex.performed.filter(s=>s.logged),notes:ex.notes,progression:ex.progression,nextLoad:ex.nextLoad,nextTarget:ex.nextTarget||null,variant:ex.variant||null,painEvent:ex.painEvent,tags:ex.tags})),
     painEvents:sess.exercises.filter(e=>e.painEvent&&e.painEvent.severity!=='none').map(e=>({exercise:e.name,...e.painEvent}))
   };
   S.sessions.push(rec);
@@ -3885,7 +3985,7 @@ function renderSummary(rec){
     const pi=ex.progression==='increase'?'↑':ex.progression==='flag'?'⚠':'→';
     return`<div style="background:var(--s1);border-radius:var(--rs);padding:12px;margin-bottom:6px;border:1px solid var(--s2)">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <div><div style="font-weight:600;font-size:13px">${ex.name}</div>
+        <div><div style="font-weight:600;font-size:13px">${ex.name}${variantLabel(ex.variant)?` <span style="font:500 11px var(--mono);color:var(--tx3)">(${variantLabel(ex.variant)})</span>`:''}</div>
           <div class="tm" style="font-size:12px;color:var(--tx2);margin-top:2px">${w.map(s=>fmtW(s.weightKg,ex.prescribed?.unit)+'×'+s.reps).join(' / ')}</div>
           ${wu.length?`<div style="font-size:11px;color:var(--acc);margin-top:1px">Warmup: ${wu.map(s=>fmtW(s.weightKg,ex.prescribed?.unit)+'×'+s.reps).join(', ')}</div>`:''}
         </div>
@@ -4535,15 +4635,19 @@ function renderE1rmChart(){
 
 // ===== EXERCISE TRENDS =====
 function renderTrends(){
-  // Collect all unique exercise names from sessions
+  // One trend track per exercise+variant — a pulley/grip change is a different
+  // loading context and must not pollute the trend (legacy records key as the
+  // plain name). Display name carries the variant label.
   const exMap={};
   S.sessions.forEach(s=>{
     s.exercises.forEach(ex=>{
-      if(!exMap[ex.name])exMap[ex.name]=[];
+      const vl=variantLabel(ex.variant);
+      const key=ex.name+(vl?' · '+vl:'');
+      if(!exMap[key])exMap[key]=[];
       const working=(ex.performed||[]).filter(p=>p.type==='working');
       if(working.length===0)return;
       const bestSet=working.reduce((a,b)=>e1rm(b.weightKg,b.reps)>e1rm(a.weightKg,a.reps)?b:a);
-      exMap[ex.name].push({date:s.date,e1rm:e1rm(bestSet.weightKg,bestSet.reps),weight:bestSet.weightKg,reps:bestSet.reps});
+      exMap[key].push({date:s.date,e1rm:e1rm(bestSet.weightKg,bestSet.reps),weight:bestSet.weightKg,reps:bestSet.reps});
     });
   });
 
