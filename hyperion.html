@@ -409,6 +409,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .sd2{width:7px;height:7px;border-radius:50%}
 .snm{font:700 18px var(--mono)}.snm.gold{color:var(--gold)}
 .s-tgt{font:600 11px var(--mono);color:var(--tx3)}
+.set-grp{font:700 10px var(--mono);color:var(--tx3);letter-spacing:2px;margin:16px 0 2px;padding-bottom:4px;border-bottom:1px solid var(--s3)}
 .sl{font:600 8px var(--mono);color:var(--tx3);letter-spacing:1px}
 .tagm{font:600 8px var(--mono);letter-spacing:1px;color:var(--tx3);border:1px solid var(--s3);border-radius:4px;padding:2px 6px}
 .bigrow{display:flex;align-items:baseline;gap:8px;margin:9px 0}
@@ -504,7 +505,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <!-- Block days -->
     <div class="section-hdr" id="blockHdr">Training Block</div>
     <div id="blockDays"></div>
-    <button class="btn btn-g btn-w" style="margin-top:16px;font-size:12px" onclick="if(S.activeSession){alert('End your current session first.')}else{showModal('importModal')}">Import Block from JSON</button>
+    <!-- Import lives in Settings → DATA now. -->
   </div>
 
   <!-- ===== DAY PREVIEW VIEW ===== -->
@@ -587,10 +588,15 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <!-- Big 3 -->
     <div class="stat-strip" id="big3Stats" style="margin-bottom:16px"></div>
 
-    <!-- Goals -->
+    <!-- Goals — Add lives behind the overflow (rarely used; keeps the header quiet) -->
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--s2)">
       <div style="font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:1.5px">Goals</div>
-      <button class="btn btn-sm btn-g" onclick="showModal('goalModal')" style="padding:4px 10px;font-size:11px">+ Add</button>
+      <div class="ex-more-wrap" style="position:relative">
+        <button class="btn btn-sm btn-g" onclick="toggleGoalsMenu()" aria-label="Goals menu" style="padding:4px 10px;font-size:11px">⋯</button>
+        <div class="ex-menu" id="goalsMenu" style="right:0">
+          <button onclick="document.getElementById('goalsMenu').classList.remove('on');showModal('goalModal')">+ Add goal</button>
+        </div>
+      </div>
     </div>
     <div id="goalsList"></div>
 
@@ -697,9 +703,9 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 
 <div class="overlay" id="importModal">
   <div class="modal">
-    <div class="modal-t">Import Block from JSON</div>
-    <p style="font-size:12px;color:var(--tx2);margin-bottom:12px;line-height:1.5">Paste the program JSON from your coach. This replaces your current training block — all session history is preserved.</p>
-    <div class="field"><label>Program JSON</label><textarea id="importArea" rows="6" placeholder='{"name":"...","days":[...]}'></textarea></div>
+    <div class="modal-t">Import</div>
+    <p style="font-size:12px;color:var(--tx2);margin-bottom:12px;line-height:1.5">Paste a coach program (<span class="tm">{name, days}</span> — replaces the block, history preserved) or a full Hyperion backup (<span class="tm">{sessions, program, settings}</span> — overwrites everything after a warning). The type is auto-detected.</p>
+    <div class="field"><label>JSON</label><textarea id="importArea" rows="6" placeholder='{"name":"...","days":[...]}  or a full backup'></textarea></div>
     <button class="btn btn-p btn-w" onclick="doImport()">Import</button>
     <button class="btn btn-s btn-w" style="margin-top:8px" onclick="hideModal('importModal')">Cancel</button>
   </div>
@@ -841,29 +847,8 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 <div class="overlay" id="settingsModal">
   <div class="modal">
     <div class="modal-t">Settings</div>
-    <div style="padding:10px 0;border-bottom:1px solid var(--s2)">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <span>Force Refresh</span>
-        <button class="btn btn-sm btn-g" onclick="forceRefresh()">Reload</button>
-      </div>
-      <div style="font:10px var(--mono);color:var(--tx3);margin-top:4px">Bypass browser cache. Use after a deploy if the page looks stale.</div>
-    </div>
-    <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
-      <span>Display Unit</span>
-      <button class="btn btn-sm btn-g tm" onclick="toggleUnit();renderSettings()" id="sUnitBtn">KG</button>
-    </div>
-    <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
-      <span>Stoic quote on Train</span>
-      <button class="btn btn-sm btn-g" onclick="toggleQuote();renderSettings()" id="sQuoteBtn">ON</button>
-    </div>
-    <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
-      <span>Import Program</span>
-      <button class="btn btn-sm btn-g" onclick="hideModal('settingsModal');showModal('importModal')">Import</button>
-    </div>
-    <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
-      <div><div>Sync Program to Default</div><div style="font:10px var(--mono);color:var(--tx3);margin-top:2px">4 days · history preserved</div></div>
-      <button class="btn btn-sm btn-g" onclick="syncProgram()">Sync</button>
-    </div>
+
+    <div class="set-grp">TRAINING</div>
     <div style="padding:10px 0;border-bottom:1px solid var(--s2)">
       <div style="margin-bottom:6px">Big 3 Targets <span style="font:10px var(--mono);color:var(--tx3);margin-left:4px">values in <span id="sTgtUnit">kg</span></span></div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:4px">
@@ -902,21 +887,42 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       </div>
       <div style="font:10px var(--mono);color:var(--tx3);margin-top:5px">Deadlift uses a 36 kg bar by default (per-exercise override).</div>
     </div>
+    <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
+      <div><div>Sync Program to Default</div><div style="font:10px var(--mono);color:var(--tx3);margin-top:2px">Built-in block · history preserved · validator auto-runs</div></div>
+      <button class="btn btn-sm btn-g" onclick="syncProgram()">Sync</button>
+    </div>
+
+    <div class="set-grp">DATA</div>
+    <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
+      <span>Export (JSON backup)</span>
+      <button class="btn btn-sm btn-g" onclick="syncData()">Export</button>
+    </div>
     <div style="padding:10px 0;border-bottom:1px solid var(--s2)">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <span>Validate Program</span>
-        <button class="btn btn-sm btn-g" onclick="runValidatorAndShow()">Run Validator</button>
+        <span>Import</span>
+        <button class="btn btn-sm btn-g" onclick="hideModal('settingsModal');showModal('importModal')">Import</button>
       </div>
-      <div id="validatorResults" style="margin-top:4px"></div>
+      <div style="font:10px var(--mono);color:var(--tx3);margin-top:4px">Auto-detects a coach program vs a full backup. Restoring a backup overwrites everything (it warns first).</div>
+    </div>
+
+    <div class="set-grp">APP</div>
+    <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
+      <span>Display Unit</span>
+      <button class="btn btn-sm btn-g tm" onclick="toggleUnit();renderSettings()" id="sUnitBtn">KG</button>
+    </div>
+    <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
+      <span>Stoic quote on Train</span>
+      <button class="btn btn-sm btn-g" onclick="toggleQuote();renderSettings()" id="sQuoteBtn">ON</button>
     </div>
     <div style="padding:10px 0;border-bottom:1px solid var(--s2)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <span>Rotate Accessories</span>
-        <span id="sRotState" style="font:10px var(--mono);color:var(--tx3)"></span>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span>Force Refresh</span>
+        <button class="btn btn-sm btn-g" onclick="forceRefresh()">Reload</button>
       </div>
-      <div style="font:10px var(--mono);color:var(--tx3);margin-bottom:6px">Main lifts stay fixed. Accessories cycle through variants filtered to your active gym.</div>
-      <button class="btn btn-sm btn-g" style="width:100%" onclick="doRotateAccessories()">Rotate Now</button>
+      <div style="font:10px var(--mono);color:var(--tx3);margin-top:4px">Bypass browser cache. Use after a deploy if the page looks stale.</div>
     </div>
+
+    <div class="set-grp">ADVANCED</div>
     <div style="padding:10px 0;border-bottom:1px solid var(--s2)">
       <div style="margin-bottom:4px">Calibrate 1RM</div>
       <div style="font:10px var(--mono);color:var(--tx3);margin-bottom:6px">Top-single ramp. Use in Block 2 wk 2 — Epley off 5-rep sets under-predicts trained lifters.</div>
@@ -927,28 +933,10 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       </div>
     </div>
     <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
-      <span>Export data (JSON backup)</span>
-      <button class="btn btn-sm btn-g" onclick="syncData()">Export</button>
-    </div>
-    <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
-      <span>Restore from JSON</span>
-      <button class="btn btn-sm btn-g" onclick="hideModal('settingsModal');showModal('restoreModal')">Restore</button>
-    </div>
-    <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
       <span style="color:var(--red)">Reset All Data</span>
       <button class="btn btn-sm btn-d" onclick="resetData()">Reset</button>
     </div>
     <button class="btn btn-s btn-w" style="margin-top:14px" onclick="hideModal('settingsModal')">Close</button>
-  </div>
-</div>
-
-<div class="overlay" id="restoreModal">
-  <div class="modal" style="max-height:90vh">
-    <div class="modal-t">Restore from JSON</div>
-    <p style="font-size:12px;color:var(--red);margin-bottom:10px;line-height:1.5"><strong>This OVERWRITES all current data.</strong> Paste a previously-exported Hyperion JSON below. Used for recovery when the phone-side state has diverged from a known-good export.</p>
-    <div class="field"><label>Hyperion export JSON</label><textarea id="restoreArea" rows="10" placeholder='{"sessions":[...],"program":{...},"settings":{...}}'></textarea></div>
-    <button class="btn btn-d btn-w" onclick="doRestore()">Restore (overwrite)</button>
-    <button class="btn btn-s btn-w" style="margin-top:8px" onclick="hideModal('restoreModal')">Cancel</button>
   </div>
 </div>
 
@@ -1968,12 +1956,11 @@ function syncProgram(){
   if(!confirm('Load the built-in block "'+DEF_PROGRAM.name+'" ('+defN+' days)?\n\nThis preserves all session history, goals, and settings.\n\nCurrent: '+(S.program&&S.program.days?S.program.days.length:0)+' days'))return;
   S.program=JSON.parse(JSON.stringify(DEF_PROGRAM)); // name auto-updates to DEF_PROGRAM.name
   delete S.settings._dismissedBlock; // a fresh adoption clears any prior skip
+  maybeAdvanceBrandSafe();
   save();
   hideModal('settingsModal');
   renderTrain();
-  const warns=validateProgram();
-  const warnCount=warns.reduce((a,r)=>a+r.warnings.filter(w=>w.level==='warn').length,0);
-  alert('Loaded "'+DEF_PROGRAM.name+'" ('+defN+' days).'+(warnCount?'\n\n'+warnCount+' validator note(s) in console.':''));
+  runValidatorAuto('Loaded "'+DEF_PROGRAM.name+'" ('+defN+' days)');
 }
 
 // ===== HELPERS =====
@@ -3681,6 +3668,11 @@ function toggleExMenu(i){
   }
 }
 function closeExMenus(){document.querySelectorAll('.ex-menu.on').forEach(m=>m.classList.remove('on'))}
+function toggleGoalsMenu(){
+  const m=document.getElementById('goalsMenu');if(!m)return;
+  const wasOn=m.classList.contains('on');closeExMenus();
+  if(!wasOn)m.classList.add('on');
+}
 function skipExercise(ei){const ex=S.activeSession.exercises[ei];ex.performed.forEach(s=>{if(!s.logged){s.logged=true;s.skipped=true;s.reps=0;s.weightKg=0;s.skipReason=s.skipReason||'other'}});ex.progression='skipped';save();renderEx()}
 
 // ===== SKIP-REFLOW: move an exercise to another session this block =====
@@ -4867,11 +4859,44 @@ function addExToDay(){
   save();hideModal('addExModal');renderTrain();
 }
 
-// ===== IMPORT =====
-function doImport(){
-  if(S.activeSession){alert('End your current session before loading a new block.');return}
-  try{const j=JSON.parse(document.getElementById('importArea').value);if(j.name&&j.days){S.program=j;save();hideModal('importModal');renderTrain()}else{alert('Needs "name" and "days"')}}catch(e){alert('Invalid JSON: '+e.message)}
+// ===== IMPORT (unified) =====
+// One entry point, auto-detected payload: a coach program ({name,days}) vs a
+// full Hyperion backup ({sessions|program|settings}). Destructive restore
+// keeps its explicit warning.
+function detectImportPayload(jsonStr){
+  let p;
+  try{p=JSON.parse(jsonStr);}catch(e){return {kind:'error',err:'Invalid JSON: '+(e&&e.message||e)};}
+  if(!p||typeof p!=='object'||Array.isArray(p))return {kind:'error',err:'Payload must be a JSON object'};
+  if(p.name&&Array.isArray(p.days))return {kind:'program',parsed:p};
+  if(p.sessions!==undefined||p.program!==undefined||p.settings!==undefined)return {kind:'backup',parsed:p,sessCount:(p.sessions||[]).length};
+  return {kind:'error',err:'Not a program ({name,days}) or a Hyperion backup ({sessions/program/settings})'};
 }
+function doImport(){
+  const d=detectImportPayload(document.getElementById('importArea').value||'');
+  if(d.kind==='error'){alert(d.err);return}
+  if(d.kind==='program'){
+    if(S.activeSession){alert('End your current session before loading a new block.');return}
+    S.program=d.parsed;maybeAdvanceBrandSafe();save();hideModal('importModal');
+    runValidatorAuto('Program "'+(d.parsed.name||'unnamed')+'" loaded');
+    renderTrain();
+    return;
+  }
+  // backup → destructive restore, warning preserved
+  if(!confirm('This is a FULL BACKUP. Restoring OVERWRITES all current data ('+d.sessCount+' sessions). Continue?'))return;
+  try{localStorage.setItem(STORE,JSON.stringify(d.parsed));}catch(e){alert('Restore failed to save: '+(e&&e.message||e));return}
+  location.reload();
+}
+// Validator auto-run after any program change: toast when clean, the count
+// when not (details in console; validateWeek warns also hit the Train banner).
+function runValidatorAuto(prefix){
+  try{
+    const warns=validateProgram();
+    const n=warns.reduce((a,r)=>a+(r.warnings||[]).filter(w=>w.level==='warn').length,0);
+    toast(prefix+(n?' — '+n+' validator warning'+(n===1?'':'s')+' (console)':' — validator clean'));
+  }catch(e){}
+}
+// Brand hook lands in C9; safe no-op until then.
+function maybeAdvanceBrandSafe(){try{if(typeof maybeAdvanceBrand==='function')maybeAdvanceBrand();}catch(e){}}
 
 // ===== COACH REPORT (weekly) =====
 // The report is a WEEKLY artifact: current calendar week Mon–Sun via

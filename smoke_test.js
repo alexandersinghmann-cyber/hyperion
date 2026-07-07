@@ -1462,8 +1462,7 @@ assert(!S.program.days[1].scheduledDate, 'Drag: locked day not moved');
 // restore clean state
 S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.skips=[];
 
-// ===== BUG 6: import button rename + banner sync path =====
-assert(/Import Block from JSON/.test(html), 'BUG6: button relabeled "Import Block from JSON"');
+// ===== BUG 6 (superseded by C8): import now lives in Settings → DATA =====
 assert(!/Load New Block/.test(html), 'BUG6: ambiguous "Load New Block" label removed');
 assert(/function reviewNewBlock\(\)\{[\s\S]*?syncProgram\(\)/.test(html), 'BUG6: banner Review adopts the built-in via syncProgram (not the paste modal)');
 
@@ -1818,5 +1817,23 @@ S.settings.unit='kg';S.sessions=[];
 // dashboard sub-row shows current/target per lift + dashed chart target lines
 assert(/class="s-tgt">\/\$\{tgt\(k\)\}/.test(html), 'Targets: 1000lb sub-row renders current/target per lift');
 assert(/stroke-dasharray="4 3"/.test(html) && /tgts\.squat\],\['Bench',tgts\.bench\],\['Deadlift',tgts\.dead\]/.test(html), 'Targets: e1RM chart draws dashed per-lift target lines');
+
+// ===== C8: SETTINGS RESTRUCTURE + UNIFIED IMPORT =====
+assert(typeof detectImportPayload==='function' && typeof runValidatorAuto==='function', 'Settings: unified import helpers defined');
+assert(detectImportPayload('{"name":"B","days":[]}').kind==='program', 'Settings: {name,days} detected as program');
+assert(detectImportPayload('{"sessions":[],"program":{},"settings":{}}').kind==='backup', 'Settings: full export detected as backup');
+assert(detectImportPayload('{"settings":{"unit":"kg"}}').kind==='backup', 'Settings: partial backup (settings only) detected');
+assert(detectImportPayload('{"foo":1}').kind==='error' && detectImportPayload('not json').kind==='error' && detectImportPayload('[1,2]').kind==='error', 'Settings: garbage rejected with an error');
+// 4 titled groups, dead buttons gone, functions alive
+assert(/class="set-grp">TRAINING</.test(html) && /class="set-grp">DATA</.test(html) && /class="set-grp">APP</.test(html) && /class="set-grp">ADVANCED</.test(html), 'Settings: four titled groups');
+assert(!/onclick="doRotateAccessories\(\)"/.test(html), 'Settings: Rotate Accessories button removed from UI');
+assert(!/onclick="runValidatorAndShow\(\)"/.test(html), 'Settings: Validate Program button removed from UI');
+assert(typeof doRotateAccessories==='function' && typeof runValidatorAndShow==='function' && typeof parseRestorePayload==='function', 'Settings: removed-from-UI functions still exist in code');
+assert(!/Import Block from JSON<\/button>/.test(html), 'Settings: Import Block button removed from Train');
+assert(!/id="restoreModal"/.test(html), 'Settings: separate restore modal gone (unified import handles backups, warning preserved)');
+assert(/This is a FULL BACKUP\. Restoring OVERWRITES/.test(html), 'Settings: destructive restore keeps its warning');
+assert(/runValidatorAuto\(/.test(html) && /maybeAdvanceBrandSafe\(\);/.test(html), 'Settings: validator auto-runs on sync/import');
+// +Add Goal behind the overflow
+assert(/id="goalsMenu"/.test(html) && /toggleGoalsMenu/.test(html), 'Settings: Add Goal moved behind the Progress overflow menu');
 
 console.log('\n=== All tests passed ===');
