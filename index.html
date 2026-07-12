@@ -1185,12 +1185,14 @@ function canonName(n){return NAME_ALIASES[n]||n}
 // continuity preserved; two different explicit variants never cross-match.
 function variantKey(v){
   if(!v)return'';
-  return ['pulley:'+(v.pulley||''),'grip:'+(v.grip||''),'angle:'+(v.angle||''),'machine:'+(v.machine||'')]
+  // attachment appended LAST so pre-attachment keys are unchanged (history
+  // continuity: old records keep matching their tracks).
+  return ['pulley:'+(v.pulley||''),'grip:'+(v.grip||''),'angle:'+(v.angle||''),'machine:'+(v.machine||''),'attachment:'+(v.attachment||'')]
     .filter(p=>!p.endsWith(':')).join('|').toLowerCase();
 }
 function variantLabel(v){
   if(!v)return'';
-  return [v.pulley?v.pulley+' pulley':null,v.grip||null,v.angle?(String(v.angle).match(/^\d/)?v.angle+'°':v.angle):null,v.machine||null].filter(Boolean).join(', ');
+  return [v.pulley?v.pulley+' pulley':null,v.grip||null,v.angle?(String(v.angle).match(/^\d/)?v.angle+'°':v.angle):null,v.attachment||null,v.machine||null].filter(Boolean).join(', ');
 }
 function histMatch(recEx,name,vKey){
   if(canonName(recEx.name)!==canonName(name))return false;
@@ -3083,12 +3085,18 @@ function variantChips(ex,ei){
   const cls=ex.equipmentClass;
   if(cls==='bw'||cls==='sled')return'';
   const v=ex.variant||{};
+  const pat=getMeta(ex.name).pat||'';
+  // Gate by MOVEMENT PATTERN, not equipment (5c): angle chips only make sense
+  // on presses (they rendered on Back Squat and DB RDL); grip only on pulls.
+  const isPress=pat==='hpush'||pat==='vpush';
+  const isPull=pat==='hpull'||pat==='vpull'||pat==='rear-delt';
   const chip=(field,val,lbl)=>`<button class="v-chip ${v[field]===val?'sel':''}" onclick="setVariant(${ei},'${field}','${val}')">${lbl||val}</button>`;
   let rows='';
   if(cls==='cable'){
     rows+=`<span class="vc-lbl">Pulley</span>`+['single','double'].map(p=>chip('pulley',p)).join('');
-    rows+=`<span class="vc-lbl" style="margin-left:6px">Grip</span>`+['narrow','neutral','wide','underhand'].map(g=>chip('grip',g)).join('');
-  } else if(cls==='db'||cls==='barbell'){
+    rows+=`<span class="vc-lbl" style="margin-left:6px">Attach</span>`+[['rope','rope'],['straight-bar','bar'],['v-handle','v-handle'],['single-handle','handle']].map(([val,lbl])=>chip('attachment',val,lbl)).join('');
+    if(isPull)rows+=`<span class="vc-lbl" style="margin-left:6px">Grip</span>`+['narrow','neutral','wide','underhand'].map(g=>chip('grip',g)).join('');
+  } else if((cls==='db'||cls==='barbell')&&isPress){
     rows+=`<span class="vc-lbl">Angle</span>`+['flat','30','45'].map(a=>chip('angle',a,a==='flat'?'flat':a+'°')).join('');
   } else if(cls==='machine'){
     rows+=`<button class="v-chip ${v.machine?'sel':''}" onclick="setVariantMachine(${ei})">${v.machine||'+ machine'}</button>`;
@@ -3098,7 +3106,7 @@ function variantChips(ex,ei){
 }
 function setVariant(ei,field,val){
   const ex=S.activeSession&&S.activeSession.exercises[ei];if(!ex)return;
-  if(!ex.variant)ex.variant={pulley:null,grip:null,angle:null,machine:null};
+  if(!ex.variant)ex.variant={pulley:null,grip:null,angle:null,machine:null,attachment:null};
   ex.variant[field]=ex.variant[field]===val?null:val;   // tap selected → clear
   if(!variantKey(ex.variant))ex.variant=null;            // all cleared → no variant
   rememberVariant(ex);save();renderEx();
@@ -3108,7 +3116,7 @@ function setVariantMachine(ei){
   const cur=(ex.variant&&ex.variant.machine)||'';
   const m=prompt('Machine (free text, e.g. "Hammer iso row")',cur);
   if(m===null)return;
-  if(!ex.variant)ex.variant={pulley:null,grip:null,angle:null,machine:null};
+  if(!ex.variant)ex.variant={pulley:null,grip:null,angle:null,machine:null,attachment:null};
   ex.variant.machine=m.trim()||null;
   if(!variantKey(ex.variant))ex.variant=null;
   rememberVariant(ex);save();renderEx();

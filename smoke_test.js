@@ -1944,4 +1944,30 @@ const expVol=Math.round(sqSess.performed.filter(pp=>!pp.skipped).reduce((a,pp)=>
 assert(volLine&&volLine.includes(String(expVol)), 'D2: session volume INCLUDES warmup tonnage. Got: '+volLine+' expected '+expVol);
 S.sessions=[];S.activeSession=null;
 
+// ===== D3: ATTACHMENT DIMENSION + CHIP GATING =====
+// key regression: no attachment → key unchanged from the pre-attachment build
+assert(variantKey({pulley:'double',grip:'narrow'})==='pulley:double|grip:narrow', 'D3: keys without attachment are unchanged (history continuity)');
+assert(variantKey({pulley:'single',attachment:'rope'})==='pulley:single|attachment:rope', 'D3: attachment joins the key (appended last)');
+assert(variantLabel({attachment:'rope'})==='rope', 'D3: label renders the attachment');
+// rope vs bar → independent tracks
+S.sessions=[
+  {date:'2026-07-01',dayLabel:'A',exercises:[{name:'Face Pull',variant:{attachment:'rope'},prescribed:{sets:1,reps:'12',loadKg:20,unit:'kg'},performed:[{type:'working',weightKg:20,reps:12,logged:true}]}]},
+  {date:'2026-07-03',dayLabel:'B',exercises:[{name:'Face Pull',variant:{attachment:'straight-bar'},prescribed:{sets:1,reps:'12',loadKg:14,unit:'kg'},performed:[{type:'working',weightKg:14,reps:12,logged:true}]}]}
+];
+assert(bestHistoricalE1rm('Face Pull',{attachment:'straight-bar'})<bestHistoricalE1rm('Face Pull',{attachment:'rope'}), 'D3: rope vs bar are independent tracks');
+assert(isSetPR('Face Pull',16,12,{attachment:'straight-bar'})===true&&isSetPR('Face Pull',16,12,{attachment:'rope'})===false, 'D3: PR judged on the attachment track');
+S.sessions=[];
+// chip gating matrix (by movement pattern, not equipment)
+const chipHTML=(name,cls,v)=>variantChips({name,equipmentClass:cls,variant:v||null},0);
+assert(chipHTML('Back Squat','barbell')==='', 'D3: Back Squat (squat pat) shows NO chips');
+assert(chipHTML('DB RDL','db')==='', 'D3: DB RDL (hinge pat) shows NO chips');
+assert(/Angle/.test(chipHTML('DB Bench Press','db')), 'D3: DB Bench (hpush) shows angle chips');
+assert(/Angle/.test(chipHTML('Bench Press','barbell')), 'D3: Bench (hpush) shows angle chips');
+const clrChips=chipHTML('Cable Low Row','cable');
+assert(/Pulley/.test(clrChips)&&/Attach/.test(clrChips)&&/Grip/.test(clrChips), 'D3: Cable Low Row (hpull, cable) shows pulley + attachment + grip');
+const ctrChips=chipHTML('Cable Tricep Extension','cable');
+assert(/Pulley/.test(ctrChips)&&/Attach/.test(ctrChips)&&!/Grip/.test(ctrChips), 'D3: cable triceps (iso, not a pull) gets pulley/attachment but no grip chips');
+assert(/\[\['rope','rope'\],\['straight-bar','bar'\]/.test(html), 'D3: attachment chip row wired (rope/bar/v-handle/handle)');
+S.sessions=[];
+
 console.log('\n=== All tests passed ===');
