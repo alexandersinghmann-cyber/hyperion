@@ -1572,10 +1572,10 @@ assert(typeof ringArc==='function' && typeof renderGoalsDashboard==='function', 
 assert((ringArc(62,0.5,'#22D3EE').match(/<circle/g)||[]).length===2, 'Dash v2: ringArc renders a track + a value circle');
 assert(/club2-n tnum">\$\{totalLb\}/.test(html), 'Dash v2: centre shows the total');
 assert(/const sqL=lb\(b3\.squat\),bnL=lb\(b3\.bench\),dlL=lb\(b3\.dead\),totalLb=sqL\+bnL\+dlL/.test(html), 'Dash v2: sub-numbers sum to the total by construction');
-assert(/ringArc\(68,[\s\S]{0,60}ringArc\(55,[\s\S]{0,60}ringArc\(42,/.test(html), 'Dash v2: three concentric strength rings (68/55/42)');
+assert(/ringFor\(68,'squat'[\s\S]{0,40}ringFor\(55,'bench'[\s\S]{0,40}ringFor\(42,'dead'/.test(html), 'Dash v2: three concentric strength rings (68/55/42, complete-aware)');
 // each lift ring + its sub-row dot share one distinct hue (squat/bench/dead legible apart)
 assert(/cSquat='#22D3EE',cBench='#818CF8',cDead='#C084FC'/.test(html), 'Dash v2: three distinct per-lift ring hues');
-assert(/\['squat',cSquat,'SQUAT'\],\['bench',cBench,'BENCH'\],\['dead',cDead,'DEAD'\]/.test(html) && /sd2" style="background:\$\{c\}/.test(html), 'Dash v2: sub-row dots mirror the ring hues');
+assert(/\['squat',cSquat,'SQUAT'\],\['bench',cBench,'BENCH'\],\['dead',cDead,'DEAD'\]/.test(html) && /sd2" style="background:\$\{liftDone\[k\]\?'var\(--grn\)':c\}/.test(html), 'Dash v2: sub-row dots mirror the ring hues (green when complete)');
 // quick-log run/swim
 assert(typeof quickLogActivity==='function' && typeof saveQuickLog==='function', 'Dash v2: quick-log fns defined');
 assert(/id="quickLogModal"/.test(html), 'Dash v2: quick-log modal present');
@@ -1969,5 +1969,33 @@ const ctrChips=chipHTML('Cable Tricep Extension','cable');
 assert(/Pulley/.test(ctrChips)&&/Attach/.test(ctrChips)&&!/Grip/.test(ctrChips), 'D3: cable triceps (iso, not a pull) gets pulley/attachment but no grip chips');
 assert(/\[\['rope','rope'\],\['straight-bar','bar'\]/.test(html), 'D3: attachment chip row wired (rope/bar/v-handle/handle)');
 S.sessions=[];
+
+// ===== D4: SMALL FIXES (keyboard, strings, goal-complete, pace) =====
+// big3PaceParts: at-target lifts drop from BOTH sides
+assert(typeof big3PaceParts==='function', 'D4: big3PaceParts defined');
+const ppAll={squat:120,bench:102,dead:140,deltaSquat:1,deltaBench:-2,deltaDead:2};
+const ppTgt={squat:166,bench:102,dead:186};
+const pp=big3PaceParts(ppAll,ppTgt,10);
+assert(Math.abs(pp.need-((166-120)+(186-140))/10)<0.01, 'D4: need excludes the at-target bench. Got: '+pp.need);
+assert(pp.actual===3, 'D4: actual excludes the at-target bench\'s negative delta (1+2, not 1-2+2). Got: '+pp.actual);
+assert(big3PaceParts({squat:170,bench:102,dead:190,deltaSquat:0,deltaBench:0,deltaDead:0},ppTgt,10).allAtTarget===true, 'D4: all-at-target flagged');
+// units: need is kg/wk and actual kg (the old code compared lb/wk vs kg)
+assert(/kg\/wk/.test(html)&&/lb\/week against progress in kg/.test(html), 'D4: unit fix documented at the source');
+// ring complete state + one-time celebration + pace skip wiring
+assert(/liftDone\[k\]\?1:b3\[k\]\/tg\[k\]/.test(html)&&/liftDone\[k\]\?'var\(--grn\)'/.test(html), 'D4: complete lift renders a full green ring');
+assert(/class="ring-done"/.test(html), 'D4: check badge overlay on the completed ring');
+assert(/celebrateMilestone\('lift_target_'\+k/.test(html), 'D4: one-time celebration keyed per lift target');
+// 4b: flag suggestion equal to the performed load renders as HOLD
+S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();
+S.sessions=[{date:'2026-07-17',dayLabel:'Bench (Deload)',dayId:4,blockName:S.program.name,duration:50,rpe:7,status:'complete',exercises:[
+  {name:'Face Pull',cat:'pull',prescribed:{sets:2,reps:'12',loadKg:16.5,unit:'kg'},performed:[{type:'working',weightKg:16.5,reps:12,logged:true}],progression:'flag',nextLoad:16.5,progressionReason:'x',variant:null,tags:[]},
+  {name:'Bench Press',cat:'push',prescribed:{sets:3,reps:'5',loadKg:75,unit:'kg'},performed:[{type:'working',weightKg:75,reps:5,logged:true}],progression:'flag',nextLoad:70,variant:null,tags:[]}
+]}];
+const rptD4=buildCoachReport(S.sessions,S.program,weekDatesFor('2026-07-13'));
+assert(/Face Pull.*→ hold 16\.5 kg/.test(rptD4), 'D4: flag@performed-load reads "hold", never "deload to". Got: '+(rptD4.split('\n').find(l=>/Face Pull/.test(l))||'none'));
+assert(/Bench Press.*→ deload to 70 kg/.test(rptD4), 'D4: a real deload still reads "deload to"');
+S.sessions=[];
+// 4a: keyboard focus handler present + guarded
+assert(/focusin/.test(html)&&/closest\(&&t\.closest\('\.set-fields'\)|closest&&t\.closest\('\.set-fields'\)/.test(html)&&/scrollIntoView\(\{block:'center'/.test(html), 'D4: focused set input scrolls to viewport centre');
 
 console.log('\n=== All tests passed ===');

@@ -4299,6 +4299,21 @@ function paceToken(needed,actual,trailingSessions){
   if(r>=0.4)return 'pace-behind';
   return 'pace-critical';
 }
+// Pure pace inputs for the big-3 goal. At-target lifts drop out of BOTH
+// need and actual — a completed bench (delta 0) must not drag pace to
+// BEHIND. Also fixes a latent unit bug: the old math compared need in
+// lb/week against progress in kg (~2.2x pessimistic).
+function big3PaceParts(b3,tgts,wkLeft){
+  const rows=[[b3.squat,tgts.squat,b3.deltaSquat||0],
+              [b3.bench,tgts.bench,b3.deltaBench||0],
+              [b3.dead, tgts.dead, b3.deltaDead ||0]]
+    .filter(([cur,tgt])=>cur<(tgt||Infinity));
+  return {
+    need:rows.reduce((a,[cur,tgt])=>a+(tgt-cur),0)/Math.max(1,wkLeft), // kg/wk
+    actual:rows.reduce((a,r)=>a+r[2],0),                               // kg
+    allAtTarget:rows.length===0
+  };
+}
 // Goal-level pace: counts sessions of the goal's modality in the trailing
 // 2-week window. <2 → muted grey (BUG 1 — no false red on low-data windows).
 function computePace(goal,todayDate){
@@ -4308,10 +4323,10 @@ function computePace(goal,todayDate){
     const n=(S.sessions||[]).filter(s=>(s.sessionType||'lifting')==='lifting'&&s.date>=cut).length;
     if(n<2)return 'pace-muted';
     const b3=getBig3E1rm();
-    const totalLb=Math.round(b3.squat*K2L)+Math.round(b3.bench*K2L)+Math.round(b3.dead*K2L);
     const wkLeft=Math.max(1,weeksUntil(today,goal.targetDate||'2026-12-31'));
-    const need=Math.max(0,((goal.target||1000)-totalLb)/wkLeft);
-    return paceToken(need, b3.deltaSquat+b3.deltaBench+b3.deltaDead, n);
+    const parts=big3PaceParts(b3,S.settings.big3Targets||{squat:166,bench:102,dead:186},wkLeft);
+    if(parts.allAtTarget)return 'pace-ahead';
+    return paceToken(Math.max(0,parts.need), parts.actual, n);
   }
   if(goal.type==='distance-progressive'){
     const n=(S.sessions||[]).filter(s=>s.sessionType==='swim'&&s.date>=cut).length;
@@ -4689,7 +4704,14 @@ function renderGoalsDashboard(){
   // Distinct hue per lift (squat outer / bench mid / dead inner) so each ring
   // is legible against the others; the sub-row dots below mirror these exactly.
   const cSquat='#22D3EE',cBench='#818CF8',cDead='#C084FC';
-  const rings=ringArc(68,b3.squat/tg.squat,cSquat)+ringArc(55,b3.bench/tg.bench,cBench)+ringArc(42,b3.dead/tg.dead,cDead);
+  // Goal-complete state (4d): e1RM >= target -> full GREEN ring + check badge
+  // + a one-time celebration (same one-shot store as MU milestones).
+  const liftDone={squat:b3.squat>=tg.squat,bench:b3.bench>=tg.bench,dead:b3.dead>=tg.dead};
+  const liftLabel={squat:'Squat',bench:'Bench',dead:'Deadlift'};
+  Object.keys(liftDone).forEach(k=>{if(liftDone[k])try{celebrateMilestone('lift_target_'+k,liftLabel[k]+' target hit — '+tg[k]+' kg');}catch(e){}});
+  const ringFor=(r,k,c)=>ringArc(r,liftDone[k]?1:b3[k]/tg[k],liftDone[k]?'var(--grn)':c)
+    +(liftDone[k]?`<g class="ring-done" transform="translate(75,${75-r})"><circle r="7" fill="var(--grn)"/><path d="M-3 0l2 2 4-4" stroke="#04140d" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>`:'');
+  const rings=ringFor(68,'squat',cSquat)+ringFor(55,'bench',cBench)+ringFor(42,'dead',cDead);
   const card1000=`<div class="goal-card lift tap" onclick="goToLiftDetail('squat')">
     <div class="goal-head"><span class="t-h2">1000 lb Club</span><span class="pace2" style="color:var(--${pace})">${paceLabel}</span></div>
     <div class="club2"><svg viewBox="0 0 150 150" width="150" height="150" aria-hidden="true">${rings}</svg>
@@ -4704,7 +4726,7 @@ function renderGoalsDashboard(){
         // One-time glow when a lift's e1RM rose since its previous session.
         const rose={squat:b3.deltaSquat>0,bench:b3.deltaBench>0,dead:b3.deltaDead>0};
         return[['squat',cSquat,'SQUAT'],['bench',cBench,'BENCH'],['dead',cDead,'DEAD']]
-          .map(([k,c,l])=>`<div class="sub2"><span class="sd2" style="background:${c}"></span><span class="snm tnum${rose[k]?' glow-up':''}">${cur(k)}<span class="s-tgt">/${tgt(k)}</span></span><span class="sl">${l} · ${du}</span></div>`).join('');
+          .map(([k,c,l])=>`<div class="sub2"><span class="sd2" style="background:${liftDone[k]?'var(--grn)':c}"></span><span class="snm tnum${rose[k]?' glow-up':''}">${liftDone[k]?'✓ ':''}${cur(k)}<span class="s-tgt">/${tgt(k)}</span></span><span class="sl">${l} · ${du}</span></div>`).join('');
       })()}
       <div class="sub2 gap"><span class="snm tnum gold">${toGo}</span><span class="sl">TO GO · lb</span></div>
     </div></div>`;
@@ -5139,10 +5161,14 @@ function buildCoachReport(sessions,program,weekDates){
       const setStr=w.map(s=>s.skipped?('SKIPPED'+(s.skipReason?' · '+s.skipReason:'')):(fmtW(s.weightKg,ex.prescribed?.unit)+'×'+s.reps+(s.rpe?' @ RPE '+s.rpe:''))).join(' / ');
       const vl=variantLabel(ex.variant);
       r+=`  ${pi} ${ex.name}${vl?' ('+vl+')':''}${bonus}: ${setStr}`;
+      // 4b: a suggestion equal to the load just performed is a HOLD, never a
+      // "deload" (pain/bigMiss flags set nextLoad=topW; the report was
+      // advertising "deload to 16.5" after a 16.5 session).
+      const topPerf=w.reduce((m,s2)=>!s2.skipped&&s2.weightKg>m?s2.weightKg:m,0);
       if(ex.progression==='increase'&&ex.nextLoad)r+=` → next ${ex.nextLoad} kg`;
       else if(ex.progression==='increase'&&ex.nextTarget)r+=` → next ${ex.nextTarget}${/^\d+$/.test(ex.nextTarget)?' reps':''}`;
       else if(ex.progression==='hold'&&ex.nextLoad)r+=` → hold ${ex.nextLoad} kg`;
-      else if(ex.progression==='flag'&&ex.nextLoad)r+=` → deload to ${ex.nextLoad} kg`;
+      else if(ex.progression==='flag'&&ex.nextLoad)r+=(ex.nextLoad>=topPerf&&topPerf>0)?` → hold ${ex.nextLoad} kg`:` → deload to ${ex.nextLoad} kg`;
       r+='\n';
       if(wu.length)r+=`    w: ${wu.map(s=>fmtW(s.weightKg,ex.prescribed?.unit)+'×'+s.reps).join(', ')}\n`;
       if(ex.notes)r+=`    Note: ${ex.notes}\n`;
@@ -5316,6 +5342,18 @@ function resetData(){if(confirm('Delete ALL training data? This cannot be undone
 document.querySelectorAll('.overlay').forEach(o=>{
   if(o.id==='rpeModal')return;
   o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('on')});
+});
+
+// ===== KEYBOARD (4a) =====
+// The iOS keyboard covered the focused weight/reps input. On focus, centre it
+// in the visual viewport. Delegated + guarded (mock addEventListener is inert).
+document.addEventListener('focusin',e=>{
+  try{
+    const t=e.target;
+    if(!t||t.tagName!=='INPUT')return;
+    if(!(t.closest&&t.closest('.set-fields')))return;
+    if(typeof t.scrollIntoView==='function')setTimeout(()=>t.scrollIntoView({block:'center',behavior:'smooth'}),150);
+  }catch(err){}
 });
 
 // ===== INIT =====
