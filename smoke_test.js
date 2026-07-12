@@ -1917,4 +1917,31 @@ assert(/id="wrapOverlay"/.test(html) && /shareWrappedPNG/.test(html), 'Wrapped: 
 assert(/if\(typeof document\.createElement!=='function'\)return;/.test(html), 'Wrapped: canvas path guarded, tap-handler only');
 S.sessions=[];
 
+// ===== D2: WARM-UP SETS FIRST-CLASS =====
+// startDay pre-populates W rows from the prescription, ahead of working sets
+S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.activeSession=null;
+global.showSessionHero=global.showSessionHero||(()=>{});
+global.startTimer=()=>{}; // real interval would hang the harness (node never exits)
+startDay(1); // Squat (Deload)
+const sqSess=S.activeSession.exercises.find(e=>e.name==='Back Squat');
+const wuRows=sqSess.performed.filter(pp=>pp.type==='warmup');
+assert(wuRows.length===2 && wuRows[0].weightKg===60 && wuRows[0].reps===5 && wuRows[1].weightKg===80 && wuRows[1].reps===3, 'D2: squat pre-populates 60x5 + 80x3 warmup rows. Got: '+JSON.stringify(wuRows));
+assert(sqSess.performed[0].type==='warmup' && sqSess.performed[1].type==='warmup' && sqSess.performed[2].type==='working', 'D2: warmup rows come BEFORE working rows');
+assert(sqSess.performed.filter(pp=>pp.type==='working').length===3, 'D2: still exactly 3 working rows');
+assert(S.activeSession.exercises.find(e=>e.name==='Bird Dog').performed.every(pp=>pp.type==='working'), 'D2: exercises without warmup[] get none');
+// e1RM + progression ignore warmups even when logged heavier than working
+sqSess.performed.forEach(pp=>{pp.logged=true;if(pp.type==='working')pp.rpe=7;});
+sqSess.performed[1].weightKg=200;sqSess.performed[1].reps=1; // absurd logged warmup
+evalProg(S.activeSession.exercises.indexOf(sqSess));
+assert(sqSess.nextLoad!==null&&sqSess.nextLoad<=90, 'D2: progression ignores the 200kg warmup row (works off 85). Got: '+sqSess.nextLoad);
+S.sessions=[{date:'2026-07-14',dayLabel:'Squat (Deload)',dayId:2,blockName:S.program.name,duration:50,rpe:7,status:'complete',exercises:[{name:'Back Squat',prescribed:{sets:3,reps:'5',loadKg:85,unit:'kg'},performed:sqSess.performed,progression:'hold',nextLoad:85,variant:null,tags:[]}],painEvents:[]}];
+assert(bestHistoricalE1rm('Back Squat')<150, 'D2: e1RM ignores warmup rows in history. Got: '+bestHistoricalE1rm('Back Squat'));
+// report marks warmups distinctly + volume includes them
+const rptD2=buildCoachReport(S.sessions,S.program,weekDatesFor('2026-07-13'));
+assert(/    w: /.test(rptD2), 'D2: report renders the compact "w:" warmup line');
+const volLine=rptD2.split('\n').find(l=>/Volume:/.test(l));
+const expVol=Math.round(sqSess.performed.filter(pp=>!pp.skipped).reduce((a,pp)=>a+pp.weightKg*pp.reps,0));
+assert(volLine&&volLine.includes(String(expVol)), 'D2: session volume INCLUDES warmup tonnage. Got: '+volLine+' expected '+expVol);
+S.sessions=[];S.activeSession=null;
+
 console.log('\n=== All tests passed ===');

@@ -2950,12 +2950,19 @@ function startDay(i){
     S.activeSession.exercises=(day.exercises||[]).map(ex=>({
       name:ex.name,cat:ex.cat,cue:ex.cue||null,
       prescribed:{sets:ex.sets,reps:ex.reps,loadKg:ex.loadKg,unit:ex.unit||'kg'},
+      warmup:Array.isArray(ex.warmup)?JSON.parse(JSON.stringify(ex.warmup)):null,
       // equipmentClass drives suggestion snapping; variant keys the history track.
       equipmentClass:ex.equipmentClass||inferEquipmentClass(ex.name),
       variant:resolveSessionVariant(ex),
       performed:[],notes:'',progression:null,nextLoad:null,painEvent:null,tags:ex.tags||[],rest:ex.rest||(COMPOUNDS.includes(ex.cat)?150:90)
     }));
     S.activeSession.exercises.forEach(ex=>{
+      // Prescribed warm-ups render as one-tap "W" rows above the working sets.
+      // All analytics (e1RM / progression / top set) already filter
+      // type==='working', so these rows can never inflate strength numbers.
+      (ex.warmup||[]).forEach(wu=>{
+        ex.performed.push({type:'warmup',weightKg:wu.w,reps:wu.reps,rpe:null,logged:false});
+      });
       for(let k=0;k<ex.prescribed.sets;k++){
         ex.performed.push({type:'working',weightKg:ex.prescribed.loadKg,reps:repRange(ex.prescribed.reps).max||parseInt(ex.prescribed.reps)||0,rpe:null,logged:false});
       }
@@ -4812,7 +4819,7 @@ function renderProgress(){
   const sorted=[...S.sessions].reverse();
   document.getElementById('histList').innerHTML=sorted.length===0?'<div style="text-align:center;padding:20px;color:var(--tx3)">No sessions yet</div>':sorted.map(s=>{
     // B3: volume excludes skipped sets. Track skipped count for footnote.
-    const vol=s.exercises.reduce((a,e)=>(e.performed||[]).filter(p=>p.type==='working'&&!p.skipped).reduce((b,p)=>b+p.weightKg*p.reps,a),0);
+    const vol=s.exercises.reduce((a,e)=>(e.performed||[]).filter(p=>(p.type==='working'||p.type==='warmup')&&!p.skipped).reduce((b,p)=>b+p.weightKg*p.reps,a),0);
     const skippedN=s.exercises.reduce((a,e)=>a+(e.performed||[]).filter(p=>p.type==='working'&&p.skipped).length,0);
     const hmc=modalityColor(s.sessionType||'lifting');
     return`<div class="history-item" onclick="this.classList.toggle('open')" style="border-left:2px solid ${hmc}">
@@ -5113,7 +5120,7 @@ function buildCoachReport(sessions,program,weekDates){
       r+=`### ${s.dayLabel||s.sessionType} (${s.sessionType}) — ${fmtDate(s.date)}${bits?' — '+bits:''}\n\n`;
       return;
     }
-    const vol=s.exercises.reduce((a,e)=>(e.performed||[]).filter(p=>p.type==='working'&&!p.skipped).reduce((b,p)=>b+p.weightKg*p.reps,a),0);
+    const vol=s.exercises.reduce((a,e)=>(e.performed||[]).filter(p=>(p.type==='working'||p.type==='warmup')&&!p.skipped).reduce((b,p)=>b+p.weightKg*p.reps,a),0);
     const skippedN=s.exercises.reduce((a,e)=>a+(e.performed||[]).filter(p=>p.type==='working'&&p.skipped).length,0);
     r+=`### ${s.dayLabel} — ${fmtDate(s.date)} — ${s.duration||'?'}m — RPE ${s.rpe||'?'}\n`;
     s.exercises.forEach(ex=>{
@@ -5129,7 +5136,7 @@ function buildCoachReport(sessions,program,weekDates){
       else if(ex.progression==='hold'&&ex.nextLoad)r+=` → hold ${ex.nextLoad} kg`;
       else if(ex.progression==='flag'&&ex.nextLoad)r+=` → deload to ${ex.nextLoad} kg`;
       r+='\n';
-      if(wu.length)r+=`    Warmup: ${wu.map(s=>fmtW(s.weightKg,ex.prescribed?.unit)+'×'+s.reps).join(', ')}\n`;
+      if(wu.length)r+=`    w: ${wu.map(s=>fmtW(s.weightKg,ex.prescribed?.unit)+'×'+s.reps).join(', ')}\n`;
       if(ex.notes)r+=`    Note: ${ex.notes}\n`;
     });
     if(s.painEvents&&s.painEvents.length>0)r+=`  ⚠ Pain: ${s.painEvents.map(p=>p.exercise+' ('+p.severity+')').join(', ')}\n`;
@@ -5171,7 +5178,7 @@ function buildWeekWrappedData(weekDates){
   const wk=(S.sessions||[]).filter(s=>weekDates.includes(s.date));
   const sched=weeklyScheduled(weekDates,weekDates[0]);
   let volume=0;
-  wk.forEach(s=>(s.exercises||[]).forEach(e=>(e.performed||[]).filter(p=>p.type==='working'&&!p.skipped).forEach(p=>{volume+=(p.weightKg||0)*(p.reps||0);})));
+  wk.forEach(s=>(s.exercises||[]).forEach(e=>(e.performed||[]).filter(p=>(p.type==='working'||p.type==='warmup')&&!p.skipped).forEach(p=>{volume+=(p.weightKg||0)*(p.reps||0);})));
   // Big-3: best set this week + e1RM delta vs the best BEFORE this week.
   const lifts=['Back Squat','Bench Press','Deadlift'].map(name=>{
     let best=null,bestE=0;
