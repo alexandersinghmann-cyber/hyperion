@@ -1565,7 +1565,7 @@ assert(/36 kg bar · 25 · 15 \/ side/.test(plateLabel({name:'Deadlift',prescrib
 // gym config present + backfilled
 assert(activeGymBar()===20 && Array.isArray(activePlates()) && activePlates().includes(1.25), 'Plates: Singapore gym has 20kg bar + plate inventory incl 1.25');
 assert(typeof saveBarPlates==='function', 'Plates: saveBarPlates settings handler defined');
-assert(/class="plate-line"/.test(html), 'Plates: barbell cards render a plate-line');
+assert(/class="ex-sub"/.test(html) && /bits\.push\(plateLabel\(ex\)\)/.test(html), 'Plates: barbell cards render plate math on the secondary line');
 assert(/barKg:36/.test(html), 'Plates: DEF_PROGRAM Deadlift tagged barKg:36');
 S.settings.activeGymId='gym-commercial';
 
@@ -1606,7 +1606,7 @@ S.sessions=[];
 // markup + colour discipline
 assert(/class="ex-headline"/.test(html) && /hl-w tnum/.test(html), 'Log v2: active card renders a headline working weight');
 assert(/<span class="pr-tag"[^>]*>PR<\/span>/.test(html), 'Log v2: a logged PR set renders a gold PR tag');
-assert(/\.set-log\.ready\{background:var\(--acc\)/.test(html), 'Log v2: Log button is cyan (in-flow action)');
+assert(/\.set-log\.ready\{background:var\(--brand\)/.test(html), 'Log v2: Log button carries the brand (v3.5 accent unification)');
 assert(/\.set-fields input\{[^}]*color:var\(--tx2\)/.test(html) && /\.set-fields input:focus\{color:var\(--tx\)\}/.test(html), 'Log v2: unlogged inputs are faint ghost values, crisp on focus');
 
 // ===== REFRESH FINAL PASS: a11y + motion =====
@@ -1770,7 +1770,7 @@ S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.activeSession=nu
 chronicMoveEarlier('Lateral Raise');
 assert(S.program.days[3].exercises[1].name==='Lateral Raise', 'Skip: Move earlier → index 1 in its own day (bench day). Got: '+S.program.days[3].exercises[1].name);
 assert(/openMoveExercise/.test(html) && /id="moveExModal"/.test(html), 'Skip: skip sheet offers the move action + picker modal exists');
-assert(/SKIPPED \$\{cs\.count\}/.test(html), 'Skip: chronic card renders on Train');
+assert(/Skipped \$\{cs\.count\}/.test(html), 'Skip: chronic card renders on Train (sentence-case)');
 S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.settings.chronicDismissed={};
 
 // ===== C6: WEEKLY COACH REPORT =====
@@ -1822,7 +1822,7 @@ assert(isWeekComplete(wkJul13)===true, 'Report: a skipped day counts as resolved
 S.skips=[];S.sessions=[];
 // end-of-session report is gone
 assert(!/reportBox/.test(html) && !/function copyReport\(/.test(html), 'Report: per-session report box + copyReport removed');
-assert(/copyWeeklyReport\(\)/.test(html) && /WEEK COMPLETE/.test(html), 'Report: header icon + week-complete banner wired');
+assert(/copyWeeklyReport\(\)/.test(html) && />Week complete</.test(html), 'Report: header icon + week-complete banner wired (sentence-case)');
 
 // ===== C7: BIG-3 TARGETS SURFACED =====
 assert(typeof e1rmChartBounds==='function' && typeof mainTargetLine==='function', 'Targets: helpers defined');
@@ -1849,7 +1849,7 @@ assert(detectImportPayload('{"sessions":[],"program":{},"settings":{}}').kind===
 assert(detectImportPayload('{"settings":{"unit":"kg"}}').kind==='backup', 'Settings: partial backup (settings only) detected');
 assert(detectImportPayload('{"foo":1}').kind==='error' && detectImportPayload('not json').kind==='error' && detectImportPayload('[1,2]').kind==='error', 'Settings: garbage rejected with an error');
 // 4 titled groups, dead buttons gone, functions alive
-assert(/class="set-grp">TRAINING</.test(html) && /class="set-grp">DATA</.test(html) && /class="set-grp">APP</.test(html) && /class="set-grp">ADVANCED</.test(html), 'Settings: four titled groups');
+assert(/class="set-grp">Training</.test(html) && /class="set-grp">Data</.test(html) && /class="set-grp">App</.test(html) && /class="set-grp">Advanced</.test(html), 'Settings: four titled groups (sentence-case, v3.5)');
 assert(!/onclick="doRotateAccessories\(\)"/.test(html), 'Settings: Rotate Accessories button removed from UI');
 assert(!/onclick="runValidatorAndShow\(\)"/.test(html), 'Settings: Validate Program button removed from UI');
 assert(typeof doRotateAccessories==='function' && typeof runValidatorAndShow==='function' && typeof parseRestorePayload==='function', 'Settings: removed-from-UI functions still exist in code');
@@ -2056,5 +2056,35 @@ S.sessions=[];S.activeSession=null;
 // always-visible flag icon on the card head
 assert(/class="pain-flag/.test(html)&&/openPainModal\(\$\{i\}\)/.test(html), 'D5: per-card pain flag wired');
 assert(/\.pain-flag\{min-width:44px;min-height:44px/.test(html), 'D5: flag meets the tap-target minimum');
+
+// ===== D6: RESTYLE A — TYPOGRAPHY + ACCENT DISCIPLINE =====
+// --acc offender scan: no STYLE-BLOCK rule outside the whitelist may
+// reference cyan. Whitelist: token lines (:root), .act-ring-val (data),
+// .goal-bar-fill (chart). Names offenders on failure.
+{
+  const styleBlk=html.match(/<style>([\s\S]*?)<\/style>/)[1];
+  const offenders=styleBlk.split('}')
+    .filter(r=>/var\(--acc[\w-]*\)/.test(r))
+    .map(r=>r.slice(0,r.indexOf('{')>=0?r.indexOf('{'):0).trim().split('\n').pop())
+    .filter(sel=>!/^(:root|--|\.act-ring|\.goal-bar-fill)/.test((sel||'').trim()));
+  assert(offenders.length===0, 'D6: chrome selectors still reference --acc: '+offenders.join(' | '));
+}
+// sentence-case labels + sans roles
+assert(/>New block available</.test(html)&&/>Recovery conflict</.test(html)&&/>Week wrapped</.test(html), 'D6: banner labels sentence-case');
+assert(!/\.bar-btn\{[^}]*uppercase/.test(html)&&!/\.section-hdr\{[^}]*uppercase/.test(html), 'D6: nav + section labels no longer uppercase');
+assert(/#blockHdr\{text-transform:uppercase/.test(html), 'D6: block name keeps the single uppercase flourish');
+assert(/\.t-meta\{font:500 var\(--t-meta\) var\(--sans\)/.test(html), 'D6: t-meta utility is sans');
+assert(/\.bar-btn\{[^}]*var\(--sans\)/.test(html)&&/\.ex-cat\{[^}]*var\(--sans\)/.test(html)&&/\.comp-toggle\{[^}]*var\(--sans\)/.test(html), 'D6: nav/category/completed labels are sans');
+// brand runs the chrome; data colours stay
+assert(/\.rest-t\{[^}]*color:var\(--brand\)/.test(html), 'D6: rest countdown digits are brand (mono stays for the numbers)');
+assert(/\.rpe-opt\.sel\{[^}]*var\(--brand\)/.test(html)&&/\.v-chip\.sel\{[^}]*var\(--brand\)/.test(html), 'D6: selected chips are brand');
+assert(/--pace-on:var\(--acc\)/.test(html), 'D6: pace-on token STAYS cyan (data)');
+assert(/\.act-ring-val\{color:var\(--acc\)\}/.test(html), 'D6: activity ring value stays cyan (data)');
+assert(/stroke="var\(--acc\)"/.test(html), 'D6: chart strokes stay cyan');
+assert(/button:focus-visible[^{]*\{outline:2px solid var\(--brand\)/.test(html), 'D6: focus rings are brand');
+// exercise-card meta: one secondary line, single colour
+assert(/class="ex-sub"/.test(html)&&/\.ex-sub\{[^}]*color:var\(--tx3\)/.test(html), 'D6: card meta collapsed to one secondary line, single colour');
+// quote: single t-meta italic line
+assert(/id="greeting" style="margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"/.test(html), 'D6: stoic quote is a single ellipsised line');
 
 console.log('\n=== All tests passed ===');
