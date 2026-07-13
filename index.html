@@ -212,7 +212,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .pain-flag{min-width:44px;min-height:44px;background:none;border:none;color:var(--tx3);font-size:15px;cursor:pointer;flex-shrink:0;padding:0}
 .pain-flag.has{color:var(--red)}
 .variant-chips{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 10px;align-items:center}
-.variant-chips .vc-lbl{font:600 9px var(--mono);color:var(--tx3);letter-spacing:1px;text-transform:uppercase;margin-right:1px}
+.variant-chips .vc-lbl{font:600 10px var(--sans);color:var(--tx3);opacity:.6;margin-right:1px}
 .v-chip{font:600 12px var(--sans);color:var(--tx2);background:transparent;border:1px solid var(--s3);border-radius:999px;padding:7px 12px;min-height:34px;cursor:pointer;transition:all .12s}
 .v-chip.sel{color:var(--brand);background:color-mix(in srgb,var(--brand) 18%,transparent);border-color:var(--brand)}
 .v-chip:active{transform:scale(.95)}
@@ -1134,7 +1134,9 @@ function modalityColor(type){return 'var(--m-'+(MODALITY_TYPES.includes(type)?ty
 // ring hues) never rotate. Index persists in S; Block 4 W3 ships ember.
 const BRAND_CYCLE=[
   {name:'ember',c:'#FF6A3D',c2:'#E04E24',dim:'rgba(255,106,61,.12)'},
-  {name:'cyan',c:'#22D3EE',c2:'#06B6D4',dim:'rgba(34,211,238,.12)'},
+  // (cyan was removed from the cycle in v3.5 — it is the DATA colour now;
+  //  a cyan brand block would blur the chrome/data split the restyle set up)
+  {name:'teal',c:'#14B8A6',c2:'#0D9488',dim:'rgba(20,184,166,.12)'},
   {name:'violet',c:'#7C6CFF',c2:'#5B4BE0',dim:'rgba(124,108,255,.12)'},
   {name:'lime',c:'#A3E635',c2:'#84CC16',dim:'rgba(163,230,53,.12)'},
   {name:'amber',c:'#F4B942',c2:'#D99B22',dim:'rgba(244,185,66,.12)'},

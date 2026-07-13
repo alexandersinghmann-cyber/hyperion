@@ -2080,7 +2080,8 @@ assert(/>New block available</.test(html)&&/>Recovery conflict</.test(html)&&/>W
 assert(!/\.bar-btn\{[^}]*uppercase/.test(html)&&!/\.section-hdr\{[^}]*uppercase/.test(html), 'D6: nav + section labels no longer uppercase');
 assert(/#blockHdr\{text-transform:uppercase/.test(html), 'D6: block name keeps the single uppercase flourish');
 assert(/\.t-meta\{font:500 var\(--t-meta\) var\(--sans\)/.test(html), 'D6: t-meta utility is sans');
-assert(/\.bar-btn\{[^}]*var\(--sans\)/.test(html)&&/\.ex-cat\{[^}]*var\(--sans\)/.test(html)&&/\.comp-toggle\{[^}]*var\(--sans\)/.test(html), 'D6: nav/category/completed labels are sans');
+assert(/\.bar-btn\{[^}]*var\(--sans\)/.test(html)&&/\.ex-cat\{[^}]*var\(--sans\)/.test(html)&&/\.comp-toggle\{[^}]*var\(--sans\)/.test(html)&&/\.vc-lbl\{[^}]*var\(--sans\)/.test(html), 'D6: nav/category/completed/chip-group labels are sans');
+assert(!/text-transform:uppercase/.test(html.match(/<style>[\s\S]*?<\/style>/)[0].replace(/#blockHdr\{[^}]*\}/,'')), 'D6: NO uppercase transforms left in the style block except #blockHdr');
 // brand runs the chrome; data colours stay
 assert(/\.rest-t\{[^}]*color:var\(--brand\)/.test(html), 'D6: rest countdown digits are brand (mono stays for the numbers)');
 assert(/\.rpe-opt\.sel\{[^}]*var\(--brand\)/.test(html)&&/\.v-chip\.sel\{[^}]*var\(--brand\)/.test(html), 'D6: selected chips are brand');
