@@ -1888,7 +1888,13 @@ assert(/cSquat='#22D3EE',cBench='#818CF8',cDead='#C084FC'/.test(html), 'Brand: p
 assert(/class="q-mark"/.test(html) && /\.q-mark\{[^}]*color:var\(--brand\)/.test(html), 'Brand: quote mark carries the brand');
 assert(/#sessBar\{[^}]*border-top:2px solid var\(--brand\)/.test(html), 'Brand: session strip carries the brand');
 // depth pass + hero + count-up
-assert(/\.goal-card,\.ex-card,\.day-card,\.big3-tile,\.comp-card,\.extra-card,\.history-item\{box-shadow:inset 0 1px 0 rgba\(255,255,255,\.04\)/.test(html), 'Depth: top-edge highlight + ambient shadow on cards');
+// D7 structure pins replace the exact-shadow pin: 16px radius token, brand
+// active border, borderless resting cards, top-edge highlight preserved.
+assert(/--r:16px/.test(html), 'Depth: card radius token is 16px (v3.5)');
+assert(/box-shadow:inset 0 1px 0 rgba\(255,255,255,\.05\)/.test(html), 'Depth: top-edge highlight preserved');
+assert(/\.ex-card\{[^}]*border:1px solid transparent[^}]*overflow:visible\}/.test(html), 'Depth: resting ex-card borderless AND keeps overflow:visible (menu escape)');
+assert(/\.ex-card\.active\{border-color:color-mix\(in srgb,var\(--brand\) 35%,transparent\)/.test(html), 'Depth: active card = 1px brand @35%');
+assert(/\.ex-card\.active\{[^}]*color-mix\(in srgb,var\(--brand\) 12%,transparent\)/.test(html), 'Depth: active card brand glow @12%');
 assert(/\.ex-card\.main-lift\{background:linear-gradient/.test(html) && /main-lift'/.test(html), 'Depth: main-lift cards get the faint brand wash');
 assert(/id="sessionHero"/.test(html) && /function showSessionHero/.test(html) && /typeof requestAnimationFrame!=='function'\)return/.test(html), 'Hero: overlay present, rAF/reduced-motion guarded');
 // animateCount fallback path (no rAF in harness → instant final value)
@@ -2086,5 +2092,24 @@ assert(/button:focus-visible[^{]*\{outline:2px solid var\(--brand\)/.test(html),
 assert(/class="ex-sub"/.test(html)&&/\.ex-sub\{[^}]*color:var\(--tx3\)/.test(html), 'D6: card meta collapsed to one secondary line, single colour');
 // quote: single t-meta italic line
 assert(/id="greeting" style="margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"/.test(html), 'D6: stoic quote is a single ellipsised line');
+
+// ===== D7: RESTYLE B — CARDS / ROWS / CHIPS / COMPRESSION =====
+// unified chip system: every selected state is the same brand treatment
+['v-chip','rpe-opt','eff-chip'].forEach(c=>{
+  assert(new RegExp('\\.'+c+'\\.sel\\{[^}]*color-mix\\(in srgb,var\\(--brand\\) 18%').test(html), 'D7: .'+c+'.sel uses the unified brand-18% fill');
+});
+assert(/\.rpe-inline button\.sel\{[^}]*color-mix\(in srgb,var\(--brand\) 18%/.test(html), 'D7: inline RPE selected state unified');
+assert(/\.v-chip\{font:600 12px var\(--sans\)/.test(html), 'D7: chips are sans pills');
+// Hevy rows: current + pending states, done strip, bigger inputs, 48px Log
+assert(/\.set-row\.current\{[^}]*border-left-color:var\(--brand\)/.test(html), 'D7: current row carries the brand strip');
+assert(/\.set-row\.pending\{opacity:\.5\}/.test(html), 'D7: pending rows at 50%');
+assert(/\.set-row\.st-done\{border-left-color:color-mix\(in srgb,var\(--grn\) 60%/.test(html), 'D7: done rows green edge strip');
+assert(/firstUnlogged/.test(html)&&/\$\{stCl\}\$\{rowState\}/.test(html), 'D7: first unlogged row is .current, later ones .pending');
+assert(/\.set-fields input\{[^}]*16px var\(--mono\)[^}]*color:var\(--tx2\)/.test(html)&&/\.set-fields input:focus\{color:var\(--tx\)\}/.test(html), 'D7: inputs larger mono, ghost colours preserved');
+assert(/\.set-log\{min-width:52px;min-height:48px/.test(html), 'D7: Log button meets the 48px tap target');
+// completed-card compression
+assert(/allDone\?' done':''/.test(html)&&/class="ex-topset"/.test(html), 'D7: completed card compresses with a top-set summary');
+assert(/\.ex-card\.done \.ex-head::after\{content:'›'/.test(html), 'D7: compressed card shows the expand chevron');
+assert(/\.ex-card\.done\.open \.ex-head::after/.test(html), 'D7: chevron rotates on expansion (existing .open toggle)');
 
 console.log('\n=== All tests passed ===');
