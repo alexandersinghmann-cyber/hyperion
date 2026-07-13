@@ -199,6 +199,8 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .ex-name{font-weight:600;font-size:14px}
 .ex-rx{font:500 12px var(--mono);color:var(--tx3);margin-top:1px}
 .plate-line{font:600 11px var(--mono);color:var(--gold);margin-top:4px;letter-spacing:.3px;opacity:.92}
+.pain-flag{min-width:44px;min-height:44px;background:none;border:none;color:var(--tx3);font-size:15px;cursor:pointer;flex-shrink:0;padding:0}
+.pain-flag.has{color:var(--red)}
 .variant-chips{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 10px;align-items:center}
 .variant-chips .vc-lbl{font:600 9px var(--mono);color:var(--tx3);letter-spacing:1px;text-transform:uppercase;margin-right:1px}
 .v-chip{font:600 11px var(--mono);color:var(--tx2);background:var(--s2);border:1px solid var(--s3);border-radius:10px;padding:3px 9px;cursor:pointer;transition:all .12s}
@@ -438,8 +440,8 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .wr-ld{font:700 12px var(--mono)}
 .wr-meta{font:600 10px var(--mono);color:var(--tx3);letter-spacing:1px;margin-top:12px}
 /* Session-start hero: 1s brand wash, tap to skip */
-#sessionHero{position:fixed;inset:0;z-index:300;display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:linear-gradient(160deg,var(--brand-dim),var(--bg) 70%);backdrop-filter:blur(2px)}
-#sessionHero.on{display:flex;animation:heroin 220ms ease-out}
+#sessionHero{position:fixed;inset:0;z-index:300;display:none;pointer-events:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:linear-gradient(160deg,var(--brand-dim),var(--bg) 70%);backdrop-filter:blur(2px)}
+#sessionHero.on{display:flex;pointer-events:auto;animation:heroin 220ms ease-out}
 @keyframes heroin{from{opacity:0}to{opacity:1}}
 #sessionHero .sh-label{font:700 var(--t-display) var(--sans);color:var(--tx);letter-spacing:-.5px;text-align:center;padding:0 24px}
 #sessionHero .sh-target{font:600 14px var(--mono);color:var(--brand);letter-spacing:.3px}
@@ -738,9 +740,12 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 <div class="overlay" id="painModal">
   <div class="modal">
     <div class="modal-t">Pain check — <span id="painExName"></span></div>
-    <div class="pain-opt pain-sharp" onclick="logPain('sharp')"><div style="font-weight:700;color:var(--red)">Sharp pain</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">Stop. Switch to alternative.</div></div>
-    <div class="pain-opt pain-mild" onclick="logPain('mild')"><div style="font-weight:700;color:var(--warn)">Mild discomfort</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">Drop load 10–20%.</div></div>
-    <div class="pain-opt pain-clear" onclick="logPain('none')"><div style="font-weight:700;color:var(--grn)">No pain</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">All clear.</div></div>
+    <div style="font:600 12px var(--sans);color:var(--tx2);margin:6px 0 4px">Where?</div>
+    <div id="painAreaChips" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px"></div>
+    <div style="font:600 12px var(--sans);color:var(--tx2);margin:2px 0 4px">How bad?</div>
+    <div class="pain-opt pain-clear" onclick="logPain(1)"><div style="font-weight:700;color:var(--grn)">1 · Twinge</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">Noted for the coach — keep going if it stays quiet.</div></div>
+    <div class="pain-opt pain-mild" onclick="logPain(2)"><div style="font-weight:700;color:var(--warn)">2 · Painful</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">Drop load 10–20%.</div></div>
+    <div class="pain-opt pain-sharp" onclick="logPain(3)"><div style="font-weight:700;color:var(--red)">3 · Sharp — stop</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">Remaining sets cleared. Switch to alternative.</div></div>
     <button class="btn btn-s btn-w" style="margin-top:8px" onclick="hideModal('painModal')">Cancel</button>
   </div>
 </div>
@@ -1875,25 +1880,34 @@ function validateWeek(weekDates,todayDate){
     const gapH=(new Date(b.date+'T12:00:00')-new Date(a.date+'T12:00:00'))/3600000;
     if(gapH>=36)continue;                                           // only <36h pairs
     const warnings=[];
+    // Name the pair by the PROGRAM DAY labels of what's actually placed in
+    // each row — a rescheduled day lands under a different calendar dow, and
+    // naming by a.dow/b.dow quoted "Friday→Saturday" with Wednesday's
+    // exercises (5b). Calendar dow is only the fallback for empty rows.
+    const rowLabel=row=>{
+      const ls=(row.sessions||[]).filter(s2=>s2.source==='program'&&s2.dayIndex!=null&&S.program.days[s2.dayIndex]).map(s2=>S.program.days[s2.dayIndex].label);
+      return ls.length?ls.join('+'):row.dow;
+    };
     // Same compound movement pattern on consecutive days
     const pa=dayCompoundPats(a.sessions), pb=dayCompoundPats(b.sessions);
     const shared=Object.keys(pb).filter(p=>pa[p]);
     if(shared.length){
       const names=shared.map(p=>pa[p]+'/'+pb[p]).join(', ');
-      // Exception: an RPE-capped calisthenics day feeding into lifting is low
-      // pull volume BY DESIGN (e.g. Sat MU-foundation → Sun deadlift) — accept
-      // as info, not warn. Keyed to the day's own tags, never silenced globally.
-      const aCapCali=a.sessions.some(s=>{
-        if(s.source!=='program'||s.dayIndex==null)return false;
-        const d=S.program.days[s.dayIndex];
+      // Exception: an RPE-capped calisthenics day on EITHER side of the pair
+      // is low volume BY DESIGN — accept as info, not warn. Keyed to the
+      // day's own tags, never silenced globally.
+      const capCali=row=>(row.sessions||[]).some(s2=>{
+        if(s2.source!=='program'||s2.dayIndex==null)return false;
+        const d=S.program.days[s2.dayIndex];
         return d&&d.sessionType==='calisthenics'&&(d.tags||[]).includes('RPE-7-cap');
       });
-      warnings.push({level:aCapCali?'info':'warn',msg:'Same movement pattern ('+shared.join(', ')+': '+names+') on consecutive days ('+a.dow+'→'+b.dow+') — '+(aCapCali?'accepted: RPE-7-capped calisthenics volume':'<24h recovery')});
+      const exempt=capCali(a)||capCali(b);
+      warnings.push({level:exempt?'info':'warn',msg:'Same movement pattern ('+shared.join(', ')+': '+names+') on consecutive days ('+rowLabel(a)+' → '+rowLabel(b)+') — '+(exempt?'accepted: RPE-7-capped calisthenics volume':'<24h recovery')});
     }
     // Calisthenics abutting lifting (info)
     const aLift=a.sessions.some(s=>s.type==='lifting'),bCali=b.sessions.some(s=>s.type==='calisthenics');
     const aCali=a.sessions.some(s=>s.type==='calisthenics'),bLift=b.sessions.some(s=>s.type==='lifting');
-    if((aLift&&bCali)||(aCali&&bLift))warnings.push({level:'info',msg:'Calisthenics abuts lifting ('+a.dow+'→'+b.dow+') — watch shared-pattern fatigue'});
+    if((aLift&&bCali)||(aCali&&bLift))warnings.push({level:'info',msg:'Calisthenics abuts lifting ('+rowLabel(a)+' → '+rowLabel(b)+') — watch shared-pattern fatigue'});
     if(warnings.length)out.push({date:b.date,warnings});
   }
   return out;
@@ -2162,6 +2176,7 @@ function fmtW(kg,u){
 
 // ===== NAV =====
 function go(v){
+  hideSessionHero(); // iOS timer throttling can strand the z-300 hero (5a scroll-lock)
   document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));
   document.querySelectorAll('.bar-btn').forEach(b=>b.classList.remove('on'));
   const el=document.getElementById('v'+v);if(el)el.classList.add('on');
@@ -2181,7 +2196,7 @@ function animateProgressNumbers(){
   }catch(e){}
 }
 function goTrain(){go('Train')}
-function showView(id){document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));document.getElementById(id).classList.add('on');renderSessionBar(id)}
+function showView(id){if(id!=='vSession')hideSessionHero();document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));document.getElementById(id).classList.add('on');renderSessionBar(id)}
 // The session strip above the tab bar. A live session never traps the user:
 // tabs stay visible, navigating away backgrounds the session, this strip
 // carries the rest countdown (any view) or a summary + Resume (away views).
@@ -3222,6 +3237,7 @@ function renderEx(){
           ${mainTargetLine(ex)}
           ${st==='calisthenics'&&ex.cue?`<div style="font-size:12px;color:var(--acc);margin-top:3px;line-height:1.4">${ex.cue}</div>`:''}
         </div>
+        <button class="pain-flag${ex.painEvent&&ex.painEvent.severity!=='none'?' has':''}" onclick="event.stopPropagation();openPainModal(${i})" aria-label="Log pain for ${ex.name.replace(/"/g,'')}" title="Pain check">⚑</button>
         ${progArrow}
       </div>
       <div class="ex-body">
@@ -3287,7 +3303,7 @@ function renderEx(){
               ${!allDone?`<button onclick="openSwap(${i});closeExMenus()">Swap</button>`:''}
               ${i<sess.exercises.length-1?`<button onclick="pairSuperset(${i});closeExMenus()">${ex.supersetNext?'Unpair superset':'Superset with next'}</button>`:''}
               ${!allDone?`<button onclick="skipExercise(${i});closeExMenus()">Skip exercise</button>`:''}
-              <button onclick="painExI=${i};document.getElementById('painExName').textContent='${ex.name.replace(/'/g,"\\'")}';closeExMenus();showModal('painModal')" class="danger">⚠ Pain</button>
+              <button onclick="closeExMenus();openPainModal(${i})" class="danger">⚠ Pain</button>
             </div>
           </div>
         </div>
@@ -4174,15 +4190,32 @@ function evalProg(ei){
 }
 
 // ===== PAIN =====
+const PAIN_AREAS=['shoulder','elbow','wrist','low back','hip','knee','other'];
+let _painArea=null;
+function openPainModal(ei){
+  painExI=ei;_painArea=null;
+  const ex=S.activeSession&&S.activeSession.exercises[ei];if(!ex)return;
+  const nameEl=document.getElementById('painExName');if(nameEl)nameEl.textContent=ex.name;
+  const chips=document.getElementById('painAreaChips');
+  if(chips)chips.innerHTML=PAIN_AREAS.map(a=>`<button class="v-chip" id="painArea_${a.replace(/ /g,'-')}" onclick="setPainArea('${a}')">${a}</button>`).join('');
+  showModal('painModal');
+}
+function setPainArea(a){
+  _painArea=a;
+  PAIN_AREAS.forEach(x=>{const el=document.getElementById('painArea_'+x.replace(/ /g,'-'));if(el&&el.classList)el.classList.toggle('sel',x===a);});
+}
+// Severity is 1 (twinge — record only) / 2 (painful — offer −15%) /
+// 3 (sharp — clear remaining sets + flag). Legacy string severities remain
+// valid in old records; every gate treats numeric ≥1 as a real event.
 function logPain(sev){
   if(painExI===null)return;
   const ex=S.activeSession.exercises[painExI];
-  const act=sev==='sharp'?'STOP — switch to alternative':sev==='mild'?'Reduce load 10-20%':'';
-  ex.painEvent={severity:sev,action:act,ts:new Date().toISOString()};
-  if(sev==='sharp'){
+  const act=sev===3?'STOP — switch to alternative':sev===2?'Reduce load 10-20%':'Noted — monitor';
+  ex.painEvent={severity:sev,bodyArea:_painArea||null,action:act,ts:new Date().toISOString()};
+  if(sev===3){
     ex.performed.forEach(s=>{if(!s.logged){s.logged=true;s.reps=0}});
     ex.progression='flag';ex.nextLoad=ex.prescribed.loadKg;
-  } else if(sev==='mild'){
+  } else if(sev===2){
     // Offer to drop remaining unlogged sets by 15% — user chooses per-situation.
     const unlogged = ex.performed.filter(s=>!s.logged&&s.type==='working');
     if(unlogged.length>0 && confirm('Drop remaining '+unlogged.length+' set'+(unlogged.length>1?'s':'')+' to '+Math.round(ex.prescribed.loadKg*0.85*10)/10+' kg (−15%)?')){
@@ -5173,7 +5206,7 @@ function buildCoachReport(sessions,program,weekDates){
       if(wu.length)r+=`    w: ${wu.map(s=>fmtW(s.weightKg,ex.prescribed?.unit)+'×'+s.reps).join(', ')}\n`;
       if(ex.notes)r+=`    Note: ${ex.notes}\n`;
     });
-    if(s.painEvents&&s.painEvents.length>0)r+=`  ⚠ Pain: ${s.painEvents.map(p=>p.exercise+' ('+p.severity+')').join(', ')}\n`;
+    if(s.painEvents&&s.painEvents.length>0)r+=`  ⚠ Pain: ${s.painEvents.map(p=>p.exercise+' — '+(p.bodyArea?p.bodyArea+' ':'')+(typeof p.severity==='number'?'('+p.severity+'/3)':'('+p.severity+')')).join(', ')}\n`;
     if(s.sessionNotes)r+=`  Notes: ${s.sessionNotes}\n`;
     r+=`  Volume: ${Math.round(vol)} kg${skippedN?' (skipped: '+skippedN+' set'+(skippedN===1?'':'s')+')':''}\n\n`;
   });
@@ -5199,7 +5232,7 @@ function buildCoachReport(sessions,program,weekDates){
   const allPain=blockSessions.flatMap(s=>(s.painEvents||[]).map(p=>({...p,date:s.date})));
   if(allPain.length>0){
     r+=`\n### PAIN EVENTS\n`;
-    allPain.forEach(p=>{r+=`  ${fmtDate(p.date)}: ${p.exercise} — ${p.severity}\n`});
+    allPain.forEach(p=>{r+=`  ${fmtDate(p.date)}: ${p.exercise} — ${p.bodyArea?p.bodyArea+' ':''}${typeof p.severity==='number'?p.severity+'/3':p.severity}\n`});
   } else {
     r+=`\nNo pain events this week.\n`;
   }

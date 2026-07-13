@@ -33,7 +33,9 @@ const patched = js
   .replace(/\bconst DEFAULT_GYMS\s*=/g, 'var DEFAULT_GYMS =')
   .replace(/\bconst ICONS\s*=/g, 'var ICONS =')
   .replace(/\bconst APP_VERSION\s*=/g, 'var APP_VERSION =')
-  .replace(/\bconst BRAND_CYCLE\s*=/g, 'var BRAND_CYCLE =');
+  .replace(/\bconst BRAND_CYCLE\s*=/g, 'var BRAND_CYCLE =')
+  .replace(/\blet sessionStart\s*=/g, 'var sessionStart =')
+  .replace(/\blet _painArea\s*=/g, 'var _painArea =');
 (0, eval)(patched);
 // Expose helpers globally (they were `function` declarations, already global when eval'd indirectly)
 
@@ -1997,5 +1999,62 @@ assert(/Bench Press.*→ deload to 70 kg/.test(rptD4), 'D4: a real deload still 
 S.sessions=[];
 // 4a: keyboard focus handler present + guarded
 assert(/focusin/.test(html)&&/closest\(&&t\.closest\('\.set-fields'\)|closest&&t\.closest\('\.set-fields'\)/.test(html)&&/scrollIntoView\(\{block:'center'/.test(html), 'D4: focused set input scrolls to viewport centre');
+
+// ===== D5: BUG PACK (hero teardown, validateWeek naming, pain v2) =====
+// 5a: navigating away tears the hero down (iOS timer throttling stranded it)
+assert(/function go\(v\)\{\s*hideSessionHero\(\);/.test(html), 'D5: go() tears down the session hero');
+assert(/if\(id!=='vSession'\)hideSessionHero\(\);/.test(html), 'D5: showView() tears down the hero off-session');
+assert(/#sessionHero\{[^}]*pointer-events:none/.test(html)&&/#sessionHero\.on\{[^}]*pointer-events:auto/.test(html), 'D5: hero is hit-transparent unless shown');
+// no full-screen overlay stays .on after backgrounding a live session
+S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];
+S.activeSession={dayIndex:1,dayId:2,blockName:S.program.name,date:'2026-07-14',dayLabel:'Squat (Deload)',sessionType:'lifting',startTime:1,exercises:[],notes:''};
+let heroThrew=false;try{go('Train');}catch(e){heroThrew=true;}
+assert(heroThrew===false, 'D5: go(Train) with a live session runs clean under mocks');
+S.activeSession=null;
+// 5b: pair naming uses program-day labels; either-side cali exemption
+S.program={name:'NameX',active:true,days:[
+  {id:1,label:'Pull A',defaultDay:'Monday',dayOfWeek:'Monday',sessionType:'lifting',dur:60,exercises:[{id:'a',name:'Cable Low Row',cat:'pull',sets:4,reps:'8',loadKg:50,unit:'kg',rest:90,tags:[],equipmentClass:'cable'}],bonus:[]},
+  {id:2,label:'Pull B',defaultDay:'Tuesday',dayOfWeek:'Tuesday',sessionType:'lifting',dur:60,exercises:[{id:'b',name:'Cable Low Row',cat:'pull',sets:4,reps:'8',loadKg:50,unit:'kg',rest:90,tags:[],equipmentClass:'cable'}],bonus:[]}
+]};
+const vwName=validateWeek(weekDatesFor('2026-07-13'),'2026-07-13');
+const nameMsg=vwName.flatMap(r=>r.warnings).find(w=>/Same movement pattern/.test(w.msg));
+assert(nameMsg&&/Pull A → Pull B/.test(nameMsg.msg), 'D5: warning names the PROGRAM DAY labels, not calendar dows. Got: '+(nameMsg&&nameMsg.msg));
+// exemption applies when the SECOND side is the capped cali day too
+S.program={name:'CaliY',active:true,days:[
+  {id:1,label:'Pull Day',defaultDay:'Friday',dayOfWeek:'Friday',sessionType:'lifting',dur:60,exercises:[{id:'b',name:'Lat Pulldown',cat:'pull',sets:4,reps:'8',loadKg:50,unit:'kg',rest:90,tags:[],equipmentClass:'cable'}],bonus:[]},
+  {id:2,label:'Cali',defaultDay:'Saturday',dayOfWeek:'Saturday',sessionType:'calisthenics',dur:40,tags:['RPE-7-cap'],exercises:[{id:'a',name:'Strict Pull-Up',cat:'pull',sets:3,reps:'3',loadKg:0,unit:'bw',rest:120,tags:[],equipmentClass:'bw'}]}
+]};
+const vwCaliB=validateWeek(weekDatesFor('2026-07-13'),'2026-07-13');
+const caliMsgs=vwCaliB.flatMap(r=>r.warnings).filter(w=>/Same movement pattern/.test(w.msg));
+assert(caliMsgs.length>0&&caliMsgs.every(w=>w.level==='info'), 'D5: capped-cali on the LATER side of the pair also exempts. Got: '+JSON.stringify(caliMsgs.map(w=>w.level)));
+S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();
+// deload week itself validates clean (Tue/Fri/Sun lifting, no <36h same-pattern pairs)
+const vwDeload=validateWeek(weekDatesFor('2026-07-13'),'2026-07-13');
+assert(vwDeload.reduce((a,r)=>a+r.warnings.filter(w=>w.level==='warn').length,0)===0, 'D5: deload week validates clean. Got: '+JSON.stringify(vwDeload.flatMap(r=>r.warnings.filter(w=>w.level==='warn').map(w=>w.msg))));
+// 4c pain v2: numeric severities + body area feed the store and the report
+assert(typeof openPainModal==='function'&&typeof setPainArea==='function', 'D5: pain v2 fns defined');
+S.activeSession={dayIndex:3,dayId:4,blockName:S.program.name,date:'2026-07-17',dayLabel:'Bench (Deload)',sessionType:'lifting',startTime:1,notes:'',exercises:[
+  {name:'Strict Dip',cat:'push',prescribed:{sets:2,reps:'5',loadKg:0,unit:'bw'},equipmentClass:'bw',performed:[{type:'working',weightKg:0,reps:5,logged:true},{type:'working',weightKg:0,reps:5,logged:false}],tags:[],progression:null,nextLoad:null}
+]};
+painExI=0;_painArea='shoulder';
+logPain(3);
+const dipEx=S.activeSession.exercises[0];
+assert(dipEx.painEvent.severity===3&&dipEx.painEvent.bodyArea==='shoulder', 'D5: pain event stores numeric severity + body area');
+assert(dipEx.performed.every(pp=>pp.logged)&&dipEx.progression==='flag', 'D5: severity 3 clears remaining sets + flags');
+// severity flows into the record and the report line
+const recD5={date:'2026-07-17',dayLabel:'Bench (Deload)',dayId:4,blockName:S.program.name,duration:50,rpe:7,status:'complete',
+  exercises:[{name:'Strict Dip',cat:'push',prescribed:dipEx.prescribed,performed:dipEx.performed,progression:'flag',nextLoad:null,variant:null,tags:[],painEvent:dipEx.painEvent}],
+  painEvents:[{exercise:'Strict Dip',...dipEx.painEvent}]};
+S.sessions=[recD5];
+const rptD5=buildCoachReport(S.sessions,S.program,weekDatesFor('2026-07-13'));
+assert(/Pain: Strict Dip — shoulder \(3\/3\)/.test(rptD5), 'D5: report prints body area + n/3 severity. Got: '+(rptD5.split('\n').find(l=>/Pain:/.test(l))||'none'));
+assert(/shoulder 3\/3|shoulder \(3\/3\)/.test(rptD5), 'D5: PAIN EVENTS summary carries area+severity');
+// legacy string severities still render
+S.sessions=[{...recD5,painEvents:[{exercise:'Bench Press',severity:'mild',ts:'x'}]}];
+assert(/Bench Press — \(mild\)|Bench Press — mild/.test(buildCoachReport(S.sessions,S.program,weekDatesFor('2026-07-13'))), 'D5: legacy string severity still renders');
+S.sessions=[];S.activeSession=null;
+// always-visible flag icon on the card head
+assert(/class="pain-flag/.test(html)&&/openPainModal\(\$\{i\}\)/.test(html), 'D5: per-card pain flag wired');
+assert(/\.pain-flag\{min-width:44px;min-height:44px/.test(html), 'D5: flag meets the tap-target minimum');
 
 console.log('\n=== All tests passed ===');
