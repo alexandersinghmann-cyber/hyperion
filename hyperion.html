@@ -1248,7 +1248,7 @@ const EX_META={
   'Face Pull':{pat:'rear-delt',prim:['rear-delt','mid-trap','external-rotator'],eq:['cable'],fat:'iso',sh:'safe',slot:'rear-delt'},
   'Reverse Pec Deck':{pat:'rear-delt',prim:['rear-delt','mid-trap'],eq:['pec-deck'],fat:'iso',sh:'safe',slot:'rear-delt'},
   // Horizontal push
-  'Bench Press':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['barbell','bench','rack'],fat:'heavy-compound',sh:'activation-first',slot:'hpush'},
+  'Bench Press':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['barbell','bench','rack'],fat:'heavy-compound',sh:'activation-first',slot:'hpush',incrementKg:2.5},
   'DB Incline Bench':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['db','incline-bench'],fat:'heavy-compound',sh:'activation-first',slot:'hpush'},
   'DB Bench Press':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['db','bench'],fat:'heavy-compound',sh:'activation-first',slot:'hpush'},
   'Machine Chest Press':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['chest-press'],fat:'heavy-compound',sh:'safe',slot:'hpush'},
@@ -1311,7 +1311,7 @@ const EX_META={
   'Suitcase Carry':{pat:'carry',prim:['grip','oblique','trap','core'],eq:['db'],fat:'core',sh:'safe',slot:'carry'},
   'Sled Push':{pat:'cardio',prim:['quad','glute','calf'],eq:['sled'],fat:'light-compound',sh:'safe',slot:'squat-secondary'},
   // Squat pattern
-  'Back Squat':{pat:'squat',prim:['quad','glute','hamstring','erector'],eq:['barbell','rack'],fat:'heavy-compound',sh:'safe',slot:'squat-main'},
+  'Back Squat':{pat:'squat',prim:['quad','glute','hamstring','erector'],eq:['barbell','rack'],fat:'heavy-compound',sh:'safe',slot:'squat-main',incrementKg:5},
   'Back Squat (light)':{pat:'squat',prim:['quad','glute','hamstring','erector'],eq:['barbell','rack'],fat:'light-compound',sh:'safe',slot:'squat-secondary'},
   'Front Squat':{pat:'squat',prim:['quad','erector'],eq:['barbell','rack'],fat:'heavy-compound',sh:'safe',slot:'squat-main'},
   'Pause Squat':{pat:'squat',prim:['quad','glute','hamstring','erector'],eq:['barbell','rack'],fat:'heavy-compound',sh:'safe',slot:'squat-main'},
@@ -1320,7 +1320,7 @@ const EX_META={
   'Bulgarian Split Squat':{pat:'squat',prim:['quad','glute'],eq:['db','bench'],fat:'light-compound',sh:'safe',slot:'squat-secondary'},
   'Goblet Squat':{pat:'squat',prim:['quad','glute','core'],eq:['db'],fat:'light-compound',sh:'safe',slot:'squat-secondary'},
   // Hinge
-  'Deadlift':{pat:'hinge',prim:['erector','glute','hamstring','lat','trap'],eq:['barbell','platform'],fat:'heavy-compound',sh:'safe',slot:'deadlift-main'},
+  'Deadlift':{pat:'hinge',prim:['erector','glute','hamstring','lat','trap'],eq:['barbell','platform'],fat:'heavy-compound',sh:'safe',slot:'deadlift-main',incrementKg:5},
   'Deficit Deadlift':{pat:'hinge',prim:['erector','glute','hamstring','quad'],eq:['barbell','platform'],fat:'heavy-compound',sh:'safe',slot:'deadlift-main'},
   'Block Pull':{pat:'hinge',prim:['erector','glute','hamstring','trap'],eq:['barbell','blocks'],fat:'heavy-compound',sh:'safe',slot:'deadlift-main'},
   'Pause Deadlift':{pat:'hinge',prim:['erector','glute','hamstring'],eq:['barbell','platform'],fat:'heavy-compound',sh:'safe',slot:'deadlift-main'},
@@ -4161,8 +4161,13 @@ function evalProg(ei){
   const rr=repRange(ex.prescribed.reps);
   const allMax=working.every(s=>s.reps>=rr.max);
   const bigMiss=working.some(s=>s.reps<rr.min-2);
-  const inc={squat:2.5,hinge:2.5,push:2,pull:2,isolation:1,core:1,rehab:0}[ex.cat]||1;
-  const half=Math.max(1,inc/2);
+  // Per-lift override (E2): mains move in coach-set steps (squat/DL 5,
+  // bench 2.5). Spec's own test defines RPE 8 as earning the FULL per-lift
+  // increment ("DL top set @8 → +5") — the half-step nuance survives only
+  // for lifts without an override.
+  const liftInc=getMeta(ex.name).incrementKg||null;
+  const inc=liftInc||({squat:2.5,hinge:2.5,push:2,pull:2,isolation:1,core:1,rehab:0}[ex.cat]||1);
+  const half=liftInc?liftInc:Math.max(1,inc/2);
 
   // Achieved top set: highest weight among successfully logged, non-skipped working sets.
   const topW=working.reduce((m,s)=>s.weightKg>m?s.weightKg:m,0);

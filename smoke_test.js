@@ -1635,19 +1635,27 @@ assert(bwNextTarget('6-8',false)===null, 'BW: ranges are coach-managed (no sugge
 assert(bwNextTarget('10 min',false)===null, 'BW: minute prescriptions are coach-managed');
 // evalProg end-to-end: RPE-8 half-increment on a barbell squat SNAPS (93.75 → 92.5 → demoted to hold)
 S.sessions=[];
+// (E2) Back Squat carries incrementKg:5 — RPE ≤8 + hitTop earns the FULL
+// per-lift step now. The half-step demote path is covered by a non-override
+// lift (Pause Squat) below.
 S.activeSession={dayIndex:0,date:'2026-07-10',dayLabel:'T',sessionType:'lifting',startTime:1,exercises:[
   {name:'Back Squat',cat:'squat',prescribed:{sets:2,reps:'5',loadKg:92.5,unit:'kg'},equipmentClass:'barbell',
    performed:[{type:'working',weightKg:92.5,reps:5,rpe:8,logged:true},{type:'working',weightKg:92.5,reps:5,rpe:8,logged:true}],tags:[],progression:null,nextLoad:null}
 ]};
 evalProg(0);
 const sqEx=S.activeSession.exercises[0];
-assert(sqEx.progression==='hold' && sqEx.nextLoad===92.5, 'evalProg: RPE-8 +half (93.75) snaps below step → demoted to HOLD at 92.5, not a phantom 93.8. Got: '+sqEx.progression+' '+sqEx.nextLoad);
-assert(/below the smallest loadable step/.test(sqEx.progressionReason||''), 'evalProg: demotion carries an honest reason');
-// RPE-7 full-increment path lands on a real plate load
+assert(sqEx.progression==='increase' && sqEx.nextLoad===97.5, 'evalProg(E2): Back Squat @8 hitTop → +5 per-lift step (92.5→97.5). Got: '+sqEx.progression+' '+sqEx.nextLoad);
+// non-override barbell lift keeps the half-at-8 + demote-to-hold behavior
+S.activeSession.exercises[0]={name:'Pause Squat',cat:'squat',prescribed:{sets:2,reps:'5',loadKg:92.5,unit:'kg'},equipmentClass:'barbell',
+  performed:[{type:'working',weightKg:92.5,reps:5,rpe:8,logged:true},{type:'working',weightKg:92.5,reps:5,rpe:8,logged:true}],tags:[],progression:null,nextLoad:null};
+evalProg(0);
+assert(S.activeSession.exercises[0].progression==='hold' && S.activeSession.exercises[0].nextLoad===92.5, 'evalProg: non-override RPE-8 +half (93.75) still demotes to HOLD at 92.5. Got: '+S.activeSession.exercises[0].progression+' '+S.activeSession.exercises[0].nextLoad);
+assert(/below the smallest loadable step/.test(S.activeSession.exercises[0].progressionReason||''), 'evalProg: demotion carries an honest reason');
+// RPE-7 on the override lift → same full step
 S.activeSession.exercises[0]={name:'Back Squat',cat:'squat',prescribed:{sets:2,reps:'5',loadKg:92.5,unit:'kg'},equipmentClass:'barbell',
   performed:[{type:'working',weightKg:92.5,reps:5,rpe:7,logged:true},{type:'working',weightKg:92.5,reps:5,rpe:7,logged:true}],tags:[],progression:null,nextLoad:null};
 evalProg(0);
-assert(S.activeSession.exercises[0].progression==='increase' && S.activeSession.exercises[0].nextLoad===95, 'evalProg: RPE-7 92.5+2.5 → 95 (loadable). Got: '+S.activeSession.exercises[0].nextLoad);
+assert(S.activeSession.exercises[0].progression==='increase' && S.activeSession.exercises[0].nextLoad===97.5, 'evalProg(E2): RPE-7 also earns the full +5 (92.5→97.5). Got: '+S.activeSession.exercises[0].nextLoad);
 // Deload: exact-multiple result passes through…
 S.activeSession.exercises[0]={name:'Back Squat',cat:'squat',prescribed:{sets:2,reps:'5',loadKg:100,unit:'kg'},equipmentClass:'barbell',
   performed:[{type:'working',weightKg:100,reps:5,rpe:10,logged:true}],tags:[],progression:null,nextLoad:null};
@@ -2164,5 +2172,23 @@ assert(/top-chip">TOP</.test(html)&&/\.top-chip\{[^}]*var\(--brand\)/.test(html)
 assert(/schemeTop\(ex\.prescribed\.setScheme\)/.test(html), 'E1: headline shows the top-set load');
 assert(/rxStr/.test(html)&&/\[\$\{schemeString\(ex\.prescribed\.setScheme/.test(html), 'E1: coach report prefixes the prescription scheme');
 S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.activeSession=null;
+
+// ===== E2: PER-LIFT INCREMENTS + RPE GATE =====
+assert(getMeta('Back Squat').incrementKg===5&&getMeta('Deadlift').incrementKg===5&&getMeta('Bench Press').incrementKg===2.5, 'E2: incrementKg overrides on the three mains');
+const e2case=(name,cls,load,rpe)=>{
+  S.activeSession={dayIndex:0,date:'2026-07-22',dayLabel:'T',sessionType:'lifting',startTime:1,exercises:[
+    {name,cat:'hinge',prescribed:{sets:1,reps:'5',loadKg:load,unit:'kg'},equipmentClass:cls,
+     performed:[{type:'working',weightKg:load,reps:5,rpe,logged:true}],tags:[],progression:null,nextLoad:null}]};
+  evalProg(0);return S.activeSession.exercises[0];
+};
+const dl8=e2case('Deadlift','barbell',125,8);
+assert(dl8.progression==='increase'&&dl8.nextLoad===130, 'E2: DL top set @8 → +5 (125→130). Got: '+dl8.progression+' '+dl8.nextLoad);
+const dl9=e2case('Deadlift','barbell',125,9);
+assert(dl9.progression==='hold'&&dl9.nextLoad===125, 'E2: DL @9 → hold. Got: '+dl9.progression);
+const bn8=e2case('Bench Press','barbell',87.5,8);
+assert(bn8.progression==='increase'&&bn8.nextLoad===90, 'E2: Bench @8 → +2.5 (87.5→90). Got: '+bn8.nextLoad);
+const dl10=e2case('Deadlift','barbell',125,10);
+assert(dl10.progression==='flag'&&dl10.nextLoad<125, 'E2: @10 still deloads (gate unchanged above 8)');
+S.activeSession=null;
 
 console.log('\n=== All tests passed ===');
