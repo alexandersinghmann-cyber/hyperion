@@ -2113,4 +2113,56 @@ assert(/allDone\?' done':''/.test(html)&&/class="ex-topset"/.test(html), 'D7: co
 assert(/\.ex-card\.done \.ex-head::after\{content:'›'/.test(html), 'D7: compressed card shows the expand chevron');
 assert(/\.ex-card\.done\.open \.ex-head::after/.test(html), 'D7: chevron rotates on expansion (existing .open toggle)');
 
+// ===== E1: PER-SET LOAD PRESCRIPTIONS (setScheme) =====
+assert(typeof schemeString==='function'&&typeof schemeTop==='function', 'E1: composer helpers defined');
+const bScheme=[{reps:5,loadKg:87.5,tag:'top'},{reps:5,loadKg:80},{reps:5,loadKg:80},{reps:5,loadKg:80}];
+assert(schemeString(bScheme,'kg')==='1×5@87.5 + 3×5@80', 'E1: composer groups top + back-offs. Got: '+schemeString(bScheme,'kg'));
+assert(schemeString([{reps:5,loadKg:80},{reps:5,loadKg:80}],'kg')==='2×5@80', 'E1: all-equal scheme reads like uniform shorthand');
+assert(schemeTop(bScheme).loadKg===87.5, 'E1: schemeTop finds the tagged top');
+assert(schemeTop([{reps:5,loadKg:80},{reps:5,loadKg:90}]).loadKg===90, 'E1: untagged scheme → heaviest wins');
+// startDay splices per-set rows AFTER warmups, top tagged
+S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.activeSession=null;
+S.program.days[1].exercises=S.program.days[1].exercises.map(ex=>ex.name==='Back Squat'
+  ?{...ex,setScheme:[{reps:5,loadKg:105,tag:'top'},{reps:5,loadKg:95},{reps:5,loadKg:95},{reps:5,loadKg:95}],loadKg:105,sets:4}
+  :ex);
+global.startTimer=()=>{};global.showSessionHero=global.showSessionHero||(()=>{});
+startDay(1);
+const e1sq=S.activeSession.exercises.find(e=>e.name==='Back Squat');
+const e1w=e1sq.performed.filter(pp=>pp.type==='working');
+assert(e1sq.performed[0].type==='warmup'&&e1sq.performed[1].type==='warmup', 'E1: warmup rows still come first');
+assert(e1w.length===4&&e1w[0].weightKg===105&&e1w[1].weightKg===95&&e1w[3].weightKg===95, 'E1: per-set rows seeded with their own loads. Got: '+JSON.stringify(e1w.map(x=>x.weightKg)));
+assert(e1w[0].tag==='top'&&!e1w[1].tag, 'E1: top row carries the tag');
+// progression keys off the TOP set (105), not the back-offs
+e1sq.performed.forEach(pp=>{pp.logged=true;if(pp.type==='working')pp.rpe=7;});
+evalProg(S.activeSession.exercises.indexOf(e1sq));
+assert(e1sq.nextLoad>105, 'E1: suggestion keys off the 105 top set, not the 95 back-offs. Got: '+e1sq.nextLoad);
+// e1RM from the top set only
+S.sessions=[{date:'2026-07-20',dayLabel:'X',blockName:S.program.name,exercises:[{name:'Back Squat',prescribed:{sets:4,reps:'5',loadKg:105,unit:'kg'},performed:e1sq.performed}]}];
+assert(Math.abs(bestHistoricalE1rm('Back Squat')-e1rm(105,5))<0.1, 'E1: e1RM reads the top set. Got: '+bestHistoricalE1rm('Back Squat'));
+S.sessions=[];S.activeSession=null;
+// uniform back-compat: the untouched deload bench day still seeds uniform rows
+S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();
+startDay(3);
+const e1bn=S.activeSession.exercises.find(e=>e.name==='Bench Press');
+assert(e1bn.performed.filter(pp=>pp.type==='working').length===3&&e1bn.performed.filter(pp=>pp.type==='working').every(pp=>pp.weightKg===75), 'E1: uniform prescriptions unchanged (deload bench 3×75)');
+window.confirm=()=>true;cancelSession();
+// write-back shifts the whole scheme, keeps flat loadKg = top
+// write-back pairs session index with program index — author day 1 with the
+// squat at index 0 so the pairing holds.
+S.program.days[1].exercises=[{...S.program.days[1].exercises.find(ex=>ex.name==='Back Squat'),setScheme:[{reps:5,loadKg:105,tag:'top'},{reps:5,loadKg:95}],loadKg:105,sets:2}];
+S.activeSession={dayIndex:1,dayId:2,blockName:S.program.name,date:'2026-07-26',dayLabel:'Squat (Deload)',sessionType:'lifting',startTime:1,notes:'',exercises:[
+  {name:'Back Squat',cat:'squat',prescribed:{sets:2,reps:'5',loadKg:105,unit:'kg',setScheme:null},equipmentClass:'barbell',performed:[{type:'working',weightKg:105,reps:5,rpe:7,logged:true}],tags:[],progression:'increase',nextLoad:110,nextTarget:null,variant:null,painEvent:null}
+]};
+selRpe=7;confirmRpe();
+const wbSq=S.program.days[1].exercises[0];
+assert(wbSq.loadKg===110, 'E1: flat shorthand bumped to the new top. Got: '+wbSq.loadKg);
+assert(wbSq.setScheme[0].loadKg===110&&wbSq.setScheme[1].loadKg===100, 'E1: back-off shifted by the same delta (95→100). Got: '+JSON.stringify(wbSq.setScheme));
+S.sessions=[];
+// markup: composer string + TOP chip wired
+assert(/schemeString\(ex\.prescribed\.setScheme/.test(html), 'E1: ex-rx uses the composer for schemes');
+assert(/top-chip">TOP</.test(html)&&/\.top-chip\{[^}]*var\(--brand\)/.test(html), 'E1: TOP chip on the top row, brand-coloured');
+assert(/schemeTop\(ex\.prescribed\.setScheme\)/.test(html), 'E1: headline shows the top-set load');
+assert(/rxStr/.test(html)&&/\[\$\{schemeString\(ex\.prescribed\.setScheme/.test(html), 'E1: coach report prefixes the prescription scheme');
+S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.activeSession=null;
+
 console.log('\n=== All tests passed ===');

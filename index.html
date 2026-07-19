@@ -209,6 +209,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .ex-card.done .ex-head::after{content:'›';color:var(--tx3);font-size:14px;margin-left:4px;transition:transform var(--motion)}
 .ex-card.done.open .ex-head::after{transform:rotate(90deg)}
 .ex-sub .main-target{font-family:var(--sans)}
+.top-chip{display:block;font:700 7px var(--sans);color:var(--brand);letter-spacing:.4px;margin-top:1px}
 .pain-flag{min-width:44px;min-height:44px;background:none;border:none;color:var(--tx3);font-size:15px;cursor:pointer;flex-shrink:0;padding:0}
 .pain-flag.has{color:var(--red)}
 .variant-chips{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 10px;align-items:center}
@@ -2108,6 +2109,25 @@ function syncProgram(){
 
 // ===== HELPERS =====
 function repRange(s){const p=String(s);if(p.includes('-')||p.includes('–')){const a=p.split(/[-–]/).map(Number);return{min:a[0],max:a[1]}}const n=parseInt(p);return{min:n,max:n}}
+// Per-set load prescriptions ("1×5@87.5 + 3×5@80"): group consecutive runs
+// of equal reps@load. A single group ("4×5@80") reads like the uniform
+// shorthand — the composer is also honest for degenerate schemes.
+function schemeString(scheme,unit){
+  if(!Array.isArray(scheme)||!scheme.length)return'';
+  const groups=[];
+  scheme.forEach(r=>{
+    const g=groups[groups.length-1];
+    if(g&&g.reps===r.reps&&g.loadKg===r.loadKg)g.n++;
+    else groups.push({n:1,reps:r.reps,loadKg:r.loadKg});
+  });
+  return groups.map(g=>g.n+'×'+g.reps+'@'+fmtW(g.loadKg,unit||'kg').replace(' kg','').replace(' lb','')).join(' + ');
+}
+// Top entry of a scheme (heaviest; explicit tag wins).
+function schemeTop(scheme){
+  if(!Array.isArray(scheme)||!scheme.length)return null;
+  return scheme.find(r=>r.tag==='top')||scheme.reduce((m,r)=>r.loadKg>m.loadKg?r:m,scheme[0]);
+}
+
 // Next prescription for a BODYWEIGHT exercise that earned an increase.
 // Holds progress +5 sec ('15s'→'20s'); plain reps +1 ('8'→'9'). Ranges and
 // min-prescriptions return null (coach-managed) — better no suggestion than a
@@ -2980,7 +3000,7 @@ function startDay(i){
     // Lifting + calisthenics: exercise cards.
     S.activeSession.exercises=(day.exercises||[]).map(ex=>({
       name:ex.name,cat:ex.cat,cue:ex.cue||null,
-      prescribed:{sets:ex.sets,reps:ex.reps,loadKg:ex.loadKg,unit:ex.unit||'kg'},
+      prescribed:{sets:ex.sets,reps:ex.reps,loadKg:ex.loadKg,unit:ex.unit||'kg',setScheme:Array.isArray(ex.setScheme)?JSON.parse(JSON.stringify(ex.setScheme)):null},
       warmup:Array.isArray(ex.warmup)?JSON.parse(JSON.stringify(ex.warmup)):null,
       // equipmentClass drives suggestion snapping; variant keys the history track.
       equipmentClass:ex.equipmentClass||inferEquipmentClass(ex.name),
@@ -2994,8 +3014,16 @@ function startDay(i){
       (ex.warmup||[]).forEach(wu=>{
         ex.performed.push({type:'warmup',weightKg:wu.w,reps:wu.reps,rpe:null,logged:false});
       });
-      for(let k=0;k<ex.prescribed.sets;k++){
-        ex.performed.push({type:'working',weightKg:ex.prescribed.loadKg,reps:repRange(ex.prescribed.reps).max||parseInt(ex.prescribed.reps)||0,rpe:null,logged:false});
+      if(ex.prescribed.setScheme){
+        // Per-set prescription: each row carries its own load/reps; the top
+        // set keeps its tag so the UI can mark it.
+        ex.prescribed.setScheme.forEach(row=>{
+          ex.performed.push({type:'working',weightKg:row.loadKg,reps:+row.reps||0,rpe:null,logged:false,tag:row.tag||null});
+        });
+      } else {
+        for(let k=0;k<ex.prescribed.sets;k++){
+          ex.performed.push({type:'working',weightKg:ex.prescribed.loadKg,reps:repRange(ex.prescribed.reps).max||parseInt(ex.prescribed.reps)||0,rpe:null,logged:false});
+        }
       }
     });
   }
@@ -3253,7 +3281,7 @@ function renderEx(){
         <div class="ex-status ${stCls}">${allDone?'✓':anyDone?'◐':'○'}</div>
         <div class="ex-info">
           <div class="ex-name">${(ex.tags||[]).includes('bonus')?'<span style="color:var(--gold);font-size:10px;margin-right:4px">★</span>':''}${st==='calisthenics'&&(ex.prescribed.unit==='bw'||!ex.prescribed.loadKg)?'<span style="background:var(--brand-dim);color:var(--brand);font:600 10px var(--sans);padding:1px 5px;border-radius:3px;margin-right:5px">BW</span>':''}${ex.name}${ex.tags.includes('per side')?' <span class="td" style="font-size:11px">/side</span>':''}${ex.tags.includes('per hand')?' <span class="td" style="font-size:11px">/hand</span>':''}${ex.tags.includes('per leg')?' <span class="td" style="font-size:11px">/leg</span>':''}</div>
-          ${allDone?`<div class="ex-topset">${topSet}</div>`:`<div class="ex-rx">${catChip}${ex.prescribed.sets}×${ex.prescribed.reps}${ex.prescribed.loadKg?' @ '+fmtW(ex.prescribed.loadKg,ex.prescribed.unit):''}</div>`}
+          ${allDone?`<div class="ex-topset">${topSet}</div>`:`<div class="ex-rx">${catChip}${ex.prescribed.setScheme?schemeString(ex.prescribed.setScheme,ex.prescribed.unit)+' kg':`${ex.prescribed.sets}×${ex.prescribed.reps}${ex.prescribed.loadKg?' @ '+fmtW(ex.prescribed.loadKg,ex.prescribed.unit):''}`}</div>`}
           ${allDone?'':(()=>{
             // One secondary line: plate math · target context, single colour.
             const bits=[];
@@ -3267,7 +3295,7 @@ function renderEx(){
         ${progArrow}
       </div>
       <div class="ex-body">
-        ${ex.prescribed.loadKg?(()=>{const hu=S.settings.unit||'kg';const hw=hu==='lb'?Math.round(ex.prescribed.loadKg*K2L):ex.prescribed.loadKg;return`<div class="ex-headline"><span class="hl-w tnum">${hw}</span><span class="hl-u">${hu}</span><span class="hl-x">${ex.prescribed.sets} × ${ex.prescribed.reps}</span></div>`;})():''}
+        ${ex.prescribed.loadKg?(()=>{const hu=S.settings.unit||'kg';const topRow=schemeTop(ex.prescribed.setScheme);const hl=topRow?topRow.loadKg:ex.prescribed.loadKg;const hw=hu==='lb'?Math.round(hl*K2L):hl;const hx=topRow?schemeString(ex.prescribed.setScheme,ex.prescribed.unit):`${ex.prescribed.sets} × ${ex.prescribed.reps}`;return`<div class="ex-headline"><span class="hl-w tnum">${hw}</span><span class="hl-u">${hu}</span><span class="hl-x">${hx}</span></div>`;})():''}
         ${variantChips(ex,i)}
         ${getLastHint(ex)}
         ${(()=>{const firstUnlogged=ex.performed.findIndex(pp=>!pp.logged&&!pp.skipped);return ex.performed.map((s,si)=>{
@@ -3286,7 +3314,7 @@ function renderEx(){
           if(s.logged&&!isSkipped){
             const isPR=s.type==='working'&&isSetPR(ex.name,s.weightKg,s.reps,ex.variant);
             return`<div class="set-row ${stCl} compact${s._justLogged?' just-logged':''}">
-              <div class="set-num ${wu?'wu':''}"><span class="set-check">${icon('check',14)}</span></div>
+              <div class="set-num ${wu?'wu':''}"><span class="set-check">${icon('check',14)}</span>${s.tag==='top'?'<span class="top-chip">TOP</span>':''}</div>
               <div class="set-summary">${fmtW(s.weightKg,ex.prescribed.unit)} <span class="td">×</span> ${repsDisp}${isPR?' <span class="pr-tag" role="img" aria-label="personal record" title="Personal record">PR</span>':''}</div>
               <button class="set-rpe ${s.rpe?'has':''}" onclick="showRpePicker(this,${i},${si})" style="position:relative" aria-label="rate effort">${s.rpe?'@'+s.rpe:'RPE'}</button>
               <button class="set-edit" onclick="editSet(${i},${si})" title="Edit" aria-label="edit set">✎</button>
@@ -3308,7 +3336,7 @@ function renderEx(){
           const wVal = (wInputEl&&document.activeElement===wInputEl) ? wInputEl.value : dw;
           const rVal = (rInputEl&&document.activeElement===rInputEl) ? rInputEl.value : (s.reps||'');
           return`<div class="set-row ${stCl}${rowState}">
-            <div class="set-num ${wu?'wu':''}">${wn}</div>
+            <div class="set-num ${wu?'wu':''}">${wn}${s.tag==='top'?'<span class="top-chip">TOP</span>':''}</div>
             <div class="set-fields">
               <input type="number" step="0.5" value="${wVal}" placeholder="wt" id="w${i}_${si}" oninput="stashSetInput(${i},${si})" aria-label="weight">
               <span class="x">×</span>
@@ -4307,7 +4335,17 @@ function confirmRpe(){
   const dayExs=S.program.days[sess.dayIndex]?.exercises||[];
   sess.exercises.forEach((rx,ei)=>{
     if(rx.progression==='increase'&&!(rx.tags||[]).includes('bonus')&&ei<dayExs.length&&dayExs[ei].name===rx.name){
-      if(rx.nextLoad)dayExs[ei].loadKg=rx.nextLoad;
+      if(rx.nextLoad){
+        const dEx=dayExs[ei];
+        if(Array.isArray(dEx.setScheme)&&dEx.setScheme.length){
+          // Shift the whole scheme by the top-set delta: back-off offsets are
+          // the coach's ratio and travel with the top set.
+          const top=schemeTop(dEx.setScheme);
+          const delta=rx.nextLoad-(top?top.loadKg:dEx.loadKg);
+          dEx.setScheme.forEach(row=>{row.loadKg=Math.round((row.loadKg+delta)*100)/100;});
+        }
+        dEx.loadKg=rx.nextLoad; // flat shorthand stays = top-set load
+      }
       // BW parallel: earned rep/hold bump rewrites the reps prescription
       // ('15s'→'20s', '8'→'9'); suffix preserved by bwNextTarget.
       else if(rx.nextTarget)dayExs[ei].reps=rx.nextTarget;
@@ -5087,7 +5125,18 @@ function saveExEdit(){
   // Snap to a valid increment for the exercise's equipment class.
   ex.equipmentClass=inferEquipmentClass(ex.name);
   const rawKg=lu==='lb'?lv*L2K:lu==='bw'?0:lv;
-  ex.loadKg=snapLoadToEquipment(rawKg,ex.equipmentClass);
+  const _newLoad=snapLoadToEquipment(rawKg,ex.equipmentClass);
+  if(Array.isArray(ex.setScheme)&&ex.setScheme.length){
+    if(ex.sets!==ex.setScheme.length){
+      // Sets count no longer matches the scheme — uniform edit wins.
+      ex.setScheme=null;toast('Per-set scheme dropped (sets changed)');
+    } else {
+      const top=schemeTop(ex.setScheme);
+      const delta=_newLoad-(top?top.loadKg:ex.loadKg);
+      ex.setScheme.forEach(row=>{row.loadKg=Math.round((row.loadKg+delta)*100)/100;});
+    }
+  }
+  ex.loadKg=_newLoad;
   // Move to different day if changed — insert at same ordinal position in the target day
   // (clamped to the target's length) rather than unconditionally appending at the end.
   if(ndi!==odi){
@@ -5220,7 +5269,8 @@ function buildCoachReport(sessions,program,weekDates){
       const bonus=(ex.tags||[]).includes('bonus')?' [BONUS]':'';
       const setStr=w.map(s=>s.skipped?('SKIPPED'+(s.skipReason?' · '+s.skipReason:'')):(fmtW(s.weightKg,ex.prescribed?.unit)+'×'+s.reps+(s.rpe?' @ RPE '+s.rpe:''))).join(' / ');
       const vl=variantLabel(ex.variant);
-      r+=`  ${pi} ${ex.name}${vl?' ('+vl+')':''}${bonus}: ${setStr}`;
+      const rxStr=ex.prescribed&&ex.prescribed.setScheme?` [${schemeString(ex.prescribed.setScheme,ex.prescribed.unit)}]`:'';
+      r+=`  ${pi} ${ex.name}${vl?' ('+vl+')':''}${bonus}${rxStr}: ${setStr}`;
       // 4b: a suggestion equal to the load just performed is a HOLD, never a
       // "deload" (pain/bigMiss flags set nextLoad=topW; the report was
       // advertising "deload to 16.5" after a 16.5 session).
