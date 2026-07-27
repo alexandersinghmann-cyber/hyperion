@@ -1158,7 +1158,7 @@ assert(typeof ICONS === 'object' && ICONS, 'v3 icons: ICONS map defined');
 assert(typeof icon === 'function', 'v3 icons: icon() helper defined');
 assert(/^<svg /.test(icon('check')) && /viewBox/.test(icon('check')), 'v3 icons: icon() returns an <svg> string');
 assert(/width="28"/.test(icon('swim',28)), 'v3 icons: icon() honors size arg');
-assert(typeof APP_VERSION === 'string' && APP_VERSION === 'v4', 'v4: APP_VERSION === "v4" (W3 build cache-bust)');
+assert(typeof APP_VERSION === 'string' && APP_VERSION === 'v5', 'v5: APP_VERSION bumped for the SOLAR build cache-bust');
 
 // ===== TRACK A: SCHEMA MIGRATION + LOAD SNAPPING (Commit 2) =====
 // snapLoadToEquipment
@@ -2266,5 +2266,15 @@ assert(!/backdrop-filter/.test(html.match(/<style>([\s\S]*?)<\/style>/)[1]), 'SO
 (()=>{const st=html.match(/<style>([\s\S]*?)<\/style>/)[1];const g=(st.match(/(linear|radial)-gradient/g)||[]).length;assert(g<=3, 'SOLAR law: style-block gradient count within budget (token+start-btn+grain-free). Got '+g);})();
 assert(/#trainHdr::before\{[^}]*opacity:\.02;pointer-events:none\}/.test(html) && /feTurbulence/.test(html), 'SOLAR: static grain on Train header only, 2%');
 (()=>{const r=html.match(/#trainHdr::before\{[^}]*\}/);assert(r && !/animation/.test(r[0]), 'SOLAR: grain rule is static (no animation declaration)');})();
+
+// ===== S2: WORDMARK + PWA + TRAIN ALLOCATION =====
+assert(/<svg id="wordmark"[^>]*aria-label="HYPERION"/.test(html), 'S2: inline SVG wordmark present');
+assert(/<linearGradient id="wmSun"/.test(html) && /fill="url\(#wmSun\)"/.test(html), 'S2: gradient lives in the sun disc');
+assert(/<text[^>]*style="font:500 10\.5px var\(--display\)[^"]*"[^>]*fill="#EDEDED">HYPERION<\/text>/.test(html), 'S2: letterforms are solid #EDEDED in the display face');
+assert(!/text-shadow[^}]*HYPERION|HYPERION[^<]*text-shadow/.test(html), 'S2: old glow span retired');
+assert(/<meta name="theme-color" content="#050505">/.test(html), 'S2: theme-color matches OLED base');
+assert(/rel="icon"[^>]*%23050505/.test(html) && /rel="icon"[^>]*linearGradient/.test(html), 'S2: favicon is the black-field gradient sun');
+assert(/rel="apple-touch-icon" href="data:image\/png;base64,/.test(html), 'S2: touch icon inline PNG present');
+assert(/class="topset-chip tnum">TOP /.test(html) && /\.topset-chip\{[^}]*background:var\(--solar/.test(html), 'S2: Train top-set chip is the second budget surface');
 
 console.log('\n=== All tests passed ===');
