@@ -116,6 +116,20 @@
 @keyframes frglow{0%,100%{text-shadow:0 0 12px var(--brand-dim)}50%{text-shadow:0 0 32px var(--brand-dim)}}
 .fr-actions{display:flex;gap:12px;align-items:center}
 .fr-ghost{min-height:48px;padding:0 20px;border-radius:24px;border:1px solid var(--s3);background:none;color:var(--tx2);font:600 14px var(--sans);cursor:pointer}
+/* ===== FOCUS REORDER (S7) ===== */
+.rail-reorder{flex:0 0 auto;min-width:48px;min-height:48px;border-radius:12px;border:1px solid var(--s3);background:var(--s1);color:var(--tx2);font-size:16px;cursor:pointer}
+#focusRail.rail-locked .rail-scroll{overflow-x:hidden;touch-action:none}
+.rail-chip.dragging{opacity:.92;box-shadow:0 8px 24px rgba(0,0,0,.5);transform:scale(1.05);position:relative;z-index:50}
+.rail-chip.drop-target{border-color:var(--brand)}
+.ro-row{display:flex;align-items:center;gap:8px;padding:8px;background:var(--s1);border:1px solid var(--s2);border-radius:var(--rs);margin-bottom:6px;touch-action:none}
+.ro-row.dragging{opacity:.92;box-shadow:0 8px 24px rgba(0,0,0,.5);border-color:var(--brand)}
+.ro-row.drag-dim{opacity:.5}
+.ro-pair{border-left:2px solid var(--brand)}
+.ro-updown{display:flex;flex-direction:column;gap:2px}
+.ro-btn{min-width:48px;min-height:40px;border:1px solid var(--s3);background:none;color:var(--tx2);border-radius:var(--rs);font-size:11px;cursor:pointer}
+.ro-name{flex:1;font:600 14px var(--sans);min-width:0;overflow:hidden;text-overflow:ellipsis}
+.ro-handle{min-width:48px;min-height:48px;display:flex;align-items:center;justify-content:center;color:var(--tx3);font-size:20px;cursor:grab}
+.sum-order-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 16px;background:var(--s1);border:1px solid var(--s2);border-radius:var(--r);margin:12px 0}
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{transition:none !important;animation:none !important}
 }
@@ -690,6 +704,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       <div class="t2c" style="margin-top:4px" id="sumSub"></div>
     </div>
     <div id="sumExs"></div>
+    <div id="sumOrderRow"></div>
     <!-- The report is a WEEKLY artifact — no per-session report action here.
          Copy it from the Train header icon or the week-complete banner. -->
     <button class="btn btn-s btn-w" style="margin-top:10px" onclick="goTrain()">Back</button>
@@ -1116,6 +1131,15 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <div class="t-meta" style="margin-bottom:8px">Auto-checks from logged calisthenics (Strict Pull-Up, Strict Dip, False-Grip Pull-Up, MU Negative, Bar Muscle-Up). Tick manually to override.</div>
     <div id="muDetailBody"></div>
     <button class="btn btn-s btn-w" style="margin-top:12px" onclick="hideModal('muDetailModal')">Close</button>
+  </div>
+</div>
+
+<div class="overlay" id="reorderSheet">
+  <div class="modal">
+    <div class="modal-t">Reorder exercises</div>
+    <div class="t-meta" style="margin-bottom:8px">Drag the handle, or use the arrows. Superset pairs move as one.</div>
+    <div id="roList"></div>
+    <button class="btn btn-s btn-w" style="margin-top:12px;min-height:48px" onclick="hideModal('reorderSheet')">Done</button>
   </div>
 </div>
 
@@ -3731,10 +3755,10 @@ function renderFocusRail(){
   const chips=units.map((u,p)=>{
     const done=unitDone(sess,u);
     const names=u.eis.map(ei=>sess.exercises[ei].name).join(' \u29c9 ');
-    return `<button class="rail-chip${done?' done':''}${p===pos?' current':''}${u.eis.length>1?' pair':''}" onclick="focusGoTo(${p})">${done?'\u2713 ':''}${names}</button>`;
+    return `<button class="rail-chip${done?' done':''}${p===pos?' current':''}${u.eis.length>1?' pair':''}" data-pos="${p}" onclick="focusGoTo(${p})">${done?'\u2713 ':''}${names}</button>`;
   }).join('');
   const doneN=units.filter(u=>unitDone(sess,u)).length;
-  rail.innerHTML=`<div class="rail-scroll" id="railScroll">${chips}<button class="rail-chip fin${pos===units.length?' current':''}" onclick="focusGoTo(${units.length})">Finish</button></div><span class="rail-count tnum">${doneN}/${units.length}</span>`;
+  rail.innerHTML=`<div class="rail-scroll" id="railScroll">${chips}<button class="rail-chip fin${pos===units.length?' current':''}" onclick="focusGoTo(${units.length})">Finish</button></div><button class="rail-reorder" onclick="openReorderSheet()" aria-label="Reorder exercises">\u21c5</button><span class="rail-count tnum">${doneN}/${units.length}</span>`;
 }
 // One set row (focus template). Same handlers, ids and state classes as the
 // list rows — including .set-fields, which the keyboard-scroll fix keys off.
@@ -3942,6 +3966,138 @@ function focusMaybeAdvance(){
   const idxs=units.map((_,q)=>q);
   const nxt=idxs.slice(p+1).concat(idxs.slice(0,p)).find(q=>!unitDone(sess,units[q]));
   focusGoTo(nxt!=null?nxt:units.length);
+}
+// ===== FOCUS REORDER (S7) =====
+// Both entry points write S.activeSession.order immediately via
+// commitUnitOrder. Units (superset chains) move as ONE block, so pairs can
+// never be separated by the UI. exercises[] itself is never touched (S4).
+function commitUnitOrder(unitSeq){
+  const sess=S.activeSession;if(!sess)return;
+  sess.order=unitSeq.reduce((a,u)=>a.concat(u.eis),[]);
+  save();
+  try{renderEx();}catch(e){}
+  try{renderReorderRows();}catch(e){}
+}
+function moveUnit(p,d){
+  const sess=S.activeSession;if(!sess)return;
+  const units=focusUnits(sess);
+  const q=p+d;if(q<0||q>=units.length)return;
+  const t=units[p];units[p]=units[q];units[q]=t;
+  commitUnitOrder(units);
+}
+function openReorderSheet(){renderReorderRows();showModal('reorderSheet');}
+function renderReorderRows(){
+  const list=document.getElementById('roList');if(!list)return;
+  const sess=S.activeSession;
+  if(!sess){list.innerHTML='';return;}
+  const units=focusUnits(sess);
+  list.innerHTML=units.map((u,p)=>{
+    const names=u.eis.map(ei=>sess.exercises[ei].name).join(' \u29c9 ');
+    const done=unitDone(sess,u);
+    return `<div class="ro-row${u.eis.length>1?' ro-pair':''}" data-pos="${p}">
+      <div class="ro-updown"><button class="ro-btn" onclick="moveUnit(${p},-1)" aria-label="Move ${names} up">\u25b2</button><button class="ro-btn" onclick="moveUnit(${p},1)" aria-label="Move ${names} down">\u25bc</button></div>
+      <div class="ro-name">${done?'\u2713 ':''}${names}${u.eis.length>1?' <span class="t-meta">superset</span>':''}</div>
+      <div class="ro-handle" aria-label="Drag to reorder">\u2261</div>
+    </div>`;
+  }).join('');
+}
+// PRIMARY: dedicated handles drag immediately (no hold — it's a handle).
+function wireReorderDrag(list){
+  if(!list||typeof list.addEventListener!=='function')return;
+  let dragRow=null;
+  list.addEventListener('pointerdown',e=>{
+    const h=e.target&&e.target.closest&&e.target.closest('.ro-handle');
+    if(!h)return;
+    dragRow=h.closest('.ro-row');
+    if(!dragRow)return;
+    if(e.preventDefault)e.preventDefault();
+    try{if(list.setPointerCapture)list.setPointerCapture(e.pointerId);}catch(err){}
+    dragRow.classList.add('dragging');
+    [...list.querySelectorAll('.ro-row')].forEach(r=>{if(r!==dragRow)r.classList.add('drag-dim');});
+  });
+  list.addEventListener('pointermove',e=>{
+    if(!dragRow)return;
+    if(e.preventDefault)e.preventDefault();
+    const rows=[...list.querySelectorAll('.ro-row')].filter(r=>r!==dragRow);
+    const tgt=rows.find(r=>{const b=r.getBoundingClientRect();return e.clientY<b.top+b.height/2;});
+    if(tgt)list.insertBefore(dragRow,tgt);else list.appendChild(dragRow);
+  });
+  const drop=()=>{
+    if(!dragRow)return;
+    dragRow.classList.remove('dragging');
+    [...list.querySelectorAll('.ro-row')].forEach(r=>r.classList.remove('drag-dim'));
+    dragRow=null;
+    const sess=S.activeSession;if(!sess)return;
+    const units=focusUnits(sess); // pre-commit snapshot: data-pos indexes it
+    const seq=[...list.querySelectorAll('.ro-row')].map(r=>units[+r.getAttribute('data-pos')]).filter(Boolean);
+    if(seq.length===units.length)commitUnitOrder(seq);
+  };
+  list.addEventListener('pointerup',drop);
+  list.addEventListener('pointercancel',drop);
+}
+// SECONDARY: 300ms long-press on a rail chip (haptic), rail scroll-locked
+// during the drag; a plain tap stays navigation.
+let _railHoldT=null;
+let _railDragged=false;
+function wireRailDrag(rail){
+  if(!rail||typeof rail.addEventListener!=='function')return;
+  let chip=null,armed=false,x0=0;
+  const clear=()=>{
+    if(_railHoldT){clearTimeout(_railHoldT);_railHoldT=null;}
+    try{
+      if(chip)chip.classList.remove('dragging');
+      rail.classList.remove('rail-locked');
+      [...rail.querySelectorAll('.rail-chip')].forEach(c=>c.classList.remove('drop-target','drag-dim'));
+    }catch(e){}
+    chip=null;armed=false;
+  };
+  rail.addEventListener('pointerdown',e=>{
+    const c=e.target&&e.target.closest&&e.target.closest('.rail-chip');
+    if(!c||!c.hasAttribute('data-pos'))return;
+    chip=c;x0=e.clientX;armed=false;
+    _railHoldT=setTimeout(()=>{
+      _railHoldT=null;armed=true;
+      if(navigator.vibrate)navigator.vibrate(10);
+      chip.classList.add('dragging');
+      rail.classList.add('rail-locked');
+      try{if(rail.setPointerCapture)rail.setPointerCapture(e.pointerId);}catch(err){}
+      [...rail.querySelectorAll('.rail-chip[data-pos]')].forEach(c2=>{if(c2!==chip)c2.classList.add('drag-dim');});
+    },300);
+  });
+  rail.addEventListener('pointermove',e=>{
+    if(!chip)return;
+    if(!armed){
+      if(Math.abs(e.clientX-x0)>10)clear(); // scroll intent kills the hold
+      return;
+    }
+    if(e.preventDefault)e.preventDefault();
+    const chips=[...rail.querySelectorAll('.rail-chip[data-pos]')].filter(c2=>c2!==chip);
+    chips.forEach(c2=>c2.classList.remove('drop-target'));
+    const tgt=chips.find(c2=>{const b=c2.getBoundingClientRect();return e.clientX<b.left+b.width/2;});
+    if(tgt)tgt.classList.add('drop-target');
+  });
+  const up=e=>{
+    const wasArmed=armed,c=chip;
+    if(!wasArmed){clear();return;}
+    const sess=S.activeSession;
+    const units=sess?focusUnits(sess):[];
+    const from=c?+c.getAttribute('data-pos'):NaN;
+    const chips=[...rail.querySelectorAll('.rail-chip[data-pos]')].filter(c2=>c2!==c);
+    const tgt=chips.find(c2=>{const b=c2.getBoundingClientRect();return e.clientX<b.left+b.width/2;});
+    const to=tgt?+tgt.getAttribute('data-pos'):units.length-1;
+    clear();
+    _railDragged=true;
+    if(!sess||isNaN(from)||from===to)return;
+    const seq=units.slice();
+    const m=seq.splice(from,1)[0];
+    const ins=tgt?(to>from?to-1:to):seq.length;
+    seq.splice(ins,0,m);
+    commitUnitOrder(seq);
+  };
+  rail.addEventListener('pointerup',up);
+  rail.addEventListener('pointercancel',()=>clear());
+  // A drag must not ALSO fire the chip's navigation onclick.
+  rail.addEventListener('click',e=>{if(_railDragged){_railDragged=false;if(e.stopPropagation)e.stopPropagation();if(e.preventDefault)e.preventDefault();}},true);
 }
 function activateBonus(bi){
   const sess=S.activeSession;if(!sess)return;
@@ -4943,6 +5099,11 @@ function confirmRpe(){
 // ===== SUMMARY =====
 function renderSummary(rec){
   document.getElementById('sumSub').textContent=`${rec.dayLabel} · ${fmtDate(rec.date)} · ${rec.duration} min · RPE ${rec.rpe||'—'}`;
+  // Focus-mode reorder (S7): inline offer when session order ≠ program.
+  try{
+    const orow=document.getElementById('sumOrderRow');
+    if(orow)orow.innerHTML=_orderOffer?`<div class="sum-order-row"><span class="t-body">Keep this order?</span><div style="display:flex;gap:8px"><button class="btn btn-sm btn-g" style="min-height:48px" onclick="dismissOrderOffer()">Just today</button><button class="btn btn-sm btn-p" style="min-height:48px" onclick="applyOrderOffer()">Save to program</button></div></div>`:'';
+  }catch(e){}
   document.getElementById('sumExs').innerHTML=rec.exercises.map(ex=>{
     const w=(ex.performed||[]).filter(s=>s.type==='working');
     const wu=(ex.performed||[]).filter(s=>s.type==='warmup');
@@ -6124,6 +6285,9 @@ function init(){
   load();
   // Focus-mode swipe (S6): the track is static DOM — wire once, mock-guarded.
   try{const _ft=document.getElementById('focusTrack');wireFocusSwipe(_ft);}catch(e){}
+  // Reorder surfaces (S7): static containers — listeners survive re-renders.
+  try{wireReorderDrag(document.getElementById('roList'));}catch(e){}
+  try{wireRailDrag(document.getElementById('focusRail'));}catch(e){}
   if(S.activeSession){
     sessionStart=S.activeSession.startTime||Date.now();startTimer();
     showView('vSession');renderEx();

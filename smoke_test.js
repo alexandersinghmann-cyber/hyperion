@@ -39,7 +39,9 @@ const patched = js
   .replace(/\blet _orderOffer\s*=/g, 'var _orderOffer =')
   .replace(/\blet _focusIdx\s*=/g, 'var _focusIdx =')
   .replace(/\bconst FOCUS_SWIPE\s*=/g, 'var FOCUS_SWIPE =')
-  .replace(/\blet _kbT\s*=/g, 'var _kbT =');
+  .replace(/\blet _kbT\s*=/g, 'var _kbT =')
+  .replace(/\blet _railHoldT\s*=/g, 'var _railHoldT =')
+  .replace(/\blet _railDragged\s*=/g, 'var _railDragged =');
 (0, eval)(patched);
 // Expose helpers globally (they were `function` declarations, already global when eval'd indirectly)
 
@@ -2426,5 +2428,29 @@ assert(/resting&&!focusOnSession/.test(html), 'S6: rest strip suppressed on-sess
   _focusIdx=null;S.activeSession=null;
 })();
 assert(/function stopRest\(\)\{[\s\S]{0,300}?focusRestSync\(false\)[\s\S]{0,40}?renderSessionBar\(\)\}/.test(html), 'S6: stopRest syncs the overlay and still ends with renderSessionBar');
+
+// ===== S7: REORDER =====
+assert(typeof commitUnitOrder==='function'&&typeof moveUnit==='function'&&typeof openReorderSheet==='function'&&typeof wireReorderDrag==='function'&&typeof wireRailDrag==='function', 'S7: reorder API defined');
+wireReorderDrag(null);wireRailDrag({}); // mock-safe bails
+(()=>{ // moveUnit keeps pairs as one block and writes order immediately
+  S.activeSession={dayIndex:0,dayLabel:'X',sessionType:'lifting',startTime:1,notes:'',exercises:[
+    {name:'A',supersetNext:true,performed:[{type:'working',logged:false}]},
+    {name:'B',performed:[{type:'working',logged:false}]},
+    {name:'C',performed:[{type:'working',logged:false}]}],order:[0,1,2]};
+  moveUnit(1,-1); // C above the A+B pair
+  assert(JSON.stringify(S.activeSession.order)==='[2,0,1]', 'S7: pair moved as one block. Got '+JSON.stringify(S.activeSession.order));
+  assert(focusUnits(S.activeSession).length===2, 'S7: pair still one unit after reorder');
+  moveUnit(0,1);
+  assert(JSON.stringify(S.activeSession.order)==='[0,1,2]', 'S7: move back restores identity');
+  moveUnit(0,-1);
+  assert(JSON.stringify(S.activeSession.order)==='[0,1,2]', 'S7: clamped at the top edge');
+  S.activeSession=null;
+})();
+assert(/id="reorderSheet"/.test(html)&&/id="roList"/.test(html)&&/class="ro-handle"/.test(html), 'S7: bottom sheet with drag handles present');
+assert(/class="rail-reorder"/.test(html)&&/openReorderSheet\(\)/.test(html), 'S7: rail carries the primary reorder button');
+assert(/_railHoldT=setTimeout\(/.test(html)&&/,300\);/.test(html)&&/navigator\.vibrate\(10\)/.test(html), 'S7: rail long-press arms at 300ms with haptic');
+assert(/#focusRail\.rail-locked \.rail-scroll\{overflow-x:hidden;touch-action:none\}/.test(html), 'S7: rail scroll-locked during drag');
+assert(/id="sumOrderRow"/.test(html)&&/Keep this order\?/.test(html)&&/Just today/.test(html)&&/Save to program/.test(html), 'S7: summary inline row (not a modal) wired');
+assert(/\.ro-btn\{min-width:48px;min-height:40px/.test(html)&&/\.ro-handle\{min-width:48px;min-height:48px/.test(html), 'S7: reorder controls meet tap-target sizes');
 
 console.log('\n=== All tests passed ===');
