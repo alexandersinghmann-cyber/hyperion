@@ -2409,7 +2409,7 @@ assert(true, 'S6: wireFocusSwipe bails on mock elements');
 assert(/clientX<FOCUS_SWIPE\.edge\|\|e\.clientX>vw-FOCUS_SWIPE\.edge/.test(html), 'S6: both screen edges are dead zones');
 assert(/closest\('\.fc-hscroll'\)/.test(html), 'S6: card-internal horizontal scrollers stop the swipe');
 assert(/Math\.abs\(dx\)>=FOCUS_SWIPE\.commit\|\|\(Math\.abs\(dx\)>=24&&v>=FOCUS_SWIPE\.velMin\)/.test(html), 'S6: commit = distance OR velocity');
-assert(/#focusRoot\.kb-compact \.fc-readout\{[^}]*min-height:0/.test(html)&&/#focusRoot\.kb-compact #focusRail\{display:none\}/.test(html), 'S6: keyboard compression collapses readout + hides rail');
+assert(/#focusRoot\.kb-compact \.fc-readout\{[^}]*min-height:0/.test(html)&&/#vSession\.focus-on #focusRoot\.kb-compact #focusRail\{display:none\}/.test(html), 'S6: keyboard compression collapses readout + hides rail');
 assert(/@keyframes frglow/.test(html)&&/\.fr-count\{[^}]*var\(--display\)[^}]*animation:frglow/.test(html), 'S6: rest countdown in the display face with the slow glow pulse');
 assert(/id="focusRestDisp"/.test(html)&&/_fd\.textContent=rem<=0\?'GO'/.test(html), 'S6: rest tick mirrors into the focus overlay');
 assert(/resting&&!focusOnSession/.test(html), 'S6: rest strip suppressed on-session in focus; backgrounded mini-bar unchanged');
@@ -2452,5 +2452,31 @@ assert(/_railHoldT=setTimeout\(/.test(html)&&/,300\);/.test(html)&&/navigator\.v
 assert(/#focusRail\.rail-locked \.rail-scroll\{overflow-x:hidden;touch-action:none\}/.test(html), 'S7: rail scroll-locked during drag');
 assert(/id="sumOrderRow"/.test(html)&&/Keep this order\?/.test(html)&&/Just today/.test(html)&&/Save to program/.test(html), 'S7: summary inline row (not a modal) wired');
 assert(/\.ro-btn\{min-width:48px;min-height:40px/.test(html)&&/\.ro-handle\{min-width:48px;min-height:48px/.test(html), 'S7: reorder controls meet tap-target sizes');
+
+// ===== S8: DESIGN-LAW AUDIT =====
+// Gradient budget: 2 surfaces per screen. Style block carries only the
+// --solar token + .start-btn; every other gradient is an SVG def. A surface
+// is >24px in both axes — the 10px wordmark glyph disc is chrome, not a
+// surface (the spec's Goals allocation assumed the wordmark lived there;
+// in this app it lives in the Train header — flagged in the ship report).
+(()=>{const defs=(html.match(/<linearGradient /g)||[]).length;assert(defs===3&&/%3ClinearGradient/.test(html), 'S8 law: exactly 3 inline SVG gradient defs (wordmark glyph, sun, mountain fade) + the URL-encoded favicon. Got '+defs);})();
+assert(/id="wmSun"/.test(html)&&/id="sunGrad"/.test(html)&&/id="mtnFade"/.test(html), 'S8 law: every def is named + accounted');
+// Shadow budget: max ONE layer per element — no comma outside parens in any
+// box-shadow value in the style block.
+(()=>{
+  const st=html.match(/<style>([\s\S]*?)<\/style>/)[1];
+  const strip=v=>{let x=v,y='';while(x!==y){y=x;x=x.replace(/\([^()]*\)/g,'');}return x;};
+  const bad=(st.match(/box-shadow:[^;}]*/g)||[]).filter(v=>/,/.test(strip(v)));
+  assert(bad.length===0, 'S8 law: single box-shadow layer everywhere. Offenders: '+bad.join(' | '));
+})();
+assert(!/backdrop-filter/.test(html.match(/<style>([\s\S]*?)<\/style>/)[1]), 'S8 law: no backdrop-filter (re-check post-S7)');
+// Motion: only the two tokens + reduced-motion blanket
+assert(/--motion:200ms cubic-bezier\(\.2,0,0,1\)/.test(html)&&/--motion-hero:320ms cubic-bezier\(\.2,0,0,1\)/.test(html), 'S8 law: motion tokens 200/320 single easing');
+assert(/@media \(prefers-reduced-motion: reduce\)/.test(html), 'S8 law: reduced-motion blanket present');
+// A11y: new focus-mode controls meet 48px
+assert(/\.rail-chip\{[^}]*min-height:48px/.test(html)&&/\.fr-ghost\{min-height:48px/.test(html)&&/\.fc-log\{[^}]*min-height:52px/.test(html), 'S8 a11y: focus-mode tap targets >=48px');
+assert(/button:focus-visible[^{]*\{outline:2px solid var\(--brand\)/.test(html), 'S8 a11y: focus indicators visible');
+// Progression/e1RM/validator functions untouched: canary asserts
+assert(typeof evalProg==='function'&&typeof e1rm==='function'&&typeof validateSession==='function'&&typeof validateProgram==='function', 'S8: engine canaries intact');
 
 console.log('\n=== All tests passed ===');
