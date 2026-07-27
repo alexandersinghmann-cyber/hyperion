@@ -37,7 +37,9 @@ const patched = js
   .replace(/\blet sessionStart\s*=/g, 'var sessionStart =')
   .replace(/\blet _painArea\s*=/g, 'var _painArea =')
   .replace(/\blet _orderOffer\s*=/g, 'var _orderOffer =')
-  .replace(/\blet _focusIdx\s*=/g, 'var _focusIdx =');
+  .replace(/\blet _focusIdx\s*=/g, 'var _focusIdx =')
+  .replace(/\bconst FOCUS_SWIPE\s*=/g, 'var FOCUS_SWIPE =')
+  .replace(/\blet _kbT\s*=/g, 'var _kbT =');
 (0, eval)(patched);
 // Expose helpers globally (they were `function` declarations, already global when eval'd indirectly)
 
@@ -2396,5 +2398,33 @@ assert(/#vSession\.focus-on #exList\{display:none\}/.test(html), 'S5: list layer
 assert(/\.fc-readout-w\{[^}]*var\(--display\);background:var\(--solar\);-webkit-background-clip:text/.test(html), 'S5: giant readout number carries the gradient via text clip');
 assert(/\.fc-log\{[^}]*min-height:52px[^}]*background:var\(--solar\)/.test(html), 'S5: full-width gradient Log button (second focus surface)');
 assert(/class="set-fields"/.test(focusSetRowHTML({prescribed:{reps:'5',sets:3,unit:'kg'},performed:[{type:'working',weightKg:10,reps:5}],tags:[],name:'T'},0,{type:'working',weightKg:10,reps:5,logged:false},0,null)), 'S5: focus rows keep .set-fields (keyboard-scroll contract)');
+
+// ===== S6: GESTURES + KEYBOARD COMPRESSION + REST OVERLAY =====
+assert(FOCUS_SWIPE.edge===28&&FOCUS_SWIPE.commit===56&&FOCUS_SWIPE.velMin===0.5&&FOCUS_SWIPE.slop===8, 'S6: swipe-safety constants per spec (28px edge guard, 56px commit, velocity check)');
+assert(typeof wireFocusSwipe==='function'&&typeof focusRestSync==='function'&&typeof focusMaybeAdvance==='function', 'S6: gesture + rest API defined');
+wireFocusSwipe(null);wireFocusSwipe({}); // mock-safe: bails without addEventListener
+assert(true, 'S6: wireFocusSwipe bails on mock elements');
+assert(/clientX<FOCUS_SWIPE\.edge\|\|e\.clientX>vw-FOCUS_SWIPE\.edge/.test(html), 'S6: both screen edges are dead zones');
+assert(/closest\('\.fc-hscroll'\)/.test(html), 'S6: card-internal horizontal scrollers stop the swipe');
+assert(/Math\.abs\(dx\)>=FOCUS_SWIPE\.commit\|\|\(Math\.abs\(dx\)>=24&&v>=FOCUS_SWIPE\.velMin\)/.test(html), 'S6: commit = distance OR velocity');
+assert(/#focusRoot\.kb-compact \.fc-readout\{[^}]*min-height:0/.test(html)&&/#focusRoot\.kb-compact #focusRail\{display:none\}/.test(html), 'S6: keyboard compression collapses readout + hides rail');
+assert(/@keyframes frglow/.test(html)&&/\.fr-count\{[^}]*var\(--display\)[^}]*animation:frglow/.test(html), 'S6: rest countdown in the display face with the slow glow pulse');
+assert(/id="focusRestDisp"/.test(html)&&/_fd\.textContent=rem<=0\?'GO'/.test(html), 'S6: rest tick mirrors into the focus overlay');
+assert(/resting&&!focusOnSession/.test(html), 'S6: rest strip suppressed on-session in focus; backgrounded mini-bar unchanged');
+// focusMaybeAdvance: advances past a completed unit at rest end, wraps to earlier incomplete
+(()=>{
+  S.activeSession={dayIndex:0,dayLabel:'X',sessionType:'lifting',startTime:1,notes:'',exercises:[
+    {name:'A',performed:[{type:'working',logged:false}]},
+    {name:'B',performed:[{type:'working',logged:true}]},
+    {name:'C',performed:[{type:'working',logged:false}]}],order:[0,1,2]};
+  _focusIdx=1; // sitting on the (done) B card
+  focusMaybeAdvance();
+  assert(_focusIdx===2, 'S6: rest-end advance moves to the next incomplete unit. Got '+_focusIdx);
+  _focusIdx=1;S.activeSession.exercises[2].performed[0].logged=true;
+  focusMaybeAdvance();
+  assert(_focusIdx===0, 'S6: advance wraps to EARLIER incomplete units (out-of-order first-class). Got '+_focusIdx);
+  _focusIdx=null;S.activeSession=null;
+})();
+assert(/function stopRest\(\)\{[\s\S]{0,300}?focusRestSync\(false\)[\s\S]{0,40}?renderSessionBar\(\)\}/.test(html), 'S6: stopRest syncs the overlay and still ends with renderSessionBar');
 
 console.log('\n=== All tests passed ===');

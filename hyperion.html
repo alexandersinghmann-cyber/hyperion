@@ -2424,7 +2424,10 @@ function renderSessionBar(currentViewId){
       pr.textContent=exs.length?done+'/'+exs.length:(sess.activity?'activity':'');
     }
   }
-  const show=resting||showSummary;
+  // Focus mode renders its own rest overlay on-session; the strip would
+  // double up. Off vSession (backgrounded) behaviour is bit-identical.
+  const focusOnSession=live&&onSession&&(S.settings.sessionView||'focus')!=='list'&&!(S.activeSession&&S.activeSession.activity);
+  const show=(resting&&!focusOnSession)||showSummary;
   bar.classList.toggle('on',show);
   if(app&&app.classList)app.classList.toggle('has-sessbar',show);
 }
@@ -3850,6 +3853,96 @@ function focusWrapCardHTML(sess){
     <button class="btn btn-d btn-w" style="margin-top:16px;min-height:48px" onclick="endSession()">End Session</button>
   </div>`;
 }
+// ===== FOCUS GESTURES + REST (S6) =====
+// Swipe is the SHORTCUT; rail taps stay the primary navigation. Edge starts
+// are dead (iOS back-swipe guard), slop disambiguates vertical card scroll,
+// commit needs distance OR velocity.
+const FOCUS_SWIPE={edge:28,commit:56,velMin:0.5,slop:8};
+function wireFocusSwipe(track){
+  if(!track||typeof track.addEventListener!=='function')return;
+  let x0=0,y0=0,t0=0,state='idle',startPos=0;
+  const reduced=()=>((typeof matchMedia==='function')&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+  track.addEventListener('pointerdown',e=>{
+    if(!S.activeSession){state='dead';return;}
+    const vw=(typeof window!=='undefined'&&window.innerWidth)||375;
+    if(e.clientX<FOCUS_SWIPE.edge||e.clientX>vw-FOCUS_SWIPE.edge){state='dead';return;}
+    if(e.target&&e.target.closest&&(e.target.closest('.fc-hscroll')||e.target.closest('input')||e.target.closest('button')||e.target.closest('.rpe-inline')||e.target.closest('.ex-menu'))){state='dead';return;}
+    x0=e.clientX;y0=e.clientY;t0=Date.now();state='pending';startPos=focusPos();
+  });
+  track.addEventListener('pointermove',e=>{
+    if(state==='dead'||state==='scrolling'||state==='idle'||!S.activeSession)return;
+    const dx=e.clientX-x0,dy=e.clientY-y0;
+    if(state==='pending'){
+      if(Math.abs(dy)>FOCUS_SWIPE.slop&&Math.abs(dy)>=Math.abs(dx)){state='scrolling';return;}
+      if(Math.abs(dx)>FOCUS_SWIPE.slop&&Math.abs(dx)>1.2*Math.abs(dy)){
+        state='dragging';
+        try{if(track.setPointerCapture)track.setPointerCapture(e.pointerId);}catch(err){}
+        try{track.classList.add('no-anim');}catch(err){}
+      } else return;
+    }
+    if(state==='dragging'){
+      if(e.preventDefault)e.preventDefault();
+      const units=focusUnits(S.activeSession);
+      let off=dx;
+      if((startPos===0&&dx>0)||(startPos>=units.length&&dx<0))off=dx/3; // rubber-band
+      track.style.transform='translateX(calc(-'+(startPos*100)+'% + '+off+'px))';
+    }
+  });
+  const settle=e=>{
+    if(state!=='dragging'){state='idle';return;}
+    state='idle';
+    const dx=e.clientX-x0,dt=Math.max(1,Date.now()-t0),v=Math.abs(dx)/dt;
+    const commit=Math.abs(dx)>=FOCUS_SWIPE.commit||(Math.abs(dx)>=24&&v>=FOCUS_SWIPE.velMin);
+    if(!reduced())try{track.classList.remove('no-anim');}catch(err){}
+    focusGoTo(startPos+(commit?(dx<0?1:-1):0));
+  };
+  track.addEventListener('pointerup',settle);
+  track.addEventListener('pointercancel',settle);
+}
+// Giant readout compresses while a card input owns the keyboard; 120ms
+// focusout debounce keeps the weight→reps hop flicker-free. Additive to the
+// existing .set-fields scrollIntoView handler (which fires at +150ms).
+let _kbT=null;
+document.addEventListener('focusin',e=>{
+  try{
+    const t=e.target;
+    if(t&&t.closest&&t.tagName==='INPUT'&&t.closest('.fcard')){
+      if(_kbT){clearTimeout(_kbT);_kbT=null;}
+      const fr=document.getElementById('focusRoot');if(fr&&fr.classList)fr.classList.add('kb-compact');
+    }
+  }catch(err){}
+});
+document.addEventListener('focusout',e=>{
+  try{
+    if(_kbT)clearTimeout(_kbT);
+    _kbT=setTimeout(()=>{
+      _kbT=null;
+      const ae=document.activeElement;
+      if(!(ae&&ae.closest&&ae.tagName==='INPUT'&&ae.closest('.fcard'))){
+        const fr=document.getElementById('focusRoot');if(fr&&fr.classList)fr.classList.remove('kb-compact');
+      }
+    },120);
+  }catch(err){}
+});
+// Rest-state sync for the focus overlay; #restBar stays untouched for list
+// mode and backgrounded sessions. On rest end, auto-advance if the current
+// unit is done (user navigation during rest naturally suppresses this).
+function focusRestSync(on){
+  const focus=!!S.activeSession&&(S.settings.sessionView||'focus')!=='list';
+  try{const ov=document.getElementById('focusRestOverlay');if(ov&&ov.classList)ov.classList.toggle('on',!!on&&focus);}catch(e){}
+  try{const tr=document.getElementById('focusTrack');if(tr&&tr.classList)tr.classList.toggle('resting',!!on&&focus);}catch(e){}
+  if(!on)try{focusMaybeAdvance();}catch(e){}
+}
+function focusMaybeAdvance(){
+  const sess=S.activeSession;if(!sess)return;
+  if((S.settings.sessionView||'focus')==='list')return;
+  const units=focusUnits(sess);
+  const p=focusPos();
+  if(p>=units.length||!unitDone(sess,units[p]))return;
+  const idxs=units.map((_,q)=>q);
+  const nxt=idxs.slice(p+1).concat(idxs.slice(0,p)).find(q=>!unitDone(sess,units[q]));
+  focusGoTo(nxt!=null?nxt:units.length);
+}
 function activateBonus(bi){
   const sess=S.activeSession;if(!sess)return;
   const day=S.program.days[sess.dayIndex];
@@ -4587,10 +4680,12 @@ function startRest(sec){
   stopRest();restDur=sec;restEnd=Date.now()+sec*1000;
   const bar=document.getElementById('restBar');bar.classList.add('on');
   document.getElementById('restDisp').classList.remove('go');
+  try{focusRestSync(true);}catch(e){}
   restInt=setInterval(()=>{
     const rem=Math.max(0,Math.ceil((restEnd-Date.now())/1000));
     const m=Math.floor(rem/60),s=rem%60;
     document.getElementById('restDisp').textContent=`${m}:${String(s).padStart(2,'0')}`;
+    const _fd=document.getElementById('focusRestDisp');if(_fd)_fd.textContent=rem<=0?'GO':`${m}:${String(s).padStart(2,'0')}`;
     document.getElementById('restProg').style.width=((restDur-rem)/restDur*100)+'%';
     if(rem<=0){
       document.getElementById('restDisp').classList.add('go');
@@ -4610,7 +4705,7 @@ function startRest(sec){
   // earlier call would leave the strip hidden for the whole rest.
   renderSessionBar();
 }
-function stopRest(){cancelBeep();if(_restAutoStopTimer){clearTimeout(_restAutoStopTimer);_restAutoStopTimer=null}if(restInt)clearInterval(restInt);restInt=null;document.getElementById('restBar').classList.remove('on');renderSessionBar()}
+function stopRest(){cancelBeep();if(_restAutoStopTimer){clearTimeout(_restAutoStopTimer);_restAutoStopTimer=null}if(restInt)clearInterval(restInt);restInt=null;document.getElementById('restBar').classList.remove('on');try{focusRestSync(false)}catch(e){};renderSessionBar()}
 function skipRest(){cancelBeep();stopRest()}
 function addRest(s){if(restEnd){restEnd+=s*1000;restDur+=s;// reschedule beep to new end
   if(_restBeepTimer)clearTimeout(_restBeepTimer);
@@ -6027,6 +6122,8 @@ document.addEventListener('focusin',e=>{
 function init(){
   // iOS standalone PWA: extend #app into the dead space below the CSS viewport
   load();
+  // Focus-mode swipe (S6): the track is static DOM — wire once, mock-guarded.
+  try{const _ft=document.getElementById('focusTrack');wireFocusSwipe(_ft);}catch(e){}
   if(S.activeSession){
     sessionStart=S.activeSession.startTime||Date.now();startTimer();
     showView('vSession');renderEx();
