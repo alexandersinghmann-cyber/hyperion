@@ -36,7 +36,8 @@ const patched = js
   .replace(/\bconst BRAND_CYCLE\s*=/g, 'var BRAND_CYCLE =')
   .replace(/\blet sessionStart\s*=/g, 'var sessionStart =')
   .replace(/\blet _painArea\s*=/g, 'var _painArea =')
-  .replace(/\blet _orderOffer\s*=/g, 'var _orderOffer =');
+  .replace(/\blet _orderOffer\s*=/g, 'var _orderOffer =')
+  .replace(/\blet _focusIdx\s*=/g, 'var _focusIdx =');
 (0, eval)(patched);
 // Expose helpers globally (they were `function` declarations, already global when eval'd indirectly)
 
@@ -2264,7 +2265,7 @@ assert(BRAND_CYCLE.map(e=>e.name).join()==='ember,voltage,royal,lime,gold,crimso
 assert(BRAND_CYCLE[1].c==='#22D3EE'&&BRAND_CYCLE[1].c2==='#7DF9C2'&&BRAND_CYCLE[3].c2==='#34D399', 'SOLAR: voltage + lime pairs match the spec');
 assert(/setProperty\('--solar','linear-gradient\(135deg,'\+e\.c\+','\+e\.c2\+'\)'\)/.test(html), 'SOLAR: applyBrand publishes the pair as --solar');
 assert(!/backdrop-filter/.test(html.match(/<style>([\s\S]*?)<\/style>/)[1]), 'SOLAR law: no backdrop-filter anywhere');
-(()=>{const st=html.match(/<style>([\s\S]*?)<\/style>/)[1];const g=(st.match(/(linear|radial)-gradient/g)||[]).length;assert(g<=3, 'SOLAR law: style-block gradient count within budget (token+start-btn+grain-free). Got '+g);})();
+(()=>{const st=html.match(/<style>([\s\S]*?)<\/style>/)[1];const g=(st.match(/(linear|radial)-gradient/g)||[]).length;assert(g<=2, 'SOLAR law: style-block gradients are exactly the --solar token + start-btn (surfaces read the token). Got '+g);})();
 assert(/#trainHdr::before\{[^}]*opacity:\.02;pointer-events:none\}/.test(html) && /feTurbulence/.test(html), 'SOLAR: static grain on Train header only, 2%');
 (()=>{const r=html.match(/#trainHdr::before\{[^}]*\}/);assert(r && !/animation/.test(r[0]), 'SOLAR: grain rule is static (no animation declaration)');})();
 
@@ -2351,5 +2352,49 @@ assert(S.settings.sessionView==='focus'||S.settings.sessionView==='list', 'S4: s
 assert(/if\(!S\.settings\.sessionView\)S\.settings\.sessionView='focus';/.test(html), 'S4: load() backfills sessionView');
 assert(/id="sViewBtn"/.test(html)&&/Session view</.test(html), 'S4: Settings row present');
 assert(/_orderOffer=sessOrderDiffers\(sess\)/.test(html), 'S4: offer captured in confirmRpe after write-back');
+
+// ===== S5: FOCUS VIEW SHELL =====
+assert(typeof renderFocus==='function'&&typeof renderExList==='function'&&typeof focusUnits==='function'&&typeof focusCardHTML==='function'&&typeof renderFocusRail==='function'&&typeof focusGoTo==='function', 'S5: focus render API defined');
+// superset pair → ONE unit; chain of 3 → one unit
+(()=>{
+  const sess={exercises:[{supersetNext:true,performed:[]},{performed:[]},{performed:[]}],order:[0,1,2]};
+  const u=focusUnits(sess);
+  assert(u.length===2&&JSON.stringify(u[0].eis)==='[0,1]'&&JSON.stringify(u[1].eis)==='[2]', 'S5: display-adjacent pair renders as one unit. Got '+JSON.stringify(u));
+  const sess3={exercises:[{supersetNext:true,performed:[]},{supersetNext:true,performed:[]},{performed:[]}],order:[0,1,2]};
+  assert(focusUnits(sess3).length===1&&focusUnits(sess3)[0].eis.length===3, 'S5: a 3-chain is one unit');
+})();
+// separated pair degrades to singles, flag untouched
+(()=>{
+  const sess={exercises:[{supersetNext:true,performed:[]},{performed:[]},{performed:[]}],order:[1,0,2]};
+  const u=focusUnits(sess);
+  assert(u.length===3, 'S5: display-separated pair degrades to single cards. Got '+u.length);
+  assert(sess.exercises[0].supersetNext===true, 'S5: degradation never clears the pairing flag');
+})();
+// interleave: warm-ups first per member, then A1,B1,A2,B2
+(()=>{
+  const sess={exercises:[
+    {supersetNext:true,performed:[{type:'warmup'},{type:'working'},{type:'working'}]},
+    {performed:[{type:'working'},{type:'working'}]}],order:[0,1]};
+  const seq=unitSeq(sess,{eis:[0,1]});
+  assert(JSON.stringify(seq)==='[[0,0],[0,1],[1,0],[0,2],[1,1]]', 'S5: warmups lead, working rows interleave round-robin. Got '+JSON.stringify(seq));
+})();
+// out-of-order current: focusPos seeds to first INCOMPLETE unit in display order
+(()=>{
+  _focusIdx=null;
+  S.activeSession={dayIndex:0,dayLabel:'X',sessionType:'lifting',startTime:1,notes:'',exercises:[
+    {name:'A',performed:[{type:'working',logged:true}]},
+    {name:'B',performed:[{type:'working',logged:false}]},
+    {name:'C',performed:[{type:'working',logged:false}]}],order:[2,0,1]};
+  assert(focusPos()===0&&_focusIdx===2, 'S5: seeds to first incomplete in DISPLAY order (C first). Got pos '+focusPos()+' idx '+_focusIdx);
+  focusGoTo(2);
+  assert(_focusIdx===1, 'S5: rail tap moves the current index');
+  _focusIdx=null;S.activeSession=null;
+})();
+assert(/id="focusRoot"/.test(html)&&/id="focusTrack"/.test(html)&&/id="focusRail"/.test(html), 'S5: focus DOM present');
+assert(/id="sViewToggle"/.test(html), 'S5: Focus/List toggle in the session head');
+assert(/#vSession\.focus-on #exList\{display:none\}/.test(html), 'S5: list layer hidden under focus (no duplicate ids)');
+assert(/\.fc-readout-w\{[^}]*var\(--display\);background:var\(--solar\);-webkit-background-clip:text/.test(html), 'S5: giant readout number carries the gradient via text clip');
+assert(/\.fc-log\{[^}]*min-height:52px[^}]*background:var\(--solar\)/.test(html), 'S5: full-width gradient Log button (second focus surface)');
+assert(/class="set-fields"/.test(focusSetRowHTML({prescribed:{reps:'5',sets:3,unit:'kg'},performed:[{type:'working',weightKg:10,reps:5}],tags:[],name:'T'},0,{type:'working',weightKg:10,reps:5,logged:false},0,null)), 'S5: focus rows keep .set-fields (keyboard-scroll contract)');
 
 console.log('\n=== All tests passed ===');

@@ -68,6 +68,54 @@
 /* SOLAR grain: static tile, Train header region ONLY, 2%, no animation */
 #trainHdr{position:relative}
 #trainHdr::before{content:'';position:absolute;inset:-20px -16px -8px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");opacity:.02;pointer-events:none}
+/* ===== FOCUS MODE (S5) ===== */
+#focusRoot{display:none}
+#vSession.focus-on{overflow:hidden}
+#vSession.focus-on #focusRoot{display:flex;flex-direction:column;flex:1;min-height:0}
+#vSession.focus-on #exList{display:none}
+#vSession.focus-on .sess-progress{display:none}
+#vSession.focus-on #supersetHints{display:none !important}
+#vSession.focus-on #sessNotesWrap{display:none}
+#focusTrackWrap{position:relative;flex:1;min-height:0;overflow:hidden;margin:0 -16px}
+#focusTrack{display:flex;height:100%;transition:transform var(--motion)}
+#focusTrack.no-anim{transition:none}
+.fcard{flex:0 0 100%;width:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 16px calc(84px + var(--sab))}
+.fc-head{display:flex;align-items:flex-start;gap:8px}
+.fc-member-block{margin-top:8px}
+.fc-name{font:600 20px var(--sans);overflow:hidden;text-overflow:ellipsis}
+.fc-member-tag{display:inline-flex;align-items:center;font:700 10px var(--mono);color:var(--brand);border:1px solid var(--brand);border-radius:4px;padding:0 4px;margin-right:6px;vertical-align:middle}
+.fc-member-tag.big{font-size:12px;padding:2px 6px;margin-top:4px}
+.fc-meta{font:500 12px var(--mono);color:var(--tx3);margin-top:2px}
+.fc-hscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x}
+.fc-readout{display:flex;align-items:baseline;gap:8px;margin:16px 0 12px;min-height:64px}
+.fc-readout.done{min-height:40px}
+.fc-readout-w{font:500 64px/1 var(--display);background:var(--solar);-webkit-background-clip:text;background-clip:text;color:transparent}
+.fc-readout-u{font:500 16px var(--mono);color:var(--tx3)}
+.fc-readout-x{font:500 24px var(--display);color:var(--tx2)}
+#focusRoot.kb-compact .fc-readout{min-height:0;margin:4px 0}
+#focusRoot.kb-compact .fc-readout-w{font-size:20px;background:none;-webkit-background-clip:initial;background-clip:initial;color:var(--tx)}
+#focusRoot.kb-compact .fc-readout-x{font-size:14px}
+#focusRoot.kb-compact #focusRail{display:none}
+.fc-log{display:block;width:100%;min-height:52px;border:none;border-radius:var(--r);background:var(--solar);color:#050505;font:700 16px var(--sans);margin:12px 0 4px;cursor:pointer}
+.fc-log:active{transform:scale(.98)}
+.fcard.done{opacity:.85}
+.fc-wrap{padding-top:16px}
+#focusRail{position:fixed;left:0;right:0;bottom:calc(55px + var(--sab));z-index:96;display:none;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-top:1px solid var(--line)}
+#vSession.focus-on #focusRail{display:flex}
+.rail-scroll{display:flex;gap:6px;overflow-x:auto;flex:1;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.rail-chip{flex:0 0 auto;min-height:48px;padding:0 16px;border-radius:24px;border:1px solid var(--s3);background:var(--s1);color:var(--tx2);font:600 12px var(--sans);cursor:pointer;white-space:nowrap}
+.rail-chip.current{border-color:var(--brand);color:var(--tx)}
+.rail-chip.done{opacity:.4}
+.rail-chip.fin{border-style:dashed}
+.rail-count{font:600 12px var(--mono);color:var(--tx3);flex:0 0 auto}
+#focusRestOverlay{position:absolute;inset:0;z-index:5;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:color-mix(in srgb,var(--bg) 82%,transparent)}
+#focusRestOverlay.on{display:flex}
+#focusTrack.resting{opacity:.35}
+.fr-label{font:600 12px var(--sans);color:var(--tx3);letter-spacing:1px}
+.fr-count{font:500 72px/1 var(--display);color:var(--brand);animation:frglow 2.4s ease-in-out infinite}
+@keyframes frglow{0%,100%{text-shadow:0 0 12px var(--brand-dim)}50%{text-shadow:0 0 32px var(--brand-dim)}}
+.fr-actions{display:flex;gap:12px;align-items:center}
+.fr-ghost{min-height:48px;padding:0 20px;border-radius:24px;border:1px solid var(--s3);background:none;color:var(--tx2);font:600 14px var(--sans);cursor:pointer}
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{transition:none !important;animation:none !important}
 }
@@ -200,7 +248,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 /* Start button */
 .start-btn{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#0A0B0E;font:700 14px var(--sans);border:none;border-radius:var(--r);padding:16px;width:100%;cursor:pointer;margin-bottom:8px;transition:all .12s;letter-spacing:.5px;position:relative;overflow:hidden;box-shadow:0 4px 20px var(--brand-dim)}
 .start-btn:active{transform:scale(.98);opacity:.9}
-.topset-chip{display:inline-flex;align-items:center;background:var(--solar,linear-gradient(135deg,var(--brand),var(--brand2)));color:#050505;font:700 11px var(--mono);letter-spacing:1px;padding:4px 12px;border-radius:20px;margin-bottom:4px}
+.topset-chip{display:inline-flex;align-items:center;background:var(--solar);color:#050505;font:700 11px var(--mono);letter-spacing:1px;padding:4px 12px;border-radius:20px;margin-bottom:4px}
 
 /* ===== SESSION VIEW ===== */
 .sess-head{display:flex;align-items:center;justify-content:space-between;padding:12px 0 16px}
@@ -605,6 +653,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       </div>
       <div style="display:flex;align-items:center;gap:10px">
         <div class="sess-timer" id="sDur">0:00</div>
+        <button class="btn btn-sm btn-g" id="sViewToggle" onclick="toggleSessionView()" aria-label="Toggle focus or list session view">List</button>
         <button class="btn btn-sm btn-s" onclick="cancelSession()">Cancel</button>
         <button class="btn btn-sm btn-d" onclick="endSession()">End</button>
       </div>
@@ -615,7 +664,20 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     </div>
     <div id="supersetHints" style="display:none;margin:6px 0 10px;padding:8px 10px;background:var(--s1);border:1px solid var(--s2);border-radius:var(--rs);font:11px var(--mono);color:var(--tx2)"></div>
     <div id="exList"></div>
-    <div style="margin-top:12px">
+    <!-- FOCUS MODE (S5): full-screen card stack + up-next rail. Only one of
+         #exList / #focusTrack holds content at a time (ids stay unique). -->
+    <div id="focusRoot">
+      <div id="focusTrackWrap">
+        <div id="focusTrack"></div>
+        <div id="focusRestOverlay" aria-hidden="true">
+          <div class="fr-label">Rest</div>
+          <div class="fr-count tnum" id="focusRestDisp">0:00</div>
+          <div class="fr-actions"><button class="fr-ghost" onclick="addRest(30)">+30s</button><button class="btn btn-p" onclick="skipRest()">Skip</button></div>
+        </div>
+      </div>
+      <div id="focusRail"></div>
+    </div>
+    <div style="margin-top:12px" id="sessNotesWrap">
       <div class="field"><label>Session Notes</label><textarea id="sessNotes" rows="4" placeholder="How did it feel? Anything to flag..." oninput="saveSessionNotes();this.style.height='auto';this.style.height=this.scrollHeight+'px'" style="font-size:13px"></textarea></div>
     </div>
   </div>
@@ -3388,7 +3450,18 @@ function renderEx(){
   // Multi-modal dispatch: activity-log types render a single form, not cards.
   const st=sess.sessionType||'lifting';
   if(st==='swim'||st==='run'||st==='pilates'||st==='mobility'){renderActivityLog(sess);return;}
-  // lifting + calisthenics share the card path below.
+  // Focus ⇄ List dispatch (S5). List = the untouched v3.5 card path; focus =
+  // the full-screen card stack. Same mutation entry point either way.
+  const focus=(S.settings.sessionView||'focus')!=='list';
+  try{const v=document.getElementById('vSession');if(v&&v.classList)v.classList.toggle('focus-on',focus);}catch(e){}
+  try{const tb=document.getElementById('sViewToggle');if(tb)tb.textContent=focus?'List':'Focus';}catch(e){}
+  if(focus){renderFocus();return;}
+  try{const ft=document.getElementById('focusTrack');if(ft)ft.innerHTML='';const rl=document.getElementById('focusRail');if(rl)rl.innerHTML='';}catch(e){}
+  renderExList();
+}
+function renderExList(){
+  const sess=S.activeSession;if(!sess)return;
+  const st=sess.sessionType||'lifting';
 
   // Progress indicator
   const totalEx=sess.exercises.length;
@@ -3563,6 +3636,220 @@ function renderEx(){
   list.innerHTML+=`<button class="btn btn-g btn-w" style="margin-top:8px" onclick="addExMidSession()">+ Custom Exercise</button>`;
 }
 
+// ===== FOCUS MODE RENDER LAYER (S5) =====
+// One exercise (or one display-adjacent superset chain) per full-screen card.
+// _focusIdx = the CURRENT card's first exercise index; transient by design —
+// it reseeds to the first incomplete unit on reload, which is correct resume
+// behaviour. -1 marks the wrap-up card.
+let _focusIdx=null;
+function focusUnits(sess){
+  if(!sess||!Array.isArray(sess.exercises))return[];
+  const ord=sessOrder(sess),exs=sess.exercises,out=[];
+  let i=0;
+  while(i<ord.length){
+    const eis=[ord[i]];
+    // Merge runs that are BOTH array-adjacent (supersetNext semantics) and
+    // display-adjacent; a separated pair degrades to two cards, flag intact.
+    while(i+eis.length<ord.length){
+      const last=eis[eis.length-1],next=ord[i+eis.length];
+      if(exs[last]&&exs[last].supersetNext&&next===last+1)eis.push(next);else break;
+    }
+    out.push({eis});
+    i+=eis.length;
+  }
+  return out;
+}
+function unitDone(sess,u){return u.eis.every(ei=>((sess.exercises[ei]||{}).performed||[]).every(s2=>s2.logged||s2.skipped));}
+// Interleaved logging sequence for a unit: each member's warm-ups first,
+// then working rows round-robin (A1,B1,A2,B2 …) — rows carry real (ei,si).
+function unitSeq(sess,u){
+  const seq=[];
+  u.eis.forEach(ei=>{((sess.exercises[ei]||{}).performed||[]).forEach((s2,si)=>{if(s2.type==='warmup')seq.push([ei,si]);});});
+  let k=0,more=true;
+  while(more){
+    more=false;
+    u.eis.forEach(ei=>{
+      const ws=((sess.exercises[ei]||{}).performed||[]).map((s2,si)=>[s2,si]).filter(r=>r[0].type==='working');
+      if(k<ws.length){seq.push([ei,ws[k][1]]);more=true;}
+    });
+    k++;
+  }
+  return seq;
+}
+function focusPos(){
+  const sess=S.activeSession;if(!sess)return 0;
+  const units=focusUnits(sess);
+  if(_focusIdx===-1)return units.length;
+  let p=units.findIndex(u=>u.eis.includes(_focusIdx));
+  if(p<0){
+    p=units.findIndex(u=>!unitDone(S.activeSession,u));
+    if(p<0)p=units.length;
+    _focusIdx=p<units.length?units[p].eis[0]:-1;
+  }
+  return p;
+}
+function applyFocusTransform(pos,animate){
+  const t=document.getElementById('focusTrack');if(!t||!t.style)return;
+  const reduced=(typeof matchMedia==='function')&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  try{if(!animate||reduced)t.classList.add('no-anim');else t.classList.remove('no-anim');}catch(e){}
+  t.style.transform='translateX(-'+(pos*100)+'%)';
+}
+// Rail taps are the PRIMARY navigation; swipe (S6) is the shortcut.
+function focusGoTo(pos){
+  const sess=S.activeSession;if(!sess)return;
+  const units=focusUnits(sess);
+  pos=Math.max(0,Math.min(units.length,pos));
+  _focusIdx=pos<units.length?units[pos].eis[0]:-1;
+  applyFocusTransform(pos,true);
+  try{renderFocusRail();}catch(e){}
+}
+function focusLogCurrent(p){
+  const sess=S.activeSession;if(!sess)return;
+  const u=focusUnits(sess)[p];if(!u)return;
+  const hit=unitSeq(sess,u).find(([ei,si])=>{const s2=sess.exercises[ei].performed[si];return s2&&!s2.logged&&!s2.skipped;});
+  if(hit)logSet(hit[0],hit[1]);
+}
+function renderFocus(){
+  const sess=S.activeSession;if(!sess)return;
+  const track=document.getElementById('focusTrack');if(!track)return;
+  try{const l=document.getElementById('exList');if(l)l.innerHTML='';}catch(e){}
+  const units=focusUnits(sess);
+  const pos=focusPos();
+  track.innerHTML=units.map((u,p)=>focusCardHTML(u,p,sess)).join('')+focusWrapCardHTML(sess);
+  applyFocusTransform(pos,false);
+  renderFocusRail();
+}
+function renderFocusRail(){
+  const rail=document.getElementById('focusRail');const sess=S.activeSession;
+  if(!rail)return;
+  if(!sess){rail.innerHTML='';return;}
+  const units=focusUnits(sess);
+  const pos=focusPos();
+  const chips=units.map((u,p)=>{
+    const done=unitDone(sess,u);
+    const names=u.eis.map(ei=>sess.exercises[ei].name).join(' \u29c9 ');
+    return `<button class="rail-chip${done?' done':''}${p===pos?' current':''}${u.eis.length>1?' pair':''}" onclick="focusGoTo(${p})">${done?'\u2713 ':''}${names}</button>`;
+  }).join('');
+  const doneN=units.filter(u=>unitDone(sess,u)).length;
+  rail.innerHTML=`<div class="rail-scroll" id="railScroll">${chips}<button class="rail-chip fin${pos===units.length?' current':''}" onclick="focusGoTo(${units.length})">Finish</button></div><span class="rail-count tnum">${doneN}/${units.length}</span>`;
+}
+// One set row (focus template). Same handlers, ids and state classes as the
+// list rows — including .set-fields, which the keyboard-scroll fix keys off.
+function focusSetRowHTML(ex,ei,s,si,memberTag){
+  const wu=s.type==='warmup';
+  const ru=repsUnit(ex.prescribed.reps);
+  const repsDisp=ru?(s.reps+' '+ru):s.reps;
+  const wn=wu?'W':(ex.performed.slice(0,si).filter(x=>x.type==='working').length+1);
+  const tagChip=memberTag?`<span class="fc-member-tag">${memberTag}${wu?'w':wn}</span>`:'';
+  if(s.logged&&!s.skipped){
+    const isPR=s.type==='working'&&isSetPR(ex.name,s.weightKg,s.reps,ex.variant);
+    return `<div class="set-row ${s.skipped?'st-skip':'st-done'} compact${s._justLogged?' just-logged':''}">
+      <div class="set-num ${wu?'wu':''}">${tagChip}<span class="set-check">${icon('check',14)}</span>${s.tag==='top'?'<span class="top-chip">TOP</span>':''}</div>
+      <div class="set-summary">${fmtW(s.weightKg,ex.prescribed.unit)} <span class="td">\u00d7</span> ${repsDisp}${isPR?' <span class="pr-tag" role="img" aria-label="personal record" title="Personal record">PR</span>':''}</div>
+      <button class="set-rpe ${s.rpe?'has':''}" onclick="showRpePicker(this,${ei},${si})" style="position:relative" aria-label="rate effort">${s.rpe?'@'+s.rpe:'RPE'}</button>
+      <button class="set-edit" onclick="editSet(${ei},${si})" title="Edit" aria-label="edit set">\u270e</button>
+    </div>`;
+  }
+  if(s.skipped){
+    return `<div class="set-row st-skip compact">
+      <div class="set-num ${wu?'wu':''}">${tagChip}${wn}</div>
+      <div class="set-summary td">SKIPPED${s.skipReason?' \u00b7 '+s.skipReason:''}</div>
+      <button class="set-edit" onclick="editSet(${ei},${si})" title="Unskip">\u270e</button>
+    </div>`;
+  }
+  const firstUnlogged=ex.performed.findIndex(pp=>!pp.logged&&!pp.skipped);
+  const rowState=si===firstUnlogged?' current':' pending';
+  const dispU=S.settings.unit||'kg';
+  const dw=s.weightKg===0?'':(dispU==='lb'?Math.round(s.weightKg*K2L):s.weightKg);
+  const wInputEl=document.getElementById(`w${ei}_${si}`);
+  const rInputEl=document.getElementById(`r${ei}_${si}`);
+  const wVal=(wInputEl&&document.activeElement===wInputEl)?wInputEl.value:dw;
+  const rVal=(rInputEl&&document.activeElement===rInputEl)?rInputEl.value:(s.reps||'');
+  return `<div class="set-row ${wu?'st-warmup':'st-working'}${rowState}">
+    <div class="set-num ${wu?'wu':''}">${tagChip}${wn}${s.tag==='top'?'<span class="top-chip">TOP</span>':''}</div>
+    <div class="set-fields">
+      <input type="number" step="0.5" value="${wVal}" placeholder="wt" id="w${ei}_${si}" oninput="stashSetInput(${ei},${si})" aria-label="weight">
+      <span class="x">\u00d7</span>
+      <input type="number" value="${rVal}" placeholder="${ru||'rps'}" id="r${ei}_${si}" oninput="stashSetInput(${ei},${si})" aria-label="reps">
+    </div>
+    <button class="set-log ready" onclick="logSet(${ei},${si})">Log</button>
+    <button class="set-skip" onclick="skipSet(${ei},${si})">skip</button>
+    ${wu||si>=ex.prescribed.sets?`<button class="set-del" onclick="delSet(${ei},${si})">\u00d7</button>`:''}
+  </div>`;
+}
+function focusMemberHeadHTML(ex,ei,tag){
+  const perSide=ex.tags.includes('per side')?' <span class="td" style="font-size:11px">/side</span>':ex.tags.includes('per hand')?' <span class="td" style="font-size:11px">/hand</span>':ex.tags.includes('per leg')?' <span class="td" style="font-size:11px">/leg</span>':'';
+  const rx=ex.prescribed.setScheme?schemeString(ex.prescribed.setScheme,ex.prescribed.unit)+' kg':`${ex.prescribed.sets}\u00d7${ex.prescribed.reps}${ex.prescribed.loadKg?' @ '+fmtW(ex.prescribed.loadKg,ex.prescribed.unit):''}`;
+  const bits=[];
+  if((ex.equipmentClass==='barbell'||getMeta(ex.name).eq&&getMeta(ex.name).eq.includes('barbell'))&&ex.prescribed.loadKg)bits.push(plateLabel(ex));
+  const mt=mainTargetLine(ex);if(mt)bits.push(mt);
+  return `<div class="fc-member-block" id="ex${ei}">
+    <div class="fc-head">
+      ${tag?`<span class="fc-member-tag big">${tag}</span>`:''}
+      <div style="flex:1;min-width:0">
+        <div class="fc-name">${(ex.tags||[]).includes('bonus')?'<span style="color:var(--gold);font-size:12px;margin-right:4px">\u2605</span>':''}${ex.name}${perSide}</div>
+        <div class="fc-meta">${rx}${bits.length?' \u00b7 '+bits.join(' \u00b7 '):''}</div>
+        ${ex.cue?`<div style="font-size:12px;color:var(--brand);margin-top:2px;line-height:1.4">${ex.cue}</div>`:''}
+      </div>
+      <button class="pain-flag${ex.painEvent&&ex.painEvent.severity!=='none'?' has':''}" onclick="openPainModal(${ei})" aria-label="Log pain for ${ex.name.replace(/"/g,'')}" title="Pain check">\u2691</button>
+      <div class="ex-more-wrap" style="position:relative">
+        <button class="btn btn-sm btn-g" onclick="toggleExMenu(${ei})" aria-label="More">\u22ef</button>
+        <div class="ex-menu" id="exMenu${ei}">
+          <button onclick="addWu(${ei});closeExMenus()">+ Warmup</button>
+          <button onclick="addSet(${ei});closeExMenus()">+ Set</button>
+          <button onclick="openSubstitute(${ei});closeExMenus()">Substitute (equip)</button>
+          <button onclick="openSwap(${ei});closeExMenus()">Swap</button>
+          ${ei<S.activeSession.exercises.length-1?`<button onclick="pairSuperset(${ei});closeExMenus()">${ex.supersetNext?'Unpair superset':'Superset with next'}</button>`:''}
+          <button onclick="logAll(${ei});closeExMenus()">Log all sets</button>
+          <button onclick="skipExercise(${ei});closeExMenus()">Skip exercise</button>
+          <button onclick="closeExMenus();openPainModal(${ei})" class="danger">\u26a0 Pain</button>
+        </div>
+      </div>
+    </div>
+    <div class="fc-hscroll">${variantChips(ex,ei)}</div>
+    ${getLastHint(ex)}
+  </div>`;
+}
+function focusCardHTML(u,p,sess){
+  const seq=unitSeq(sess,u);
+  const cur=seq.find(([ei,si])=>{const s2=sess.exercises[ei].performed[si];return s2&&!s2.logged&&!s2.skipped;});
+  const done=unitDone(sess,u);
+  // Giant current-set readout — the card's FIRST budget gradient (text clip).
+  let readout='';
+  if(cur){
+    const ex=sess.exercises[cur[0]],s2=ex.performed[cur[1]];
+    const dispU=S.settings.unit||'kg';
+    const dw=dispU==='lb'?Math.round(s2.weightKg*K2L):s2.weightKg;
+    const ru=repsUnit(ex.prescribed.reps);
+    readout=`<div class="fc-readout">${s2.weightKg>0?`<span class="fc-readout-w tnum">${dw}</span><span class="fc-readout-u">${dispU}</span>`:`<span class="fc-readout-w tnum">${s2.reps}</span><span class="fc-readout-u">${ru||'reps'}</span>`}${s2.weightKg>0?`<span class="fc-readout-x tnum">\u00d7 ${s2.reps}${ru?' '+ru:''}</span>`:''}${s2.type==='warmup'?'<span class="fc-readout-u">warm-up</span>':''}</div>`;
+  } else if(done){
+    readout=`<div class="fc-readout done"><span class="fc-readout-x">\u2713 done</span></div>`;
+  }
+  const members=u.eis.map((ei,mi)=>focusMemberHeadHTML(sess.exercises[ei],ei,u.eis.length>1?String.fromCharCode(65+mi):null)).join('');
+  const rows=seq.map(([ei,si])=>focusSetRowHTML(sess.exercises[ei],ei,sess.exercises[ei].performed[si],si,u.eis.length>1?String.fromCharCode(65+u.eis.indexOf(ei)):null)).join('');
+  const logLbl=cur?(()=>{const s2=sess.exercises[cur[0]].performed[cur[1]];return 'Log '+(s2.weightKg>0?fmtW(s2.weightKg,sess.exercises[cur[0]].prescribed.unit)+' \u00d7 '+s2.reps:s2.reps+' reps');})():null;
+  const prog=u.eis.map(ei=>sess.exercises[ei]).filter(ex=>done&&ex.progression).map(ex=>`<div class="prog-badge prog-${ex.progression==='increase'?'up':ex.progression==='flag'?'flag':ex.progression==='stall'?'stall':ex.progression==='skipped'?'skip':'hold'}"><span>${ex.progression==='increase'?'\u2191 Increase':ex.progression==='flag'?'\u26a0 Flagged':ex.progression==='stall'?'\u23f8 Stall':ex.progression==='skipped'?'\u23ed Skipped':'\u2192 Hold'}</span>${ex.nextLoad&&ex.progression==='increase'?`<span class="tm">${fmtW(ex.nextLoad,ex.prescribed.unit)}</span>`:''}</div>`).join('');
+  const pains=u.eis.map(ei=>sess.exercises[ei]).filter(ex=>ex.painEvent).map(ex=>`<div style="margin-top:8px;padding:8px 12px;border-radius:var(--rs);background:var(--red-dim);font-size:12px;color:var(--red)">\u26a0 ${ex.painEvent.severity} pain${ex.painEvent.action?' \u2014 '+ex.painEvent.action:''}</div>`).join('');
+  return `<div class="fcard${done?' done':''}" id="fcard${u.eis[0]}">
+    ${members}
+    ${readout}
+    ${rows}
+    ${cur?`<button class="fc-log" onclick="focusLogCurrent(${p})">${logLbl}</button>`:''}
+    ${prog}${pains}
+  </div>`;
+}
+function focusWrapCardHTML(sess){
+  const day=S.program.days[sess.dayIndex];
+  const bonuses=((day&&day.bonus)||[]).filter(b=>!sess.exercises.some(e=>(e.tags||[]).includes('bonus')&&e.name===b.name));
+  return `<div class="fcard fc-wrap">
+    <div class="t-h1" style="margin:8px 0 12px">Wrap up</div>
+    ${bonuses.length?`<div class="t-meta" style="margin-bottom:4px">Extra credit</div>`+bonuses.map((b,bi)=>`<div class="bonus-item" onclick="activateBonus(${bi})"><div style="flex:1"><div class="bi-name">${b.name}</div><div class="bi-rx">${b.sets}\u00d7${b.reps} @ ${fmtW(b.loadKg,b.unit)}</div></div><div class="bi-add">+</div></div>`).join(''):''}
+    <button class="btn btn-gold btn-w" style="margin-top:12px" onclick="openExtras()">+ Add Extra</button>
+    <button class="btn btn-g btn-w" style="margin-top:8px" onclick="addExMidSession()">+ Custom Exercise</button>
+    <div class="field" style="margin-top:16px"><label>Session Notes</label><textarea id="fNotes" rows="4" placeholder="How did it feel? Anything to flag..." oninput="if(S.activeSession){S.activeSession.notes=this.value;save();}" style="font-size:13px">${(sess.notes||'')}</textarea></div>
+    <button class="btn btn-d btn-w" style="margin-top:16px;min-height:48px" onclick="endSession()">End Session</button>
+  </div>`;
+}
 function activateBonus(bi){
   const sess=S.activeSession;if(!sess)return;
   const day=S.program.days[sess.dayIndex];
