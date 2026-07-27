@@ -1147,7 +1147,7 @@ assert(justSettings.ok === true, 'Restore: settings-only payload accepted (parti
 assert(/--t-display:\s*32px/.test(html), 'v3 tokens: --t-display:32px present');
 assert(/--t-h1:\s*22px/.test(html) && /--t-h2:\s*17px/.test(html) && /--t-meta:\s*11px/.test(html), 'v3 tokens: type scale h1/h2/meta present');
 assert(/--sp-1:\s*4px/.test(html) && /--sp-6:\s*24px/.test(html), 'v3 tokens: spacing scale (4px base) present');
-assert(/--motion:\s*220ms/.test(html), 'v3 tokens: --motion 220ms present');
+assert(/--motion:\s*200ms/.test(html) && /--motion-hero:\s*320ms/.test(html), 'SOLAR tokens: motion 200ms std + 320ms hero');
 assert(/--pace-ahead:/.test(html) && /--pace-on:/.test(html) && /--pace-behind:/.test(html) && /--pace-critical:/.test(html) && /--pace-none:/.test(html), 'v3 tokens: all pace tokens present (incl. muted --pace-none)');
 assert(/prefers-reduced-motion:\s*reduce/.test(html), 'v3 tokens: prefers-reduced-motion block present');
 assert(/font-variant-numeric:\s*tabular-nums/.test(html), 'v3 tokens: tabular-nums utility present');
@@ -1902,7 +1902,7 @@ S.program.name='Jul 8 Block 4 W3';S.settings.brandIdx=0;S.settings.brandBlock='J
 assert(/maybeAdvanceBrand\(\);\}catch/.test(html.replace(/\s+/g,'')) || /try\{maybeAdvanceBrand\(\);\}catch\(e\)\{\}/.test(html), 'Brand: load() advances after restore/cross-device');
 assert(/function maybeAdvanceBrandSafe/.test(html) && (html.match(/maybeAdvanceBrandSafe\(\);/g)||[]).length>=2, 'Brand: syncProgram + doImport advance via the safe hook');
 // CSS discipline: brand where intended, gold achievement untouched
-assert(/--brand:#FF6A3D;--brand2:#E04E24/.test(html), 'Brand: :root static fallback is ember');
+assert(/--brand:#FF6A3D;--brand2:#F4B942/.test(html), 'Brand: :root static fallback is the curated ember pair');
 assert(/\.bar-btn\.on\{color:var\(--brand\)\}/.test(html), 'Brand: active tab uses --brand');
 assert(/\.start-btn\{background:linear-gradient\(135deg,var\(--brand\),var\(--brand2\)\)/.test(html), 'Brand: Start button uses the brand gradient');
 assert(/\.pr-tag\{[^}]*color:var\(--gold\)/.test(html), 'Brand: PR tag STAYS gold (achievement never rotates)');
@@ -1913,11 +1913,11 @@ assert(/#sessBar\{[^}]*border-top:2px solid var\(--brand\)/.test(html), 'Brand: 
 // D7 structure pins replace the exact-shadow pin: 16px radius token, brand
 // active border, borderless resting cards, top-edge highlight preserved.
 assert(/--r:16px/.test(html), 'Depth: card radius token is 16px (v3.5)');
-assert(/box-shadow:inset 0 1px 0 rgba\(255,255,255,\.05\)/.test(html), 'Depth: top-edge highlight preserved');
+assert(!/box-shadow:[^};]*,[^};]*(inset|rgba)[^}]*\}/.test(html.match(/<style>([\s\S]*?)<\/style>/)[1].split('\n').filter(l=>/box-shadow:[^}]*,[^}]*box-shadow|box-shadow:inset[^}]*,/.test(l)).join('')) && !/box-shadow:inset 0 1px 0 rgba\(255,255,255,\.05\),/.test(html), 'SOLAR depth: no stacked shadow layers (old two-layer highlight retired)');
 assert(/\.ex-card\{[^}]*border:1px solid transparent[^}]*overflow:visible\}/.test(html), 'Depth: resting ex-card borderless AND keeps overflow:visible (menu escape)');
 assert(/\.ex-card\.active\{border-color:color-mix\(in srgb,var\(--brand\) 35%,transparent\)/.test(html), 'Depth: active card = 1px brand @35%');
 assert(/\.ex-card\.active\{[^}]*color-mix\(in srgb,var\(--brand\) 12%,transparent\)/.test(html), 'Depth: active card brand glow @12%');
-assert(/\.ex-card\.main-lift\{background:linear-gradient/.test(html) && /main-lift'/.test(html), 'Depth: main-lift cards get the faint brand wash');
+assert(/\.ex-card\.main-lift\{background:color-mix\(in srgb,var\(--brand\) 4%/.test(html) && /main-lift'/.test(html), 'SOLAR: main-lift cards carry a flat brand tint (gradient budget spent elsewhere)');
 assert(/id="sessionHero"/.test(html) && /function showSessionHero/.test(html) && /typeof requestAnimationFrame!=='function'\)return/.test(html), 'Hero: overlay present, rAF/reduced-motion guarded');
 // animateCount fallback path (no rAF in harness → instant final value)
 const cntEl={textContent:''};
@@ -2252,5 +2252,19 @@ assert(Math.abs(estimateExTime({name:'X',sets:2,reps:'10',rest:60})-2*(10*3.5+15
 // dynamic swim empty state
 assert(/Best continuous: \$\{b\} m\. Beat it\./.test(html), 'Swim: dynamic best-line wired');
 assert(/ACTIVITY_EMPTY\.swim/.test(html), 'Swim: falls back to the freestyle prompt with no best');
+
+// ===== S1: SOLAR BASE =====
+assert(/--bg:#050505/.test(html) && /--s1:#0D0E10/.test(html), 'SOLAR: OLED base + card surface tokens');
+assert(!/radial-gradient\(ellipse at 50% 0%/.test(html), 'SOLAR: gold page vignette removed (true black)');
+assert(/@font-face\{font-family:'SG';[^}]*font-weight:500/.test(html) && /data:font\/woff2;base64,/.test(html), 'SOLAR: Space Grotesk subset embedded');
+(()=>{const ff=html.match(/@font-face\{[^}]*base64,([^)]+)\)/); assert(ff && ff[1].length<60*1024*4/3, 'SOLAR: font subset under the 60KB cap. Got b64 len '+(ff?ff[1].length:0));})();
+assert(BRAND_CYCLE.every(e=>/^#[0-9A-F]{6}$/i.test(e.c)&&/^#[0-9A-F]{6}$/i.test(e.c2)), 'SOLAR: all 7 gradient pairs carry curated c+c2 stops');
+assert(BRAND_CYCLE.map(e=>e.name).join()==='ember,voltage,royal,lime,gold,crimson,bone', 'SOLAR: curated pair names in cycle order');
+assert(BRAND_CYCLE[1].c==='#22D3EE'&&BRAND_CYCLE[1].c2==='#7DF9C2'&&BRAND_CYCLE[3].c2==='#34D399', 'SOLAR: voltage + lime pairs match the spec');
+assert(/setProperty\('--solar','linear-gradient\(135deg,'\+e\.c\+','\+e\.c2\+'\)'\)/.test(html), 'SOLAR: applyBrand publishes the pair as --solar');
+assert(!/backdrop-filter/.test(html.match(/<style>([\s\S]*?)<\/style>/)[1]), 'SOLAR law: no backdrop-filter anywhere');
+(()=>{const st=html.match(/<style>([\s\S]*?)<\/style>/)[1];const g=(st.match(/(linear|radial)-gradient/g)||[]).length;assert(g<=3, 'SOLAR law: style-block gradient count within budget (token+start-btn+grain-free). Got '+g);})();
+assert(/#trainHdr::before\{[^}]*opacity:\.02;pointer-events:none\}/.test(html) && /feTurbulence/.test(html), 'SOLAR: static grain on Train header only, 2%');
+(()=>{const r=html.match(/#trainHdr::before\{[^}]*\}/);assert(r && !/animation/.test(r[0]), 'SOLAR: grain rule is static (no animation declaration)');})();
 
 console.log('\n=== All tests passed ===');
