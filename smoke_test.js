@@ -35,7 +35,8 @@ const patched = js
   .replace(/\bconst APP_VERSION\s*=/g, 'var APP_VERSION =')
   .replace(/\bconst BRAND_CYCLE\s*=/g, 'var BRAND_CYCLE =')
   .replace(/\blet sessionStart\s*=/g, 'var sessionStart =')
-  .replace(/\blet _painArea\s*=/g, 'var _painArea =');
+  .replace(/\blet _painArea\s*=/g, 'var _painArea =')
+  .replace(/\blet _orderOffer\s*=/g, 'var _orderOffer =');
 (0, eval)(patched);
 // Expose helpers globally (they were `function` declarations, already global when eval'd indirectly)
 
@@ -2298,5 +2299,57 @@ assert(/<linearGradient id="sunGrad"/.test(html)&&/r="34" fill="url\(#sunGrad\)"
 assert(/class="planet"/.test(html)&&/class="planet-lbl tnum"/.test(html)&&/planetLbl\[k\]/.test(html), 'S3: orbit leading edges carry planet dots + tight labels');
 assert(/\{Squat:\{color:'var\(--lift-sq\)'/.test(html), 'S3: e1RM chart consolidated onto the lift-hue tokens');
 assert(/\.club2-n\{font:500 26px var\(--display\)/.test(html), 'S3: goal headline number set in the display face');
+
+// ===== S4: FOCUS DATA LAYER — ORDER MODEL + sessionView =====
+assert(typeof sessOrder==='function'&&typeof sessOrderDiffers==='function'&&typeof mapSessionOrderToProgram==='function'&&typeof applyOrderOffer==='function'&&typeof toggleSessionView==='function', 'S4: order-model API defined');
+// 1. backfill: session without order → identity
+(()=>{const sess={exercises:[{},{},{}]};assert(JSON.stringify(sessOrder(sess))==='[0,1,2]', 'S4: missing order heals to identity');})();
+// 2. self-heal: partial + out-of-range
+(()=>{const sess={exercises:[{},{},{},{}],order:[2,0,9]};assert(JSON.stringify(sessOrder(sess))==='[2,0,1,3]', 'S4: partial order appends missing, drops out-of-range. Got '+JSON.stringify(sessOrder(sess)));})();
+assert(sessOrderDiffers({exercises:[{},{}],order:[0,1]})===false&&sessOrderDiffers({exercises:[{},{}],order:[1,0]})===true, 'S4: sessOrderDiffers identity check');
+// 3. round-trip: order + sessionView survive export
+(()=>{
+  S.activeSession={dayIndex:0,dayId:1,blockName:S.program.name,date:'2026-07-28',dayLabel:'Bench',sessionType:'lifting',startTime:1,notes:'',exercises:[{name:'A',performed:[]},{name:'B',performed:[]}],order:[1,0]};
+  const blob=JSON.parse(buildExportPayload(1));
+  assert(JSON.stringify(blob.activeSession.order)==='[1,0]'&&blob.settings.sessionView, 'S4: order + sessionView round-trip the export payload');
+  S.activeSession=null;
+})();
+// 4. out-of-order logging: set state keys off ARRAY index, not display position
+(()=>{
+  S.activeSession={dayIndex:0,dayId:1,blockName:S.program.name,date:'2026-07-28',dayLabel:'X',sessionType:'lifting',startTime:1,notes:'',
+    exercises:[{name:'A',cat:'push',prescribed:{sets:1,reps:'5',loadKg:10,unit:'kg'},performed:[{type:'working',weightKg:10,reps:5,logged:false}],tags:[],progression:null,nextLoad:null},
+               {name:'B',cat:'pull',prescribed:{sets:1,reps:'5',loadKg:10,unit:'kg'},performed:[{type:'working',weightKg:10,reps:5,logged:false}],tags:[],progression:null,nextLoad:null}],order:[1,0]};
+  _skipSetCtx={ei:0,si:0};confirmSkipSet('time');
+  assert(S.activeSession.exercises[0].performed[0].skipped===true&&!S.activeSession.exercises[1].performed[0].skipped, 'S4: skip lands on exercises[0] (array identity) despite display order [1,0]');
+  S.activeSession=null;
+})();
+// 5. mapping: same object references, unmatched appended in original order
+(()=>{
+  const A={name:'A'},B={name:'B'},C={name:'C'};
+  const out=mapSessionOrderToProgram([1,0],[{name:'A',tags:[]},{name:'B',tags:[]}],[A,B,C]);
+  assert(out.length===3&&out[0]===B&&out[1]===A&&out[2]===C, 'S4: order maps by reference, unmatched program entries keep tail order');
+})();
+// 6. save-to-program preserves the write-back bump (same refs) + confirmRpe capture
+(()=>{
+  S.sessions=[];S.program.days[0].exercises[0].loadKg=S.program.days[0].exercises[0].loadKg||0;
+  const d0=S.program.days[0];
+  const mkEx=(name)=>({name,cat:'push',prescribed:{sets:1,reps:'5',loadKg:20,unit:'kg'},performed:[{type:'working',weightKg:20,reps:5,rpe:7,logged:true}],tags:[],progression:'hold',nextLoad:20,nextTarget:null,variant:null,painEvent:null,notes:''});
+  S.activeSession={dayIndex:0,dayId:d0.id,blockName:S.program.name,date:'2026-07-28',dayLabel:d0.label,sessionType:'lifting',startTime:1,notes:'',
+    exercises:[mkEx(d0.exercises[0].name),mkEx(d0.exercises[1].name)],order:[1,0]};
+  selRpe=7;confirmRpe();
+  assert(_orderOffer&&_orderOffer.dayIndex===0, 'S4: confirmRpe captures the order offer when order differs');
+  assert(_orderOffer.exercises[0]===d0.exercises[1]&&_orderOffer.exercises[1]===d0.exercises[0], 'S4: offer reuses the program day\'s own objects');
+  const prevFirst=d0.exercises[1];
+  applyOrderOffer();
+  assert(S.program.days[0].exercises[0]===prevFirst&&_orderOffer===null, 'S4: Save-to-program re-sequences the day in place');
+  // restore program + state for later tests
+  S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.activeSession=null;
+})();
+// 9. sessionView default + flip
+assert(S.settings.sessionView==='focus'||S.settings.sessionView==='list', 'S4: sessionView present');
+(()=>{const was=S.settings.sessionView;toggleSessionView();assert(S.settings.sessionView!==was, 'S4: toggleSessionView flips');toggleSessionView();assert(S.settings.sessionView===was, 'S4: and flips back');})();
+assert(/if\(!S\.settings\.sessionView\)S\.settings\.sessionView='focus';/.test(html), 'S4: load() backfills sessionView');
+assert(/id="sViewBtn"/.test(html)&&/Session view</.test(html), 'S4: Settings row present');
+assert(/_orderOffer=sessOrderDiffers\(sess\)/.test(html), 'S4: offer captured in confirmRpe after write-back');
 
 console.log('\n=== All tests passed ===');

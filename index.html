@@ -1008,6 +1008,10 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       <span>Stoic quote on Train</span>
       <button class="btn btn-sm btn-g" onclick="toggleQuote();renderSettings()" id="sQuoteBtn">ON</button>
     </div>
+    <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
+      <span>Session view</span>
+      <button class="btn btn-sm btn-g" onclick="toggleSessionView();renderSettings()" id="sViewBtn">FOCUS</button>
+    </div>
     <div style="padding:10px 0;border-bottom:1px solid var(--s2)">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <span>Force Refresh</span>
@@ -1712,7 +1716,7 @@ const FIXED_MAINS=['Back Squat','Bench Press','Deadlift'];
 // Rotation threshold (sessions). Rule #17: every ~14 sessions or 4 wks, whichever first.
 const ROTATION_THRESHOLD=14;
 
-let S={version:2,program:JSON.parse(JSON.stringify(DEF_PROGRAM)),sessions:[],goals:[{id:'g1',name:'1000 lb Total',current:0,target:1000,unit:'lb',auto:true}],settings:{unit:'kg',benchBaseline1RM:95,big3Targets:{squat:166,bench:102,dead:186},variantMemory:{},brandIdx:0,brandBlock:'Jul 8 Block 4 W3'},skips:[],activeSession:null,block:{sessionsSinceRotate:0,variantCursor:{}}};
+let S={version:2,program:JSON.parse(JSON.stringify(DEF_PROGRAM)),sessions:[],goals:[{id:'g1',name:'1000 lb Total',current:0,target:1000,unit:'lb',auto:true}],settings:{unit:'kg',benchBaseline1RM:95,big3Targets:{squat:166,bench:102,dead:186},variantMemory:{},brandIdx:0,brandBlock:'Jul 8 Block 4 W3',sessionView:'focus'},skips:[],activeSession:null,block:{sessionsSinceRotate:0,variantCursor:{}}};
 let sessionStart=null,sessionTimer=null,restInt=null,restEnd=null,restDur=0,painExI=null,selRpe=null,viewDayI=0,previewDayI=0;
 
 function save(){try{localStorage.setItem(STORE,JSON.stringify(S))}catch(e){}}
@@ -2045,6 +2049,10 @@ function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse
   if(!S.settings.big3Targets)S.settings.big3Targets={squat:166,bench:102,dead:186};
   if(!S.settings.variantMemory)S.settings.variantMemory={};
   if(S.settings.brandIdx==null){S.settings.brandIdx=-1;S.settings.brandBlock=S.program&&S.program.name;}
+  // Focus-mode session view (S4): default focus; imports/legacy backfill here.
+  if(!S.settings.sessionView)S.settings.sessionView='focus';
+  // order permutation for a live session predating the feature
+  if(S.activeSession&&Array.isArray(S.activeSession.exercises)&&!Array.isArray(S.activeSession.order))S.activeSession.order=S.activeSession.exercises.map((_,i)=>i);
   // Backfill skips array
   if(!Array.isArray(S.skips))S.skips=[];
   // v1→v2 migration
@@ -2369,6 +2377,7 @@ function showSettings(){renderSettings();showModal('settingsModal')}
 function renderSettings(){
   document.getElementById('sUnitBtn').textContent=S.settings.unit.toUpperCase();
   const qB=document.getElementById('sQuoteBtn');if(qB)qB.textContent=(S.settings.showQuote!==false)?'ON':'OFF';
+  const vB=document.getElementById('sViewBtn');if(vB)vB.textContent=(S.settings.sessionView==='list')?'LIST':'FOCUS';
   const barI=document.getElementById('sBarKg'),plI=document.getElementById('sPlates');
   if(barI)barI.value=activeGymBar();
   if(plI)plI.value=activePlates().join(', ');
@@ -3092,13 +3101,57 @@ function saveDayEdit(){
 }
 
 // ===== SESSION =====
+// ===== FOCUS-MODE ORDER MODEL (S4) =====
+// order is a PERMUTATION of session-array indexes, consumed only at render/
+// navigation time. exercises[] itself is NEVER re-ordered: every index-keyed
+// consumer (progression write-back, logSet/evalProg, DOM ids) keeps today's
+// geometry — the same "mark, don't splice" discipline the move flow uses.
+function sessOrder(sess){
+  if(!sess||!Array.isArray(sess.exercises))return[];
+  const n=sess.exercises.length;
+  const raw=Array.isArray(sess.order)?sess.order.filter(i=>Number.isInteger(i)&&i>=0&&i<n):[];
+  const seen=new Set(raw),out=raw.slice();
+  for(let i=0;i<n;i++)if(!seen.has(i))out.push(i); // heal: mid-session adds/bonus
+  return out;
+}
+function sessOrderDiffers(sess){return sessOrder(sess).some((v,i)=>v!==i);}
+// Map the session's display order onto the program day. Emits the SAME
+// program-exercise object references (post-write-back load bumps travel
+// intact); unmatched program entries keep their relative order at the end;
+// session-only entries (bonus / mid-session adds) emit nothing.
+function mapSessionOrderToProgram(order,sessExs,dayExs){
+  const used=new Set(),out=[];
+  (order||[]).forEach(ei=>{
+    if(ei<dayExs.length&&dayExs[ei]&&sessExs[ei]&&dayExs[ei].name===sessExs[ei].name&&!((sessExs[ei].tags||[]).includes('bonus'))){out.push(dayExs[ei]);used.add(ei);}
+  });
+  dayExs.forEach((dx,i)=>{if(!used.has(i))out.push(dx);});
+  return out;
+}
+// Transient post-session offer ("Keep this order?"). Never persisted.
+let _orderOffer=null;
+function applyOrderOffer(){
+  if(!_orderOffer)return;
+  const day=S.program.days[_orderOffer.dayIndex];
+  if(day&&Array.isArray(_orderOffer.exercises)&&_orderOffer.exercises.length)day.exercises=_orderOffer.exercises;
+  _orderOffer=null;save();
+  try{const el=document.getElementById('sumOrderRow');if(el)el.innerHTML='<div class="t-meta" style="color:var(--grn);padding:8px 0">Order saved to the program</div>';}catch(e){}
+}
+function dismissOrderOffer(){
+  _orderOffer=null;
+  try{const el=document.getElementById('sumOrderRow');if(el)el.innerHTML='';}catch(e){}
+}
+function toggleSessionView(){
+  S.settings.sessionView=(S.settings.sessionView==='list')?'focus':'list';
+  save();
+  try{renderEx();}catch(e){}
+}
 function startDay(i){
   const day=S.program.days[i];if(!day)return;
   viewDayI=i;
   const st=day.sessionType||'lifting';
   // dayId is the day's immutable identity — dayLabel alone is ambiguous when
   // two days share a label (the deload has two "Swim" days).
-  S.activeSession={dayIndex:i,dayId:day.id,blockName:S.program.name,date:todayStr(),dayLabel:day.label,sessionType:st,startTime:Date.now(),exercises:[],notes:''};
+  S.activeSession={dayIndex:i,dayId:day.id,blockName:S.program.name,date:todayStr(),dayLabel:day.label,sessionType:st,startTime:Date.now(),exercises:[],notes:'',order:[]};
   if(st==='swim'||st==='run'||st==='pilates'||st==='mobility'){
     // Activity-log session: one form, no exercise cards.
     S.activeSession.activity={durationMin:day.dur||0,distance:day.defaultDistance||0,effort:null,notes:''};
@@ -3132,6 +3185,8 @@ function startDay(i){
         }
       }
     });
+    // Focus-mode display order: identity permutation at start (S4).
+    S.activeSession.order=S.activeSession.exercises.map((_,i)=>i);
   }
   save();sessionStart=Date.now();startTimer();
   showView('vSession');renderEx();
@@ -4489,6 +4544,11 @@ function confirmRpe(){
       else if(rx.nextTarget)dayExs[ei].reps=rx.nextTarget;
     }
   });
+
+  // Focus-mode reorder (S4): capture the offer AFTER write-back — the mapped
+  // array reuses the SAME program objects, so the bumps above travel with it.
+  // Applied only from the summary row, never here.
+  try{_orderOffer=sessOrderDiffers(sess)?{dayIndex:sess.dayIndex,exercises:mapSessionOrderToProgram(sessOrder(sess),sess.exercises,S.program.days[sess.dayIndex]?.exercises||[])}:null;}catch(e){_orderOffer=null;}
 
   S.activeSession=null;save();
   // Phase C: increment rotation counter
