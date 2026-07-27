@@ -44,6 +44,8 @@
   /* v3 pace tokens (year-end goal pacing) */
   --pace-ahead:var(--grn);--pace-on:var(--acc);--pace-behind:var(--warn);--pace-critical:var(--red);--pace-muted:var(--tx3);--pace-none:var(--tx3);
   /* modality accents — one muted signature per session type */
+  /* per-lift ring hues — NEVER rotate (legibility over palette purity) */
+  --lift-sq:#22D3EE;--lift-bp:#818CF8;--lift-dl:#C084FC;
   --m-lifting:#22D3EE;--m-calisthenics:#C9A96E;--m-swim:#6AA6D8;--m-run:#5E9B7E;--m-pilates:#9D8BD0;--m-mobility:#3FB8AB;--m-rest:#4A5568;
   /* block-rotating brand accent (JS advances per block adoption; semantic
      tokens — grn/warn/red, pace, gold-achievement — NEVER rotate) */
@@ -430,10 +432,12 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 /* dashboard v2 */
 .pace2{font:600 10px var(--sans)}
 .club2{position:relative;display:flex;justify-content:center;margin:8px 0 4px}
-.arc{animation:ringfill 1.4s ease-out}@keyframes ringfill{from{stroke-dashoffset:390}}
+.arc{animation:ringfill 1.4s ease-out}
+@keyframes ringfill{from{stroke-dashoffset:490}}
 .club2-mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.club2-n{font:700 30px var(--mono);letter-spacing:-1px;line-height:1}
-.club2-l{font:500 11px var(--mono);color:var(--tx3);margin-top:-3px}
+.club2-n{font:500 26px var(--display);letter-spacing:-.5px;line-height:1;color:#050505}
+.club2-l{font:500 10px var(--mono);color:rgba(5,5,5,.6);margin-top:0}
+.planet-lbl{font:600 8.5px var(--mono);letter-spacing:.3px;paint-order:stroke;stroke:var(--s1);stroke-width:3px;stroke-linejoin:round}
 .subs2{display:flex;justify-content:space-between;margin-top:8px;padding-top:12px;border-top:1px solid var(--s2)}
 .sub2{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}
 .sub2.gap{border-left:1px solid var(--s2)}
@@ -631,10 +635,15 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 
   <!-- ===== PROGRESS VIEW ===== -->
   <div class="view pad" id="vProgress">
-    <!-- Goals dashboard (hero) -->
-    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
-      <div class="t-h1">Goals</div>
-      <div class="t-meta" id="goalsCountdown"></div>
+    <!-- Goals dashboard (hero). The e1RM mountain sits BEHIND the header:
+         static, 10% fading to black, pointer-events none; rendered only
+         when the merged big-3 series has >=6 points. -->
+    <div id="goalsHdrWrap" style="position:relative;margin-bottom:8px">
+      <div id="goalsMountain" aria-hidden="true" style="position:absolute;inset:-20px -16px -8px;pointer-events:none;overflow:hidden"></div>
+      <div style="position:relative;display:flex;justify-content:space-between;align-items:baseline">
+        <div class="t-h1">Goals</div>
+        <div class="t-meta" id="goalsCountdown"></div>
+      </div>
     </div>
     <div id="goalsDash" style="margin-bottom:24px"></div>
 
@@ -4909,11 +4918,63 @@ function miniRing(pct,color,label,sub){
     <div class="t-meta">${sub}</div>
   </div>`;
 }
-// One concentric ring arc (track + value), cyan family for the strength lifts.
-function ringArc(r,pct,color){
+// Monotone-cubic (Fritsch–Carlson) interpolation → SVG path. Pure; the Goals
+// mountain uses it so the silhouette never overshoots between sessions.
+function monotonePath(pts){
+  if(!pts||pts.length<2)return'';
+  const n=pts.length,x=pts.map(p=>p[0]),y=pts.map(p=>p[1]);
+  const d=[],m=[];
+  for(let i=0;i<n-1;i++)d[i]=(y[i+1]-y[i])/((x[i+1]-x[i])||1e-9);
+  m[0]=d[0];m[n-1]=d[n-2];
+  for(let i=1;i<n-1;i++)m[i]=(d[i-1]*d[i]<=0)?0:(d[i-1]+d[i])/2;
+  for(let i=0;i<n-1;i++){
+    if(d[i]===0){m[i]=0;m[i+1]=0;continue}
+    const a=m[i]/d[i],b=m[i+1]/d[i],h=Math.hypot(a,b);
+    if(h>3){m[i]=3*d[i]*a/h;m[i+1]=3*d[i]*b/h}
+  }
+  let path='M'+x[0].toFixed(1)+' '+y[0].toFixed(1);
+  for(let i=0;i<n-1;i++){
+    const dx=(x[i+1]-x[i])/3;
+    path+='C'+(x[i]+dx).toFixed(1)+' '+(y[i]+dx*m[i]).toFixed(1)+' '+(x[i+1]-dx).toFixed(1)+' '+(y[i+1]-dx*m[i+1]).toFixed(1)+' '+x[i+1].toFixed(1)+' '+y[i+1].toFixed(1);
+  }
+  return path;
+}
+// Merged big-3 total e1RM per date (carry-forward), starting the first date
+// all three lifts have a value (bench baseline counts). Pure; ≥6 gate here.
+function goalsMountainPoints(){
+  try{
+    const b3=getBig3E1rm(),se=b3.series||{};
+    const dates=[...new Set([].concat(se.squat||[],se.bench||[],se.dead||[]).map(p=>p.date))].sort();
+    const cur={squat:null,bench:b3.benchIsBaseline?b3.bench:null,dead:null};
+    const out=[];
+    dates.forEach(dt=>{
+      ['squat','bench','dead'].forEach(k=>{const hit=(se[k]||[]).filter(p=>p.date===dt).pop();if(hit)cur[k]=hit.e1rm;});
+      if(cur.squat!=null&&cur.bench!=null&&cur.dead!=null)out.push({date:dt,total:cur.squat+cur.bench+cur.dead});
+    });
+    return out;
+  }catch(e){return[]}
+}
+// Behind the Goals header: static area silhouette, 10% brand fading to black.
+// Goals' gradient budget: sun disc + this fade — nothing else on the screen.
+// Below 6 points the header stays plain (no sad staircase).
+function renderGoalsMountain(){
+  const el=document.getElementById('goalsMountain');if(!el)return;
+  const pts=goalsMountainPoints();
+  if(pts.length<6){el.innerHTML='';return}
+  const W=100,H=40;
+  const xs=pts.map((p,i)=>i/(pts.length-1)*W);
+  const lo=Math.min(...pts.map(p=>p.total)),hi=Math.max(...pts.map(p=>p.total));
+  const ys=pts.map(p=>hi===lo?H/2:(H-6)-(p.total-lo)/(hi-lo)*(H-12));
+  const line=monotonePath(xs.map((x,i)=>[x,ys[i]]));
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="mtnFade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--brand);stop-opacity:.10"/><stop offset="1" style="stop-color:var(--brand);stop-opacity:0"/></linearGradient></defs><path d="${line} L${W} ${H} L0 ${H} Z" fill="url(#mtnFade)"/></svg>`;
+}
+// One orbit arc (track + value). cx/cy optional so the 1000lb sun-orbit can
+// recenter; defaults keep every legacy call site (and its geometry) intact.
+function ringArc(r,pct,color,cx,cy){
+  const X=cx==null?75:cx, Y=cy==null?75:cy;
   const circ=2*Math.PI*r, off=circ*(1-Math.min(1,Math.max(0,pct)));
-  return `<circle cx="75" cy="75" r="${r}" fill="none" stroke="#13161b" stroke-width="7"/>`+
-    `<circle class="arc" cx="75" cy="75" r="${r}" fill="none" stroke="${color}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 75 75)"/>`;
+  return `<circle cx="${X}" cy="${Y}" r="${r}" fill="none" stroke="rgba(255,255,255,.05)" stroke-width="7"/>`+
+    `<circle class="arc" cx="${X}" cy="${Y}" r="${r}" fill="none" stroke="${color}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 ${X} ${Y})"/>`;
 }
 function renderGoalsDashboard(){
   const dash=document.getElementById('goalsDash');if(!dash)return;
@@ -4930,18 +4991,36 @@ function renderGoalsDashboard(){
   // 1000 lb club — concentric strength rings (squat outer, bench mid, dead inner)
   // Distinct hue per lift (squat outer / bench mid / dead inner) so each ring
   // is legible against the others; the sub-row dots below mirror these exactly.
-  const cSquat='#22D3EE',cBench='#818CF8',cDead='#C084FC';
+  const cSquat='var(--lift-sq)',cBench='var(--lift-bp)',cDead='var(--lift-dl)';
   // Goal-complete state (4d): e1RM >= target -> full GREEN ring + check badge
   // + a one-time celebration (same one-shot store as MU milestones).
   const liftDone={squat:b3.squat>=tg.squat,bench:b3.bench>=tg.bench,dead:b3.dead>=tg.dead};
   const liftLabel={squat:'Squat',bench:'Bench',dead:'Deadlift'};
   Object.keys(liftDone).forEach(k=>{if(liftDone[k])try{celebrateMilestone('lift_target_'+k,liftLabel[k]+' target hit — '+tg[k]+' kg');}catch(e){}});
-  const ringFor=(r,k,c)=>ringArc(r,liftDone[k]?1:b3[k]/tg[k],liftDone[k]?'var(--grn)':c)
-    +(liftDone[k]?`<g class="ring-done" transform="translate(75,${75-r})"><circle r="7" fill="var(--grn)"/><path d="M-3 0l2 2 4-4" stroke="#04140d" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>`:'');
-  const rings=ringFor(68,'squat',cSquat)+ringFor(55,'bench',cBench)+ringFor(42,'dead',cDead);
+  // Orbit treatment: each arc's leading edge carries a planet dot + tight
+  // label (SQ/BP/DL + current lb) so the rings read without a legend.
+  const CTR=95, planetLbl={squat:'SQ',bench:'BP',dead:'DL'};
+  // Dot rides each arc's leading edge; labels hug their ring's 12-o'clock
+  // start in a stacked column. ALL labels paint last with a surface-colour
+  // halo (paint-order:stroke) so a ~100% arc's dot returning to 12 o'clock
+  // dips behind legible text instead of eclipsing it.
+  const ringFor=(r,k,c)=>{
+    const pct=liftDone[k]?1:Math.min(1,Math.max(0,b3[k]/tg[k]));
+    const ang=(-90+pct*360)*Math.PI/180;
+    const px=CTR+r*Math.cos(ang), py=CTR+r*Math.sin(ang);
+    const col=liftDone[k]?'var(--grn)':c;
+    return {ring:ringArc(r,pct,col,CTR,CTR)
+      +`<circle class="planet" cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="4.5" fill="${col}" stroke="var(--bg)" stroke-width="1.5"/>`
+      +(liftDone[k]?`<g class="ring-done" transform="translate(${CTR},${CTR-r})"><circle r="7" fill="var(--grn)"/><path d="M-3 0l2 2 4-4" stroke="#04140d" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>`:''),
+      label:`<text class="planet-lbl tnum" x="${CTR-9}" y="${CTR-r+14}" text-anchor="end" fill="${col}">${planetLbl[k]} ${lb(b3[k])}${liftDone[k]?' \u2713':''}</text>`};
+  };
+  const orb=[ringFor(78,'squat',cSquat),ringFor(63,'bench',cBench),ringFor(48,'dead',cDead)];
+  const rings=orb.map(o=>o.ring).join('')+orb.map(o=>o.label).join('');
   const card1000=`<div class="goal-card lift tap" onclick="goToLiftDetail('squat')">
     <div class="goal-head"><span class="t-h2">1000 lb Club</span><span class="pace2" style="color:var(--${pace})">${paceLabel}</span></div>
-    <div class="club2"><svg viewBox="0 0 150 150" width="150" height="150" aria-hidden="true">${rings}</svg>
+    <div class="club2"><svg viewBox="0 0 190 190" width="190" height="190" aria-hidden="true">
+      <defs><linearGradient id="sunGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--brand)"/><stop offset="1" style="stop-color:var(--brand2)"/></linearGradient></defs>
+      <circle cx="${CTR}" cy="${CTR}" r="34" fill="url(#sunGrad)"/>${rings}</svg>
       <div class="club2-mid"><div class="club2-n tnum">${totalLb}</div><div class="club2-l">/ 1000 lb</div></div></div>
     <div class="subs2">
       ${(()=>{
@@ -5025,6 +5104,7 @@ function toggleMuMilestone(i,on){
 }
 function renderProgress(){
   renderGoalsDashboard();
+  try{renderGoalsMountain();}catch(e){}
   const total=calcTotal();
   const pct=Math.min(100,total/1000*100);
   // Ring
@@ -5102,7 +5182,7 @@ function renderE1rmChart(){
   const legend=document.getElementById('e1rmLegend');
   if(S.sessions.length===0){chart.innerHTML='<text x="50%" y="60" text-anchor="middle" fill="var(--tx3)" font-size="12">Complete sessions to see trends</text>';legend.innerHTML='';return}
 
-  const lifts={Squat:{color:'var(--acc)',points:[]},Bench:{color:'var(--grn)',points:[]},Deadlift:{color:'var(--blu)',points:[]}};
+  const lifts={Squat:{color:'var(--lift-sq)',points:[]},Bench:{color:'var(--lift-bp)',points:[]},Deadlift:{color:'var(--lift-dl)',points:[]}};
   const isFlatBench = n => /^(flat bench|bench press|barbell bench)$/i.test(n);
   S.sessions.forEach((s,si)=>{
     let sq=0,bn=0,dl=0;

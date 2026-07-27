@@ -1589,9 +1589,9 @@ assert(typeof ringArc==='function' && typeof renderGoalsDashboard==='function', 
 assert((ringArc(62,0.5,'#22D3EE').match(/<circle/g)||[]).length===2, 'Dash v2: ringArc renders a track + a value circle');
 assert(/club2-n tnum">\$\{totalLb\}/.test(html), 'Dash v2: centre shows the total');
 assert(/const sqL=lb\(b3\.squat\),bnL=lb\(b3\.bench\),dlL=lb\(b3\.dead\),totalLb=sqL\+bnL\+dlL/.test(html), 'Dash v2: sub-numbers sum to the total by construction');
-assert(/ringFor\(68,'squat'[\s\S]{0,40}ringFor\(55,'bench'[\s\S]{0,40}ringFor\(42,'dead'/.test(html), 'Dash v2: three concentric strength rings (68/55/42, complete-aware)');
+assert(/ringFor\(78,'squat'[\s\S]{0,40}ringFor\(63,'bench'[\s\S]{0,40}ringFor\(48,'dead'/.test(html), 'SOLAR orbit: three orbits (78/63/48, complete-aware)');
 // each lift ring + its sub-row dot share one distinct hue (squat/bench/dead legible apart)
-assert(/cSquat='#22D3EE',cBench='#818CF8',cDead='#C084FC'/.test(html), 'Dash v2: three distinct per-lift ring hues');
+assert(/cSquat='var\(--lift-sq\)',cBench='var\(--lift-bp\)',cDead='var\(--lift-dl\)'/.test(html), 'SOLAR orbit: per-lift hues consolidated to tokens');
 assert(/\['squat',cSquat,'SQUAT'\],\['bench',cBench,'BENCH'\],\['dead',cDead,'DEAD'\]/.test(html) && /sd2" style="background:\$\{liftDone\[k\]\?'var\(--grn\)':c\}/.test(html), 'Dash v2: sub-row dots mirror the ring hues (green when complete)');
 // quick-log run/swim
 assert(typeof quickLogActivity==='function' && typeof saveQuickLog==='function', 'Dash v2: quick-log fns defined');
@@ -1630,7 +1630,7 @@ assert(/<label id="qlDistLbl" for="qlDist">/.test(html) && /<label for="qlDur">/
 assert(/id="sBarKg"[^>]*aria-label=/.test(html) && /id="sPlates"[^>]*aria-label=/.test(html), 'A11y: bar/plates settings inputs are labelled');
 assert(/class="pr-tag"[^>]*aria-label="personal record"/.test(html), 'A11y: PR tag exposes an accessible label');
 assert(/quickLogActivity\('swim'\)"[^>]*aria-label=/.test(html) && /quickLogActivity\('run'\)"[^>]*aria-label=/.test(html), 'A11y: quick-log buttons are labelled');
-assert(/<svg viewBox="0 0 150 150"[^>]*aria-hidden="true"/.test(html) && /<svg viewBox="0 0 88 88" aria-hidden="true"/.test(html), 'A11y: decorative dashboard rings are aria-hidden (numbers carried as text)');
+assert(/<svg viewBox="0 0 190 190"[^>]*aria-hidden="true"/.test(html) && /<svg viewBox="0 0 88 88" aria-hidden="true"/.test(html), 'A11y: decorative dashboard rings are aria-hidden (numbers carried as text)');
 
 // ===== C2: PROGRESSION SNAPPING + BW RULES =====
 assert(typeof snapSuggestion==='function' && typeof snapIncrement==='function' && typeof bwNextTarget==='function', 'Snap: helpers defined');
@@ -1906,7 +1906,7 @@ assert(/--brand:#FF6A3D;--brand2:#F4B942/.test(html), 'Brand: :root static fallb
 assert(/\.bar-btn\.on\{color:var\(--brand\)\}/.test(html), 'Brand: active tab uses --brand');
 assert(/\.start-btn\{background:linear-gradient\(135deg,var\(--brand\),var\(--brand2\)\)/.test(html), 'Brand: Start button uses the brand gradient');
 assert(/\.pr-tag\{[^}]*color:var\(--gold\)/.test(html), 'Brand: PR tag STAYS gold (achievement never rotates)');
-assert(/cSquat='#22D3EE',cBench='#818CF8',cDead='#C084FC'/.test(html), 'Brand: per-lift ring hues untouched');
+assert(/--lift-sq:#22D3EE;--lift-bp:#818CF8;--lift-dl:#C084FC/.test(html), 'Brand: per-lift ring hues untouched (token form, never rotate)');
 assert(/class="q-mark"/.test(html) && /\.q-mark\{[^}]*color:var\(--brand\)/.test(html), 'Brand: quote mark carries the brand');
 assert(/#sessBar\{[^}]*border-top:2px solid var\(--brand\)/.test(html), 'Brand: session strip carries the brand');
 // depth pass + hero + count-up
@@ -2012,7 +2012,7 @@ assert(big3PaceParts({squat:170,bench:102,dead:190,deltaSquat:0,deltaBench:0,del
 // units: need is kg/wk and actual kg (the old code compared lb/wk vs kg)
 assert(/kg\/wk/.test(html)&&/lb\/week against progress in kg/.test(html), 'D4: unit fix documented at the source');
 // ring complete state + one-time celebration + pace skip wiring
-assert(/liftDone\[k\]\?1:b3\[k\]\/tg\[k\]/.test(html)&&/liftDone\[k\]\?'var\(--grn\)'/.test(html), 'D4: complete lift renders a full green ring');
+assert(/liftDone\[k\]\?1:Math\.min\(1,Math\.max\(0,b3\[k\]\/tg\[k\]\)\)/.test(html)&&/liftDone\[k\]\?'var\(--grn\)'/.test(html), 'D4: complete lift renders a full green (fully lit) orbit');
 assert(/class="ring-done"/.test(html), 'D4: check badge overlay on the completed ring');
 assert(/celebrateMilestone\('lift_target_'\+k/.test(html), 'D4: one-time celebration keyed per lift target');
 // 4b: flag suggestion equal to the performed load renders as HOLD
@@ -2276,5 +2276,27 @@ assert(/<meta name="theme-color" content="#050505">/.test(html), 'S2: theme-colo
 assert(/rel="icon"[^>]*%23050505/.test(html) && /rel="icon"[^>]*linearGradient/.test(html), 'S2: favicon is the black-field gradient sun');
 assert(/rel="apple-touch-icon" href="data:image\/png;base64,/.test(html), 'S2: touch icon inline PNG present');
 assert(/class="topset-chip tnum">TOP /.test(html) && /\.topset-chip\{[^}]*background:var\(--solar/.test(html), 'S2: Train top-set chip is the second budget surface');
+
+// ===== S3: GOALS ORBIT + E1RM MOUNTAIN =====
+assert(typeof monotonePath==='function'&&typeof goalsMountainPoints==='function'&&typeof renderGoalsMountain==='function', 'S3: mountain trio defined');
+assert(monotonePath([])===''&&monotonePath([[0,0]])==='', 'S3: monotonePath degenerate inputs → empty');
+(()=>{const p=monotonePath([[0,30],[50,10],[100,20]]);assert(/^M0(\.0)? 30/.test(p)&&(p.match(/C/g)||[]).length===2, 'S3: monotonePath emits cubic segments. Got: '+p.slice(0,40));})();
+S.sessions=[];assert(Array.isArray(goalsMountainPoints())&&goalsMountainPoints().length===0, 'S3: no sessions → no mountain points');
+(()=>{ // 6 dated sessions with all three lifts → 6 carried-forward totals
+  const mk=(d,n,w)=>({date:d,dayLabel:'X',blockName:S.program.name,status:'complete',exercises:[{name:n,prescribed:{sets:1,reps:'5',loadKg:w,unit:'kg'},performed:[{type:'working',weightKg:w,reps:5,logged:true}]}]});
+  S.sessions=[];
+  ['2026-07-01','2026-07-03','2026-07-05','2026-07-08','2026-07-10','2026-07-12'].forEach((d,i)=>{
+    S.sessions.push(mk(d,'Back Squat',100+i),mk(d,'Bench Press',80+i),mk(d,'Deadlift',120+i));
+  });
+  const pts=goalsMountainPoints();
+  assert(pts.length===6&&pts[5].total>pts[0].total, 'S3: merged big-3 totals per date, rising. Got '+pts.length);
+  S.sessions=[];
+})();
+assert(/if\(pts\.length<6\)\{el\.innerHTML='';return\}/.test(html), 'S3: mountain hidden below 6 points (no sad staircase)');
+assert(/id="goalsMountain"[^>]*pointer-events:none/.test(html), 'S3: mountain is decor — pointer-events none');
+assert(/<linearGradient id="sunGrad"/.test(html)&&/r="34" fill="url\(#sunGrad\)"/.test(html), 'S3: centre sun carries the gradient');
+assert(/class="planet"/.test(html)&&/class="planet-lbl tnum"/.test(html)&&/planetLbl\[k\]/.test(html), 'S3: orbit leading edges carry planet dots + tight labels');
+assert(/\{Squat:\{color:'var\(--lift-sq\)'/.test(html), 'S3: e1RM chart consolidated onto the lift-hue tokens');
+assert(/\.club2-n\{font:500 26px var\(--display\)/.test(html), 'S3: goal headline number set in the display face');
 
 console.log('\n=== All tests passed ===');
