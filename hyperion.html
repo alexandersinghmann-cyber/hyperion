@@ -1249,13 +1249,15 @@ const EX_META={
   'Reverse Pec Deck':{pat:'rear-delt',prim:['rear-delt','mid-trap'],eq:['pec-deck'],fat:'iso',sh:'safe',slot:'rear-delt'},
   // Horizontal push
   'Bench Press':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['barbell','bench','rack'],fat:'heavy-compound',sh:'activation-first',slot:'hpush',incrementKg:2.5},
-  'DB Incline Bench':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['db','incline-bench'],fat:'heavy-compound',sh:'activation-first',slot:'hpush'},
+  'DB Incline Bench':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['db','incline-bench'],fat:'heavy-compound',sh:'activation-first',slot:'hpush',avoid:true,avoidReason:'Incline pressing barred — 30° DB bench provoked a sev-3 shoulder event'},
+  'Incline Bench Press':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['barbell','incline-bench'],fat:'heavy-compound',sh:'activation-first',slot:'hpush',avoid:true,avoidReason:'Incline pressing barred this block (shoulder)'},
+  'V-Squat':{pat:'squat',prim:['quad','glute'],eq:['v-squat'],fat:'heavy-compound',sh:'safe',slot:'squat-secondary',avoid:true,avoidReason:'Spinal compression (user-reported)'},
   'DB Bench Press':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['db','bench'],fat:'heavy-compound',sh:'activation-first',slot:'hpush'},
   'Machine Chest Press':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['chest-press'],fat:'heavy-compound',sh:'safe',slot:'hpush'},
   'Push-Up':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['bodyweight'],fat:'light-compound',sh:'safe',slot:'hpush'},
-  'DB Shoulder Press':{pat:'vpush',prim:['front-delt','tri'],eq:['db'],fat:'heavy-compound',sh:'activation-first',slot:'ohp'},
-  'Military Press':{pat:'vpush',prim:['front-delt','tri','upper-chest'],eq:['barbell'],fat:'heavy-compound',sh:'warn',slot:'ohp'},
-  'Machine Shoulder Press':{pat:'vpush',prim:['front-delt','tri'],eq:['machine'],fat:'heavy-compound',sh:'activation-first',slot:'ohp'},
+  'DB Shoulder Press':{pat:'vpush',prim:['front-delt','tri'],eq:['db'],fat:'heavy-compound',sh:'activation-first',slot:'ohp',avoid:true,avoidReason:'Overhead pressing barred this block (shoulder)'},
+  'Military Press':{pat:'vpush',prim:['front-delt','tri','upper-chest'],eq:['barbell'],fat:'heavy-compound',sh:'warn',slot:'ohp',avoid:true,avoidReason:'Overhead pressing barred this block (shoulder)'},
+  'Machine Shoulder Press':{pat:'vpush',prim:['front-delt','tri'],eq:['machine'],fat:'heavy-compound',sh:'activation-first',slot:'ohp',avoid:true,avoidReason:'Overhead pressing barred this block (shoulder)'},
   // Dips + calisthenics muscle-up progression anchors (discrete strict-form entries
   // so milestone detection matches names exactly, not kipping variants).
   'Dip':{pat:'dip',prim:['tri','chest','front-delt'],eq:['parallel-bars'],fat:'heavy-compound',sh:'activation-first',slot:'dip'},
@@ -1355,7 +1357,10 @@ function estimateExTime(ex){
   const rest=ex.rest||60;
   const repStr=(ex.reps||'').toString();
   let reps=parseInt(repStr.split('-')[0],10); if(isNaN(reps))reps=10;
-  const repTime=reps*3.5+15; // sec for one set
+  // Hold prescriptions cost their SECONDS, not reps×3.5 — a 90s Frog Pose
+  // is 90 seconds, not "90 reps" (which billed 315s and blew time budgets).
+  const u=repsUnit(repStr);
+  const repTime=u==='s'?reps+15:u==='min'?reps*60+15:reps*3.5+15;
   return sets*(repTime+rest)/60;
 }
 function estimateSessionTime(exList){
@@ -1655,8 +1660,9 @@ function getEligibleVariantsForSlot(slot){
   ensureGyms();
   const gym=(S.settings.gyms||[]).find(g=>g.id===S.settings.activeGymId);
   const equip=gym?gym.equipment:null;
-  if(!equip)return all.slice();
-  return all.filter(name=>{
+  const pool=all.filter(name=>!getMeta(name).avoid); // never auto-assign a contraindicated lift
+  if(!equip)return pool.slice();
+  return pool.filter(name=>{
     const meta=getMeta(name);
     const need=meta.eq||[];
     if(!need.length)return true;
@@ -2107,11 +2113,27 @@ function toast(msg,ms){
 }
 
 // Reset program to the built-in default, preserving sessions + goals + settings.
+// day.permanent:true days (the Mobility template) are block-independent —
+// they ride along into every new block unless that block ships its own day
+// with the same label. Ids are re-assigned on collision: recMatchesDay
+// compares ids within one blockName, so a duplicate id would double-match.
+function carryPermanentDays(oldProgram,newProgram){
+  if(!oldProgram||!Array.isArray(oldProgram.days)||!newProgram||!Array.isArray(newProgram.days))return;
+  oldProgram.days.filter(d=>d.permanent===true).forEach(d=>{
+    if(newProgram.days.some(nd=>nd.label===d.label))return;
+    const copy=JSON.parse(JSON.stringify(d));
+    const ids=newProgram.days.map(nd=>+nd.id||0);
+    if(ids.includes(+copy.id))copy.id=Math.max.apply(null,ids)+1;
+    newProgram.days.push(copy);
+  });
+}
 function syncProgram(){
   if(S.activeSession){alert('End your current session before syncing the program.');return}
   const defN=DEF_PROGRAM.days.length;
   if(!confirm('Load the built-in block "'+DEF_PROGRAM.name+'" ('+defN+' days)?\n\nThis preserves all session history, goals, and settings.\n\nCurrent: '+(S.program&&S.program.days?S.program.days.length:0)+' days'))return;
+  const _oldProg=S.program;
   S.program=JSON.parse(JSON.stringify(DEF_PROGRAM)); // name auto-updates to DEF_PROGRAM.name
+  carryPermanentDays(_oldProg,S.program);
   delete S.settings._dismissedBlock; // a fresh adoption clears any prior skip
   maybeAdvanceBrandSafe();
   save();
@@ -3116,7 +3138,9 @@ function renderActivityLog(sess){
   const st=sess.sessionType;
   const showDist=st!=='pilates'&&st!=='mobility';
   const distReq=st==='swim';
-  const empty=ACTIVITY_EMPTY[st]||'Log this session';
+  const empty=st==='swim'
+    ?(b=>b>0?`Best continuous: ${b} m. Beat it.`:ACTIVITY_EMPTY.swim)(swimBest(S.sessions))
+    :(ACTIVITY_EMPTY[st]||'Log this session');
   const effChips=[1,2,3,4,5,6,7,8,9,10].map(v=>`<button class="eff-chip${a.effort===v?' sel':''}" onclick="setActivityField('effort',${v});renderEx()" aria-label="effort ${v}">${v}</button>`).join('');
   const list=document.getElementById('exList');
   list.innerHTML=`
@@ -3617,6 +3641,7 @@ function getSwapCandidates(ex){
   const addCand=(name,cat,loadKg,unit,reps,sets,source,whyBits)=>{
     const k=name.toLowerCase();
     if(k===(ex.name||'').toLowerCase())return;
+    if(getMeta(name).avoid)return; // contraindicated
     if(seen.has(k))return;seen.add(k);
     out.push({name,cat,loadKg,unit:unit||'kg',reps:reps||ex.prescribed.reps,sets:sets||ex.prescribed.sets,source,why:whyBits});
   };
@@ -3741,6 +3766,7 @@ function getSubstitutes(exName){
     if(canonName(name)===canonName(exName))return;
     if(inSession.has(name.toLowerCase()))return; // already in session — skip
     const m=EX_META[name];
+    if(m.avoid)return; // contraindicated — surfaces only in the excluded expander
     const slotMatch=m.slot===meta.slot;
     const familyMatch=isCoreFamily && (m.slot||'').startsWith('core-');
     if(!slotMatch && !familyMatch)return;
@@ -3777,6 +3803,15 @@ function loadAdjustForSub(fromName,toName,fromLoadKg){
   if(eq2.includes('bodyweight'))return 0;
   return fromLoadKg;
 }
+// Slot-relevant contraindicated exercises (EX_META avoid:true) — shown only
+// under the picker's "excluded" expander, with their reasons.
+function getAvoided(exName){
+  const meta=getMeta(exName);if(!meta.slot)return[];
+  return Object.keys(EX_META).filter(n2=>{
+    const m=EX_META[n2];
+    return m.avoid&&(m.slot===meta.slot||(String(m.slot||'').startsWith('core')&&String(meta.slot||'').startsWith('core')));
+  }).map(n2=>({name:n2,reason:EX_META[n2].avoidReason||'Contraindicated'}));
+}
 function openSubstitute(ei){
   const sess=S.activeSession;if(!sess)return;
   const ex=sess.exercises[ei];if(!ex)return;
@@ -3802,6 +3837,12 @@ function openSubstitute(ei){
       </div>`;
     };
     body.innerHTML=subs.slice(0,6).map(renderCard).join('');
+  }
+  // Contraindicated exercises: hidden from the pool, listed with reasons.
+  const avoided=getAvoided(ex.name);
+  if(avoided.length){
+    body.innerHTML+=`<div class="avoid-wrap"><button class="btn btn-sm btn-g" style="width:100%" onclick="var x=document.getElementById('avoidList');if(x)x.style.display=x.style.display==='none'?'block':'none'">Excluded (${avoided.length}) — why?</button>
+      <div id="avoidList" style="display:none;margin-top:6px">${avoided.map(a=>`<div style="padding:8px 10px;border-radius:var(--rs);background:var(--s2);margin-bottom:4px"><div style="font:600 13px var(--sans);color:var(--tx2)">${a.name}</div><div style="font:11px var(--sans);color:var(--tx3);margin-top:1px">${a.reason}</div></div>`).join('')}</div></div>`;
   }
   showModal('subModal');
 }
@@ -3839,6 +3880,12 @@ function logSet(ei,si){
   const dispU=S.settings.unit||'kg';
   if(wi&&wi.value){const v=parseFloat(wi.value);s.weightKg=dispU==='lb'?v*L2K:v}
   if(ri&&ri.value)s.reps=parseInt(ri.value);
+  // A zero-rep "log" is a skip, not a completed set (3a): rep-0 rows were
+  // polluting evalProg (bigMiss → false 5% deload) and set strings ("25×0").
+  // Test the RESOLVED reps — "0" in the box is truthy; an empty box keeps
+  // the prescribed default.
+  const _rv=(ri&&ri.value!=='')?parseInt(ri.value):s.reps;
+  if(!(_rv>0)){skipSet(ei,si);return;}
   s.logged=true;s._justLogged=true;save();
   // Set-complete feedback: brief haptic (CSS pulse handled via ._justLogged class).
   if(typeof navigator!=='undefined'&&navigator.vibrate)navigator.vibrate(30);
@@ -3858,6 +3905,8 @@ function logAll(ei){
       const wi=document.getElementById(`w${ei}_${si}`),ri=document.getElementById(`r${ei}_${si}`);
       if(wi&&wi.value){const v=parseFloat(wi.value);s.weightKg=dispU==='lb'?v*L2K:v}
       if(ri&&ri.value)s.reps=parseInt(ri.value);
+      const rv=(ri&&ri.value!=='')?parseInt(ri.value):s.reps;
+      if(!(rv>0)){s.logged=true;s.skipped=true;s.reps=0;s.weightKg=0;s.skipReason='zero';return;}
       s.logged=true;
     }
   });
@@ -5211,7 +5260,8 @@ function doImport(){
   if(d.kind==='error'){alert(d.err);return}
   if(d.kind==='program'){
     if(S.activeSession){alert('End your current session before loading a new block.');return}
-    S.program=d.parsed;maybeAdvanceBrandSafe();save();hideModal('importModal');
+    const _oldProg=S.program;
+    S.program=d.parsed;carryPermanentDays(_oldProg,S.program);maybeAdvanceBrandSafe();save();hideModal('importModal');
     runValidatorAuto('Program "'+(d.parsed.name||'unnamed')+'" loaded');
     renderTrain();
     return;

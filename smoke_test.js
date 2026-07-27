@@ -315,7 +315,10 @@ assert(canonName('Calf Raise (sitting)')==='Calf Raise', 'Alias: Calf Raise (sit
 assert(canonName('Standing Overhead Barbell Press')==='Military Press', 'Alias: Standing Overhead Barbell Press → Military Press');
 // Military Press surfaces as a substitute for the overhead press
 S.settings.activeGymId='gym-singapore';
-assert(getSubstitutes('DB Shoulder Press').some(s=>s.name==='Military Press'), 'Substitute: Military Press offered for DB Shoulder Press (ohp slot)');
+// FLIPPED (W2 avoid-list): every ohp press is contraindicated this block —
+// the picker must NOT offer Military Press; it lives in the excluded list.
+assert(!getSubstitutes('DB Shoulder Press').some(s=>s.name==='Military Press'), 'Substitute: avoid-flagged Military Press NOT offered');
+assert(getAvoided('DB Shoulder Press').some(a=>a.name==='Military Press'&&/verhead/.test(a.reason)), 'Substitute: Military Press listed as excluded with its reason');
 S.settings.activeGymId='gym-commercial';
 
 assert(!DEF_PROGRAM.days.some(d => (d.exercises||[]).some(e => /^seated row$/i.test(e.name))), 'No day has bare "Seated Row"');
@@ -2201,5 +2204,57 @@ assert(bn8.progression==='increase'&&bn8.nextLoad===90, 'E2: Bench @8 → +2.5 (
 const dl10=e2case('Deadlift','barbell',125,10);
 assert(dl10.progression==='flag'&&dl10.nextLoad<125, 'E2: @10 still deloads (gate unchanged above 8)');
 S.activeSession=null;
+
+// ===== F1: FIX PACK =====
+// 3a — rep-0 diverts to skip flow
+S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];
+global.startTimer=()=>{};global.showSessionHero=global.showSessionHero||(()=>{});
+startDay(0); // Block 5 W1 Bench day (program swaps in F2 — day 0 is lifting either way)
+const f1ex=S.activeSession.exercises.find(e=>e.name==='Bench Press');
+const f1ei=S.activeSession.exercises.indexOf(f1ex);
+const f1si=f1ex.performed.findIndex(pp=>pp.type==='working');
+f1ex.performed[f1si].reps=0;             // stashed zero (stashSetInput persists keystrokes)
+logSet(f1ei,f1si);
+assert(f1ex.performed[f1si].logged!==true||f1ex.performed[f1si].skipped===true, '3a: rep-0 log never records a completed set');
+assert(_skipSetCtx&&_skipSetCtx.ei===f1ei&&_skipSetCtx.si===f1si, '3a: skip reason picker context armed');
+confirmSkipSet('other');
+assert(f1ex.performed[f1si].skipped===true, '3a: diverted set lands as a skip');
+// evalProg regression: a rep-0 row must not force a false deload
+f1ex.performed.forEach(pp=>{if(!pp.logged){pp.logged=true;if(pp.type==='working')pp.rpe=7;}});
+evalProg(f1ei);
+assert(f1ex.progression!=='flag', '3a: skipped rep-0 row does not trigger bigMiss/deload. Got: '+f1ex.progression);
+// logAll: zero rows become inline skips
+const f1b=S.activeSession.exercises.find(e=>e.name==='Machine Shoulder Press'||e.name==='DB RDL'||e.name==='Leg Press')||S.activeSession.exercises[4];
+f1b.performed.forEach(pp=>{pp.logged=false;pp.skipped=false;});
+f1b.performed[0].reps=0;
+logAll(S.activeSession.exercises.indexOf(f1b));
+assert(f1b.performed[0].skipped===true&&f1b.performed[0].skipReason==='zero'&&f1b.performed.slice(1).every(pp=>pp.logged&&!pp.skipped), '3a: logAll skips the zero row, logs the rest');
+window.confirm=()=>true;cancelSession();
+// historical 25×0 rows cannot move e1RM (already numeric-safe — pinned)
+S.sessions=[{date:'2026-07-20',dayLabel:'X',blockName:S.program.name,exercises:[{name:'DB Bench Press',prescribed:{sets:3,reps:'8',loadKg:25,unit:'kg'},performed:[{type:'working',weightKg:25,reps:0,logged:true},{type:'working',weightKg:20,reps:8,logged:true}]}]}];
+assert(Math.abs(bestHistoricalE1rm('DB Bench Press')-e1rm(20,8))<0.1, '3a: historical 25×0 rows excluded from e1RM. Got: '+bestHistoricalE1rm('DB Bench Press'));
+S.sessions=[];
+// 3b — avoid list
+assert(getMeta('Machine Shoulder Press').avoid===true&&getMeta('DB Shoulder Press').avoid===true&&getMeta('Military Press').avoid===true, '3b: overhead presses avoid-flagged');
+assert(getMeta('V-Squat').avoid===true&&/pinal compression/.test(getMeta('V-Squat').avoidReason), '3b: V-Squat entry added with the spinal-compression reason');
+assert(getMeta('DB Incline Bench').avoid===true&&getMeta('Incline Bench Press').avoid===true, '3b: incline presses avoid-flagged');
+assert(!getEligibleVariantsForSlot('ohp').length||getEligibleVariantsForSlot('ohp').every(n=>!getMeta(n).avoid), '3b: rotation never auto-assigns an avoided lift');
+assert(/getAvoided\(ex\.name\)/.test(html)&&/Excluded \(\$\{avoided\.length\}\)/.test(html), '3b: excluded expander wired in the picker');
+// 3c — permanent days survive adoption
+const f1old={name:'OldBlock',days:[{id:4,label:'Mobility',defaultDay:'Friday',dayOfWeek:'Friday',sessionType:'lifting',dur:70,permanent:true,exercises:[{id:'m1',name:'Wall Slide',cat:'rehab',sets:1,reps:'10',loadKg:0,unit:'bw',rest:30,tags:[],equipmentClass:'bw'}]}]};
+const f1new={name:'NewBlock',days:[{id:4,label:'Bench',defaultDay:'Monday',dayOfWeek:'Monday',sessionType:'lifting',dur:60,exercises:[]}]};
+carryPermanentDays(f1old,f1new);
+assert(f1new.days.length===2&&f1new.days[1].label==='Mobility'&&f1new.days[1].permanent===true, '3c: permanent day carried into a block that lacks it');
+assert(f1new.days[1].id===5, '3c: colliding id reassigned to max+1 (recMatchesDay stays unambiguous). Got: '+f1new.days[1].id);
+const f1new2={name:'HasMob',days:[{id:1,label:'Mobility',defaultDay:'Friday',dayOfWeek:'Friday',sessionType:'lifting',dur:70,exercises:[]}]};
+carryPermanentDays(f1old,f1new2);
+assert(f1new2.days.length===1, '3c: incoming block that ships its own Mobility day wins (no duplicate)');
+assert(/carryPermanentDays\(_oldProg,S\.program\)/.test(html)&&(html.match(/carryPermanentDays\(_oldProg/g)||[]).length===2, '3c: both adoption paths hooked');
+// estimator hold-awareness
+assert(Math.abs(estimateExTime({name:'Frog Pose',sets:1,reps:'90s',rest:30})-(90+15+30)/60)<0.01, 'Est: a 90s hold costs 90 seconds, not 90 reps ×3.5. Got: '+estimateExTime({name:'Frog Pose',sets:1,reps:'90s',rest:30}));
+assert(Math.abs(estimateExTime({name:'X',sets:2,reps:'10',rest:60})-2*(10*3.5+15+60)/60)<0.01, 'Est: rep rows unchanged');
+// dynamic swim empty state
+assert(/Best continuous: \$\{b\} m\. Beat it\./.test(html), 'Swim: dynamic best-line wired');
+assert(/ACTIVITY_EMPTY\.swim/.test(html), 'Swim: falls back to the freestyle prompt with no best');
 
 console.log('\n=== All tests passed ===');
