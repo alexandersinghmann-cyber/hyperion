@@ -2305,7 +2305,8 @@ assert(!/radial-gradient\(ellipse at 50% 0%/.test(html), 'SOLAR: gold page vigne
 assert(/@font-face\{font-family:'SG';[^}]*font-weight:500/.test(html) && /data:font\/woff2;base64,/.test(html), 'SOLAR: Space Grotesk subset embedded');
 (()=>{const ff=html.match(/@font-face\{[^}]*base64,([^)]+)\)/); assert(ff && ff[1].length<60*1024*4/3, 'SOLAR: font subset under the 60KB cap. Got b64 len '+(ff?ff[1].length:0));})();
 assert(BRAND_CYCLE.every(e=>/^#[0-9A-F]{6}$/i.test(e.c)&&/^#[0-9A-F]{6}$/i.test(e.c2)), 'SOLAR: all 7 gradient pairs carry curated c+c2 stops');
-assert(BRAND_CYCLE.map(e=>e.name).join()==='ember,voltage,royal,lime,gold,crimson,bone', 'SOLAR: curated pair names in cycle order');
+assert(BRAND_CYCLE.map(e=>e.name).join()==='ember,voltage,royal,lime,azure,crimson,bone', 'SOLAR: curated pair names in cycle order (azure replaced gold)');
+assert(!BRAND_CYCLE.some(e=>e.name==='gold'||e.c==='#F4B942'||e.c==='#C9A96E'), 'Discipline: no block accent may collide with achievement gold');
 assert(BRAND_CYCLE[1].c==='#22D3EE'&&BRAND_CYCLE[1].c2==='#7DF9C2'&&BRAND_CYCLE[3].c2==='#34D399', 'SOLAR: voltage + lime pairs match the spec');
 assert(/setProperty\('--solar','linear-gradient\(135deg,'\+e\.c\+','\+e\.c2\+'\)'\)/.test(html), 'SOLAR: applyBrand publishes the pair as --solar');
 assert(!/backdrop-filter/.test(html.match(/<style>([\s\S]*?)<\/style>/)[1]), 'SOLAR law: no backdrop-filter anywhere');
@@ -2713,5 +2714,8 @@ assert(!/text-transform:uppercase/.test(html.match(/<style>([\s\S]*?)<\/style>/)
     const i=st.indexOf(sel);const rule=st.slice(i,st.indexOf('}',i));
     assert(!/var\(--grn\)|var\(--gold\)|#3[0-9a-f]{5}/i.test(rule), 'C10: '+sel+' stays neutral. Got '+rule.slice(0,80));
   });})();
+
+// ===== HOTFIX: iOS always-bounce scroll tail =====
+assert(/\.view\{position:relative\}/.test(html)&&/\.view::after\{content:'';position:absolute;top:100%;left:0;width:1px;height:1px;pointer-events:none\}/.test(html), 'Scroll: absolute 1px tail past 100% keeps every view scrollable so iOS always rubber-bands');
 
 console.log('\n=== All tests passed ===');

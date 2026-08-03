@@ -169,6 +169,14 @@ html,body{margin:0;padding:0;overflow:hidden;font-family:var(--sans);background:
 #app{position:fixed;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;overflow:hidden}
 .view{display:none;flex:1;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;opacity:0;transform:translateY(6px);transition:opacity .15s ease,transform .15s ease}
 .view.on{display:flex;opacity:1;transform:translateY(0)}
+/* iOS feel: a view whose content fits the viewport has zero overflow, so
+   iOS gives no rubber-band at all and the page reads as frozen (the W3
+   Monday Train screen — fresh block, no completed tail — hit this). An
+   absolutely-positioned 1px tail at top:100% extends scrollable overflow
+   past the container REGARDLESS of content height, so every view always
+   scrolls by at least 1px and iOS always gives the native bounce. */
+.view{position:relative}
+.view::after{content:'';position:absolute;top:100%;left:0;width:1px;height:1px;pointer-events:none}
 .pad{padding:calc(20px + var(--sat)) 16px calc(70px + var(--sab))}
 
 /* Sparkline */
@@ -1292,7 +1300,11 @@ const BRAND_CYCLE=[
   {name:'voltage',c:'#22D3EE',c2:'#7DF9C2',dim:'rgba(34,211,238,.12)'},
   {name:'royal',c:'#7C6CFF',c2:'#C86CFF',dim:'rgba(124,108,255,.12)'},
   {name:'lime',c:'#A3E635',c2:'#34D399',dim:'rgba(163,230,53,.12)'},
-  {name:'gold',c:'#F4B942',c2:'#FF8E3D',dim:'rgba(244,185,66,.12)'},
+  // 'gold' was replaced by 'azure': a gold BLOCK accent collided with the
+  // never-rotating achievement gold (Start Session, PR tags, week-complete)
+  // and the whole app read as one colour. Index 4 keeps its slot so the
+  // live device re-hues in place with no migration.
+  {name:'azure',c:'#4D9FFF',c2:'#9BD1FF',dim:'rgba(77,159,255,.12)'},
   {name:'crimson',c:'#FF4D6D',c2:'#FF8A5C',dim:'rgba(255,77,109,.12)'},
   {name:'bone',c:'#E8E4D8',c2:'#9BA8B5',dim:'rgba(232,228,216,.12)'}
 ];
