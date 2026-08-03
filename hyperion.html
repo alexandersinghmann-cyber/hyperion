@@ -85,7 +85,9 @@
 .fc-name{font:600 20px var(--sans);overflow:hidden;text-overflow:ellipsis}
 .fc-member-tag{display:inline-flex;align-items:center;font:700 10px var(--mono);color:var(--brand);border:1px solid var(--brand);border-radius:4px;padding:0 4px;margin-right:6px;vertical-align:middle}
 .fc-member-tag.big{font-size:12px;padding:2px 6px;margin-top:4px}
-.fc-meta{font:500 12px var(--mono);color:var(--tx3);margin-top:2px}
+.fc-meta{font:500 12px var(--mono);color:var(--tx3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.fc-meta-more{color:var(--tx2)}
+.fc-detail-row{margin-bottom:8px}
 .fc-hscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x}
 .fc-readout{display:flex;align-items:baseline;gap:8px;margin:16px 0 12px;min-height:64px}
 .fc-readout.done{min-height:40px}
@@ -110,12 +112,29 @@
 .rail-count{font:600 12px var(--mono);color:var(--tx3);flex:0 0 auto}
 #focusRestOverlay{position:absolute;inset:0;z-index:5;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:color-mix(in srgb,var(--bg) 82%,transparent)}
 #focusRestOverlay.on{display:flex}
-#focusTrack.resting{opacity:.35}
+#focusTrack.resting{opacity:.1;pointer-events:none}
 .fr-label{font:600 12px var(--sans);color:var(--tx3);letter-spacing:1px}
 .fr-count{font:500 72px/1 var(--display);color:var(--brand);animation:frglow 2.4s ease-in-out infinite}
 @keyframes frglow{0%,100%{text-shadow:0 0 12px var(--brand-dim)}50%{text-shadow:0 0 32px var(--brand-dim)}}
 .fr-actions{display:flex;gap:12px;align-items:center}
 .fr-ghost{min-height:48px;padding:0 20px;border-radius:24px;border:1px solid var(--s3);background:none;color:var(--tx2);font:600 14px var(--sans);cursor:pointer}
+.fr-skip{min-height:48px;padding:0 24px;border-radius:24px;border:1px solid var(--tx3);background:none;color:var(--tx);font:600 14px var(--sans);cursor:pointer}
+/* C1: 300ms number morph on set change (reduced-motion blanket kills it) */
+.fc-readout.morph .fc-readout-w{animation:fcmorph 300ms cubic-bezier(.2,0,0,1)}
+@keyframes fcmorph{from{opacity:0;transform:translateY(8px) scale(.92)}to{opacity:1;transform:none}}
+/* C2: one lit Log per card — the solar fc-log. Row Logs ghost at 35%; the
+   current row's is hidden (fc-log IS its action); skip/del hidden until the
+   row is current or long-press revealed. */
+.fcard .set-row .set-log{opacity:.35}
+.fcard .set-row.current .set-log{display:none}
+.fcard .set-row:not(.current):not(.reveal) .set-skip{display:none}
+.fcard .set-row:not(.current):not(.reveal) .set-del{display:none}
+.fcard .set-row.reveal .set-log{opacity:1}
+/* C7: rail chips ellipsis at 12ch; scroll area fades at its right edge;
+   reorder + counter live OUTSIDE the scroll with their own gap. */
+.rail-chip{max-width:12ch;overflow:hidden;text-overflow:ellipsis}
+.rail-chip.pair{max-width:16ch}
+.rail-scroll{padding-right:24px;mask-image:linear-gradient(90deg,#000 calc(100% - 24px),transparent);-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 24px),transparent)}
 /* ===== FOCUS REORDER (S7) ===== */
 .rail-reorder{flex:0 0 auto;min-width:48px;min-height:48px;border-radius:12px;border:1px solid var(--s3);background:var(--s1);color:var(--tx2);font-size:16px;cursor:pointer}
 #focusRail.rail-locked .rail-scroll{overflow-x:hidden;touch-action:none}
@@ -664,7 +683,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   <div class="view pad" id="vSession">
     <div class="sess-head">
       <div>
-        <div style="font:600 11px var(--sans);color:var(--brand)" id="sDayLbl"></div>
+        <div class="t-meta" id="sDayLbl"></div>
         <div class="t2" id="sTitle"></div>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
@@ -688,7 +707,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
         <div id="focusRestOverlay" aria-hidden="true">
           <div class="fr-label">Rest</div>
           <div class="fr-count tnum" id="focusRestDisp">0:00</div>
-          <div class="fr-actions"><button class="fr-ghost" onclick="addRest(30)">+30s</button><button class="btn btn-p" onclick="skipRest()">Skip</button></div>
+          <div class="fr-actions"><button class="fr-ghost" onclick="addRest(30)">+30s</button><button class="fr-skip" onclick="skipRest()">Skip</button></div>
         </div>
       </div>
       <div id="focusRail"></div>
@@ -1133,6 +1152,13 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <div class="t-meta" style="margin-bottom:8px">Auto-checks from logged calisthenics (Strict Pull-Up, Strict Dip, False-Grip Pull-Up, MU Negative, Bar Muscle-Up). Tick manually to override.</div>
     <div id="muDetailBody"></div>
     <button class="btn btn-s btn-w" style="margin-top:12px" onclick="hideModal('muDetailModal')">Close</button>
+  </div>
+</div>
+
+<div class="overlay" id="fcDetailSheet">
+  <div class="modal">
+    <div id="fcDetailBody"></div>
+    <button class="btn btn-s btn-w" style="margin-top:12px;min-height:48px" onclick="hideModal('fcDetailSheet')">Close</button>
   </div>
 </div>
 
@@ -3474,6 +3500,14 @@ function mainTargetLine(ex){
 // Variant selector chips — machine/pulley/grip changes are logged, not lost.
 // Cable gear: pulley + grip. DB/barbell benches etc: angle. Machine: free-text.
 // Tapping a selected chip clears it. Selection is remembered per gym.
+// C5: variant values that map onto avoid-listed exercises. A chip whose
+// value is fully covered by avoided entries is hidden; a group left with
+// <=1 valid option disappears entirely.
+const AVOID_VARIANTS={angle:{'30':['DB Incline Bench','Incline Bench Press'],'45':['DB Incline Bench','Incline Bench Press']}};
+function variantValueAvoided(field,val){
+  const names=(AVOID_VARIANTS[field]||{})[val];
+  return !!(names&&names.length&&names.every(n=>getMeta(n).avoid===true));
+}
 function variantChips(ex,ei){
   const cls=ex.equipmentClass;
   if(cls==='bw'||cls==='sled')return'';
@@ -3490,7 +3524,10 @@ function variantChips(ex,ei){
     rows+=`<span class="vc-lbl" style="margin-left:6px">Attach</span>`+[['rope','rope'],['straight-bar','bar'],['v-handle','v-handle'],['single-handle','handle']].map(([val,lbl])=>chip('attachment',val,lbl)).join('');
     if(isPull)rows+=`<span class="vc-lbl" style="margin-left:6px">Grip</span>`+['narrow','neutral','wide','underhand'].map(g=>chip('grip',g)).join('');
   } else if((cls==='db'||cls==='barbell')&&isPress){
-    rows+=`<span class="vc-lbl">Angle</span>`+['flat','30','45'].map(a=>chip('angle',a,a==='flat'?'flat':a+'°')).join('');
+    // C5: hide angle values that map onto avoid-listed exercises; if only
+    // one valid option remains the whole group is noise — drop it.
+    const angles=['flat','30','45'].filter(a=>!variantValueAvoided('angle',a));
+    if(angles.length>1)rows+=`<span class="vc-lbl">Angle</span>`+angles.map(a=>chip('angle',a,a==='flat'?'flat':a+'°')).join('');
   } else if(cls==='machine'){
     rows+=`<button class="v-chip ${v.machine?'sel':''}" onclick="setVariantMachine(${ei})">${v.machine||'+ machine'}</button>`;
   }
@@ -3559,7 +3596,7 @@ function renderEx(){
   const dayMeta=S.program.days[sess.dayIndex];
   const sLbl=document.getElementById('sDayLbl');
   sLbl.textContent='Day '+(sess.dayIndex+1)+' · '+((dayMeta&&(dayMeta.defaultDay||dayMeta.dayOfWeek))||'');
-  sLbl.style.color=modalityColor(sess.sessionType||'lifting');
+  sLbl.style.color='var(--tx3)'; // C3: neutral — modality colour here was leftover cyan chrome
   document.getElementById('sTitle').textContent=sess.dayLabel;
 
   // Multi-modal dispatch: activity-log types render a single form, not cards.
@@ -3835,7 +3872,7 @@ function renderFocus(){
   try{const l=document.getElementById('exList');if(l)l.innerHTML='';}catch(e){}
   const units=focusUnits(sess);
   const pos=focusPos();
-  track.innerHTML=units.map((u,p)=>focusCardHTML(u,p,sess)).join('')+focusWrapCardHTML(sess);
+  track.innerHTML=units.map((u,p)=>focusCardHTML(u,p,sess,pos)).join('')+focusWrapCardHTML(sess);
   applyFocusTransform(pos,false);
   renderFocusRail();
 }
@@ -3908,7 +3945,7 @@ function focusMemberHeadHTML(ex,ei,tag){
       ${tag?`<span class="fc-member-tag big">${tag}</span>`:''}
       <div style="flex:1;min-width:0">
         <div class="fc-name">${(ex.tags||[]).includes('bonus')?'<span style="color:var(--gold);font-size:12px;margin-right:4px">\u2605</span>':''}${ex.name}${(ex.tags||[]).includes('full-depth-standard')?' <span class="std-chip">Full depth standard</span>':''}${perSide}</div>
-        <div class="fc-meta">${rx}${bits.length?' \u00b7 '+bits.join(' \u00b7 '):''}</div>
+        <div class="fc-meta" onclick="openFcDetail(${ei})" role="button" aria-label="Exercise detail">${rx}${bits.length?' \u00b7 '+bits.join(' \u00b7 '):''} <span class="fc-meta-more">\u2026</span></div>
         ${ex.cue?`<div style="font-size:12px;color:var(--brand);margin-top:2px;line-height:1.4">${ex.cue}</div>`:''}
       </div>
       <button class="pain-flag${ex.painEvent&&ex.painEvent.severity!=='none'?' has':''}" onclick="openPainModal(${ei})" aria-label="Log pain for ${ex.name.replace(/"/g,'')}" title="Pain check">\u2691</button>
@@ -3927,27 +3964,66 @@ function focusMemberHeadHTML(ex,ei,tag){
       </div>
     </div>
     <div class="fc-hscroll">${variantChips(ex,ei)}</div>
-    ${getLastHint(ex)}
   </div>`;
 }
-function focusCardHTML(u,p,sess){
+// C4: the card keeps ONE truncated meta line; everything deeper (plate math,
+// today/e1RM/target, last session) lives in a tap-to-open sheet.
+function openFcDetail(ei){
+  const sess=S.activeSession;if(!sess)return;
+  const ex=sess.exercises[ei];if(!ex)return;
+  const body=document.getElementById('fcDetailBody');
+  if(body){
+    const rx=ex.prescribed.setScheme?schemeString(ex.prescribed.setScheme,ex.prescribed.unit)+' kg':`${ex.prescribed.sets}\u00d7${ex.prescribed.reps}${ex.prescribed.loadKg?' @ '+fmtW(ex.prescribed.loadKg,ex.prescribed.unit):''}`;
+    const bits=[];
+    if((ex.equipmentClass==='barbell'||getMeta(ex.name).eq&&getMeta(ex.name).eq.includes('barbell'))&&ex.prescribed.loadKg)bits.push(plateLabel(ex));
+    const mt=mainTargetLine(ex);if(mt)bits.push(mt);
+    body.innerHTML=`<div class="t-h2" style="margin-bottom:8px">${ex.name}</div>
+      <div class="fc-detail-row"><span class="t-meta">Prescription</span><div class="tm">${rx}</div></div>
+      ${bits.map(b=>`<div class="fc-detail-row"><div class="tm">${b}</div></div>`).join('')}
+      ${ex.cue?`<div class="fc-detail-row"><span class="t-meta">Cue</span><div>${esc(ex.cue)}</div></div>`:''}
+      ${getLastHint(ex)||'<div class="t-meta">No prior sessions on this track</div>'}`;
+  }
+  showModal('fcDetailSheet');
+}
+// C1: track the current readout so a set change can morph the number.
+let _lastReadoutKey=null;
+function focusCardHTML(u,p,sess,curPos){
   const seq=unitSeq(sess,u);
   const cur=seq.find(([ei,si])=>{const s2=sess.exercises[ei].performed[si];return s2&&!s2.logged&&!s2.skipped;});
   const done=unitDone(sess,u);
-  // Giant current-set readout — the card's FIRST budget gradient (text clip).
+  // C1: the giant readout renders in EVERY card state — current set while
+  // active/between sets, the achieved top set once done. The number is the
+  // card's single display-type moment (budget gradient via text clip).
   let readout='';
+  let morph='';
+  if(cur&&p===curPos){
+    const key=cur[0]+':'+cur[1];
+    if(_lastReadoutKey!==null&&_lastReadoutKey!==key)morph=' morph';
+    _lastReadoutKey=key;
+  }
   if(cur){
     const ex=sess.exercises[cur[0]],s2=ex.performed[cur[1]];
     const dispU=S.settings.unit||'kg';
     const dw=dispU==='lb'?Math.round(s2.weightKg*K2L):s2.weightKg;
     const ru=repsUnit(ex.prescribed.reps);
-    readout=`<div class="fc-readout">${s2.weightKg>0?`<span class="fc-readout-w tnum">${dw}</span><span class="fc-readout-u">${dispU}</span>`:`<span class="fc-readout-w tnum">${s2.reps}</span><span class="fc-readout-u">${ru||'reps'}</span>`}${s2.weightKg>0?`<span class="fc-readout-x tnum">\u00d7 ${s2.reps}${ru?' '+ru:''}</span>`:''}${s2.type==='warmup'?'<span class="fc-readout-u">warm-up</span>':''}</div>`;
+    readout=`<div class="fc-readout${morph}">${s2.weightKg>0?`<span class="fc-readout-w tnum">${dw}</span><span class="fc-readout-u">${dispU}</span>`:`<span class="fc-readout-w tnum">${s2.reps}</span><span class="fc-readout-u">${ru||'reps'}</span>`}${s2.weightKg>0?`<span class="fc-readout-x tnum">\u00d7 ${s2.reps}${ru?' '+ru:''}</span>`:''}${s2.type==='warmup'?'<span class="fc-readout-u">warm-up</span>':''}</div>`;
   } else if(done){
-    readout=`<div class="fc-readout done"><span class="fc-readout-x">\u2713 done</span></div>`;
+    // Top achieved working set, in the same display voice.
+    const tops=u.eis.map(ei=>sess.exercises[ei]).map(ex=>{
+      const w=(ex.performed||[]).filter(x=>x.type==='working'&&x.logged&&!x.skipped);
+      return w.length?w.reduce((m,x)=>(!m||x.weightKg>m.weightKg||(x.weightKg===m.weightKg&&x.reps>m.reps))?x:m,null):null;
+    }).filter(Boolean);
+    const t=tops[0];
+    const dispU=S.settings.unit||'kg';
+    readout=t?`<div class="fc-readout done"><span class="fc-readout-w tnum">${t.weightKg>0?(dispU==='lb'?Math.round(t.weightKg*K2L):t.weightKg):t.reps}</span><span class="fc-readout-u">${t.weightKg>0?dispU:'reps'}</span>${t.weightKg>0?`<span class="fc-readout-x tnum">\u00d7 ${t.reps}</span>`:''}<span class="fc-readout-u">\u2713 done</span></div>`
+             :`<div class="fc-readout done"><span class="fc-readout-x">\u2713 done</span></div>`;
+  } else {
+    readout=`<div class="fc-readout done"><span class="fc-readout-x">all sets resolved</span></div>`;
   }
   const members=u.eis.map((ei,mi)=>focusMemberHeadHTML(sess.exercises[ei],ei,u.eis.length>1?String.fromCharCode(65+mi):null)).join('');
   const rows=seq.map(([ei,si])=>focusSetRowHTML(sess.exercises[ei],ei,sess.exercises[ei].performed[si],si,u.eis.length>1?String.fromCharCode(65+u.eis.indexOf(ei)):null)).join('');
-  const logLbl=cur?(()=>{const s2=sess.exercises[cur[0]].performed[cur[1]];return 'Log '+(s2.weightKg>0?fmtW(s2.weightKg,sess.exercises[cur[0]].prescribed.unit)+' \u00d7 '+s2.reps:s2.reps+' reps');})():null;
+  // C1: the Log button no longer duplicates the readout's numbers.
+  const logLbl=cur?('Log '+(sess.exercises[cur[0]].performed[cur[1]].type==='warmup'?'warm-up':'set '+(sess.exercises[cur[0]].performed.slice(0,cur[1]).filter(x=>x.type==='working').length+1))):null;
   const prog=u.eis.map(ei=>sess.exercises[ei]).filter(ex=>done&&ex.progression).map(ex=>`<div class="prog-badge prog-${ex.progression==='increase'?'up':ex.progression==='flag'?'flag':ex.progression==='stall'?'stall':ex.progression==='skipped'?'skip':'hold'}"><span>${ex.progression==='increase'?'\u2191 Increase':ex.progression==='flag'?'\u26a0 Flagged':ex.progression==='stall'?'\u23f8 Stall':ex.progression==='skipped'?'\u23ed Skipped':'\u2192 Hold'}</span>${ex.nextLoad&&ex.progression==='increase'?`<span class="tm">${fmtW(ex.nextLoad,ex.prescribed.unit)}</span>`:''}</div>`).join('');
   const pains=u.eis.map(ei=>sess.exercises[ei]).filter(ex=>ex.painEvent).map(ex=>`<div style="margin-top:8px;padding:8px 12px;border-radius:var(--rs);background:var(--red-dim);font-size:12px;color:var(--red)">\u26a0 ${ex.painEvent.severity} pain${ex.painEvent.action?' \u2014 '+ex.painEvent.action:''}</div>`).join('');
   return `<div class="fcard${done?' done':''}" id="fcard${u.eis[0]}">
@@ -4041,6 +4117,23 @@ document.addEventListener('focusout',e=>{
     },120);
   }catch(err){}
 });
+// C2: long-press (300ms) on a pending set row reveals its skip/delete
+// actions; taps and swipes are untouched (the hold cancels on movement).
+let _rowHoldT=null;
+function wireRowReveal(track){
+  if(!track||typeof track.addEventListener!=='function')return;
+  let row=null,x0=0,y0=0;
+  const cancel=()=>{if(_rowHoldT){clearTimeout(_rowHoldT);_rowHoldT=null;}row=null;};
+  track.addEventListener('pointerdown',e=>{
+    const r=e.target&&e.target.closest&&e.target.closest('.set-row');
+    if(!r||r.classList.contains('current')||r.classList.contains('compact')){cancel();return;}
+    row=r;x0=e.clientX;y0=e.clientY;
+    _rowHoldT=setTimeout(()=>{_rowHoldT=null;if(row){if(navigator.vibrate)navigator.vibrate(10);row.classList.add('reveal');row=null;}},300);
+  });
+  track.addEventListener('pointermove',e=>{if(row&&(Math.abs(e.clientX-x0)>8||Math.abs(e.clientY-y0)>8))cancel();});
+  track.addEventListener('pointerup',cancel);
+  track.addEventListener('pointercancel',cancel);
+}
 // Rest-state sync for the focus overlay; #restBar stays untouched for list
 // mode and backgrounded sessions. On rest end, auto-advance if the current
 // unit is done (user navigation during rest naturally suppresses this).
@@ -6393,7 +6486,7 @@ function init(){
   // iOS standalone PWA: extend #app into the dead space below the CSS viewport
   load();
   // Focus-mode swipe (S6): the track is static DOM — wire once, mock-guarded.
-  try{const _ft=document.getElementById('focusTrack');wireFocusSwipe(_ft);}catch(e){}
+  try{const _ft=document.getElementById('focusTrack');wireFocusSwipe(_ft);wireRowReveal(_ft);}catch(e){}
   // Reorder surfaces (S7): static containers — listeners survive re-renders.
   try{wireReorderDrag(document.getElementById('roList'));}catch(e){}
   try{wireRailDrag(document.getElementById('focusRail'));}catch(e){}

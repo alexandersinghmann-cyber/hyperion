@@ -40,6 +40,9 @@ const patched = js
   .replace(/\blet _focusIdx\s*=/g, 'var _focusIdx =')
   .replace(/\bconst FOCUS_SWIPE\s*=/g, 'var FOCUS_SWIPE =')
   .replace(/\blet _kbT\s*=/g, 'var _kbT =')
+  .replace(/\bconst AVOID_VARIANTS\s*=/g, 'var AVOID_VARIANTS =')
+  .replace(/\blet _lastReadoutKey\s*=/g, 'var _lastReadoutKey =')
+  .replace(/\blet _rowHoldT\s*=/g, 'var _rowHoldT =')
   .replace(/\blet _railHoldT\s*=/g, 'var _railHoldT =')
   .replace(/\blet _railDragged\s*=/g, 'var _railDragged =');
 (0, eval)(patched);
@@ -2026,8 +2029,16 @@ S.sessions=[];
 const chipHTML=(name,cls,v)=>variantChips({name,equipmentClass:cls,variant:v||null},0);
 assert(chipHTML('Back Squat','barbell')==='', 'D3: Back Squat (squat pat) shows NO chips');
 assert(chipHTML('DB RDL','db')==='', 'D3: DB RDL (hinge pat) shows NO chips');
-assert(/Angle/.test(chipHTML('DB Bench Press','db')), 'D3: DB Bench (hpush) shows angle chips');
-assert(/Angle/.test(chipHTML('Bench Press','barbell')), 'D3: Bench (hpush) shows angle chips');
+// C5 FLIP: both incline presses are avoid-listed, so 30°/45° are hidden and
+// the angle group (left with only 'flat') disappears entirely.
+assert(chipHTML('DB Bench Press','db')===''&&chipHTML('Bench Press','barbell')==='', 'C5: angle group hidden while inclines are avoid-listed');
+(()=>{ // lift the avoids → chips return (proves the gate is avoid-driven)
+  const a=EX_META['DB Incline Bench'].avoid,b=EX_META['Incline Bench Press'].avoid;
+  EX_META['DB Incline Bench'].avoid=false;EX_META['Incline Bench Press'].avoid=false;
+  assert(/Angle/.test(chipHTML('DB Bench Press','db'))&&/30\u00b0|30°/.test(chipHTML('DB Bench Press','db')), 'C5: angle chips return when the avoids lift');
+  EX_META['DB Incline Bench'].avoid=a;EX_META['Incline Bench Press'].avoid=b;
+})();
+assert(variantValueAvoided('angle','30')===true&&variantValueAvoided('angle','flat')===false, 'C5: value→avoid mapping');
 const clrChips=chipHTML('Cable Low Row','cable');
 assert(/Pulley/.test(clrChips)&&/Attach/.test(clrChips)&&/Grip/.test(clrChips), 'D3: Cable Low Row (hpull, cable) shows pulley + attachment + grip');
 const ctrChips=chipHTML('Cable Tricep Extension','cable');
@@ -2298,7 +2309,7 @@ assert(BRAND_CYCLE.map(e=>e.name).join()==='ember,voltage,royal,lime,gold,crimso
 assert(BRAND_CYCLE[1].c==='#22D3EE'&&BRAND_CYCLE[1].c2==='#7DF9C2'&&BRAND_CYCLE[3].c2==='#34D399', 'SOLAR: voltage + lime pairs match the spec');
 assert(/setProperty\('--solar','linear-gradient\(135deg,'\+e\.c\+','\+e\.c2\+'\)'\)/.test(html), 'SOLAR: applyBrand publishes the pair as --solar');
 assert(!/backdrop-filter/.test(html.match(/<style>([\s\S]*?)<\/style>/)[1]), 'SOLAR law: no backdrop-filter anywhere');
-(()=>{const st=html.match(/<style>([\s\S]*?)<\/style>/)[1];const g=(st.match(/(linear|radial)-gradient/g)||[]).length;assert(g<=2, 'SOLAR law: style-block gradients are exactly the --solar token + start-btn (surfaces read the token). Got '+g);})();
+(()=>{const st=html.match(/<style>([\s\S]*?)<\/style>/)[1];const painted=(st.split('\n').filter(l=>!/mask-image/.test(l)).join('\n').match(/(linear|radial)-gradient/g)||[]).length;assert(painted<=2, 'SOLAR law: painted style-block gradients are exactly the --solar token + start-btn (mask clips exempt). Got '+painted);})();
 assert(/#trainHdr::before\{[^}]*opacity:\.02;pointer-events:none\}/.test(html) && /feTurbulence/.test(html), 'SOLAR: static grain on Train header only, 2%');
 (()=>{const r=html.match(/#trainHdr::before\{[^}]*\}/);assert(r && !/animation/.test(r[0]), 'SOLAR: grain rule is static (no animation declaration)');})();
 
@@ -2643,5 +2654,42 @@ assert(/document\.activeElement\.id==='fNotes'\)\{renderFocusRail\(\);return;\}/
 assert(/full-depth-standard'\)\?' <span class="std-chip">Full depth standard<\/span>'/.test(html), 'W3: full-depth chip wired');
 assert((html.match(/std-chip">Full depth standard/g)||[]).length>=2, 'W3: chip on BOTH list + focus templates');
 assert(/\.std-chip\{[^}]*var\(--warn\)/.test(html), 'W3: chip warn-tinted (no new colour)');
+
+// ===== W4: FOCUS POLISH C1-C7 =====
+// C1: readout renders in EVERY card state
+(()=>{
+  const mk=(logged)=>({dayIndex:0,dayLabel:'X',sessionType:'lifting',startTime:1,notes:'',exercises:[
+    {name:'Leg Press',cat:'squat',prescribed:{sets:1,reps:'10',loadKg:160,unit:'kg'},equipmentClass:'machine',tags:[],variant:null,painEvent:null,progression:logged?'hold':null,nextLoad:null,
+     performed:[{type:'working',weightKg:160,reps:10,rpe:7,logged:logged}]}],order:[0]});
+  S.activeSession=mk(false);_lastReadoutKey=null;
+  const active=focusCardHTML({eis:[0]},0,S.activeSession,0);
+  assert(/fc-readout/.test(active)&&/160/.test(active), 'C1: active card carries the giant readout');
+  S.activeSession=mk(true);
+  const done=focusCardHTML({eis:[0]},0,S.activeSession,0);
+  assert(/fc-readout done/.test(done)&&/160/.test(done)&&/done/.test(done), 'C1: done card keeps the readout (top set). Got '+done.slice(0,120));
+  assert(!/Log 160/.test(active)&&/Log set 1|Log warm-up/.test(active), 'C1: Log button no longer duplicates the readout numbers');
+  S.activeSession=null;
+})();
+assert(/@keyframes fcmorph/.test(html)&&/\.fc-readout\.morph \.fc-readout-w\{animation:fcmorph 300ms/.test(html), 'C1: 300ms number morph wired (reduced-motion blanket kills it)');
+// C2: single lit Log — ghosts + hidden current-row Log + reveal
+assert(/\.fcard \.set-row \.set-log\{opacity:\.35\}/.test(html), 'C2: row Logs ghost at 35%');
+assert(/\.fcard \.set-row\.current \.set-log\{display:none\}/.test(html), 'C2: current row cedes to the ONE solar fc-log');
+assert(/\.fcard \.set-row:not\(\.current\):not\(\.reveal\) \.set-skip\{display:none\}/.test(html), 'C2: skip hidden until current or revealed');
+assert(typeof wireRowReveal==='function', 'C2: long-press reveal wired');
+wireRowReveal(null);wireRowReveal({});
+// C3: neutral header label; chrome free of --acc (charts/pace exempt by list)
+assert(/<div class="t-meta" id="sDayLbl">/.test(html)&&/sLbl\.style\.color='var\(--tx3\)'/.test(html), 'C3: Day-N header label is neutral meta');
+// C4: one-line meta + detail sheet
+assert(/\.fc-meta\{[^}]*white-space:nowrap[^}]*text-overflow:ellipsis/.test(html), 'C4: meta is one truncated line');
+assert(/onclick="openFcDetail\(\$\{ei\}\)"/.test(html)&&typeof openFcDetail==='function'&&/id="fcDetailSheet"/.test(html), 'C4: tap opens the detail sheet');
+assert(!/\$\{getLastHint\(ex\)\}\n  <\/div>`;/.test(html), 'C4: last-session detail moved off the card into the sheet');
+// C6: rest scene
+assert(/#focusTrack\.resting\{opacity:\.1;pointer-events:none\}/.test(html), 'C6: rest dims to 10% and mutes pointers behind the overlay');
+assert(/class="fr-skip"/.test(html)&&/\.fr-skip\{[^}]*border:1px solid var\(--tx3\)/.test(html), 'C6: Skip is a neutral outline — never the Log colour');
+assert(!/fr-actions[^<]*<button class="btn btn-p"/.test(html), 'C6: no solid brand button in the rest overlay');
+// C7: rail ellipsis + fade + outside controls
+assert(/\.rail-chip\{max-width:12ch/.test(html)&&/\.rail-chip\.pair\{max-width:16ch\}/.test(html), 'C7: chip text ellipsis at 12ch (pairs 16)');
+assert(/\.rail-scroll\{padding-right:24px;mask-image:linear-gradient/.test(html), 'C7: right-edge fade mask + clearance padding');
+assert(/<\/div><button class="rail-reorder"/.test(html), 'C7: reorder button outside the scroll area');
 
 console.log('\n=== All tests passed ===');
