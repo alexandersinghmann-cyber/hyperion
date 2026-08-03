@@ -2310,7 +2310,8 @@ assert(BRAND_CYCLE[1].c==='#22D3EE'&&BRAND_CYCLE[1].c2==='#7DF9C2'&&BRAND_CYCLE[
 assert(/setProperty\('--solar','linear-gradient\(135deg,'\+e\.c\+','\+e\.c2\+'\)'\)/.test(html), 'SOLAR: applyBrand publishes the pair as --solar');
 assert(!/backdrop-filter/.test(html.match(/<style>([\s\S]*?)<\/style>/)[1]), 'SOLAR law: no backdrop-filter anywhere');
 (()=>{const st=html.match(/<style>([\s\S]*?)<\/style>/)[1];const painted=(st.split('\n').filter(l=>!/mask-image/.test(l)).join('\n').match(/(linear|radial)-gradient/g)||[]).length;assert(painted<=2, 'SOLAR law: painted style-block gradients are exactly the --solar token + start-btn (mask clips exempt). Got '+painted);})();
-assert(/#trainHdr::before\{[^}]*opacity:\.02;pointer-events:none\}/.test(html) && /feTurbulence/.test(html), 'SOLAR: static grain on Train header only, 2%');
+assert(/#trainHdr::before\{[^}]*opacity:\.02;pointer-events:none\}/.test(html) && /data:image\/png;base64,[^)]+\);background-size:64px 64px/.test(html.match(/#trainHdr::before\{[^}]*\}/)[0]), 'SOLAR: grain is a pre-rasterized PNG tile (feTurbulence froze iOS scroll), header only, 2%');
+assert(!/feTurbulence/.test(html), 'SOLAR: no SVG-filter backgrounds anywhere (iOS scroll paint budget)');
 (()=>{const r=html.match(/#trainHdr::before\{[^}]*\}/);assert(r && !/animation/.test(r[0]), 'SOLAR: grain rule is static (no animation declaration)');})();
 
 // ===== S2: WORDMARK + PWA + TRAIN ALLOCATION =====
