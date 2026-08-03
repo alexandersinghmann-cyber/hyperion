@@ -1239,6 +1239,8 @@ function icon(name,size){
 // Muted signature colour per session type (CSS var reference). One thread that
 // makes the week + history scannable at a glance.
 const MODALITY_TYPES=['lifting','calisthenics','swim','run','pilates','mobility','rest'];
+// B6: minimal HTML escape for user text interpolated into templates.
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function modalityColor(type){return 'var(--m-'+(MODALITY_TYPES.includes(type)?type:'lifting')+')';}
 
 // ===== BLOCK-ROTATING BRAND ACCENT =====
@@ -1364,7 +1366,7 @@ const EX_META={
   'Face Pull':{pat:'rear-delt',prim:['rear-delt','mid-trap','external-rotator'],eq:['cable'],fat:'iso',sh:'safe',slot:'rear-delt'},
   'Reverse Pec Deck':{pat:'rear-delt',prim:['rear-delt','mid-trap'],eq:['pec-deck'],fat:'iso',sh:'safe',slot:'rear-delt'},
   // Horizontal push
-  'Bench Press':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['barbell','bench','rack'],fat:'heavy-compound',sh:'activation-first',slot:'hpush',incrementKg:2.5},
+  'Bench Press':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['barbell','bench','rack'],fat:'heavy-compound',sh:'activation-first',slot:'hpush',incrementKg:2.5,avoid:true,avoidReason:'Barbell pressing barred — pain 3/3 on 2026-07-28, pending physio'},
   'DB Incline Bench':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['db','incline-bench'],fat:'heavy-compound',sh:'activation-first',slot:'hpush',avoid:true,avoidReason:'Incline pressing barred — 30° DB bench provoked a sev-3 shoulder event'},
   'Incline Bench Press':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['barbell','incline-bench'],fat:'heavy-compound',sh:'activation-first',slot:'hpush',avoid:true,avoidReason:'Incline pressing barred this block (shoulder)'},
   'V-Squat':{pat:'squat',prim:['quad','glute'],eq:['v-squat'],fat:'heavy-compound',sh:'safe',slot:'squat-secondary',avoid:true,avoidReason:'Spinal compression (user-reported)'},
@@ -1404,7 +1406,7 @@ const EX_META={
   'Rope Good Morning':{pat:'hinge',prim:['hamstring','erector'],eq:['cable'],fat:'light',sh:'safe',slot:null},
   'L-Sit (tucked)':{pat:'core-compress',prim:['hip-flexor','rectus-abdominis'],eq:['parallettes','pull-up-bar'],fat:'light',sh:'safe',slot:null,hold:true},
   'Standing Calf Raise (DB)':{pat:'iso-calf',prim:['calf'],eq:['db'],fat:'light',sh:'safe',slot:'calf'},
-  'Face Pull + Overhead Raise':{pat:'rear-delt',prim:['rear-delt','mid-trap','external-rotator'],eq:['cable'],fat:'light',sh:'safe',slot:'rear-delt'},
+  'Face Pull + Overhead Raise':{pat:'rear-delt',prim:['rear-delt','mid-trap','external-rotator'],eq:['cable'],fat:'light',sh:'safe',slot:'rear-delt',avoid:true,avoidReason:'Retired from active use — rear-delt slot returns to Face Pull (history preserved)'},
   'False-Grip Hold':{pat:'vpull',prim:['forearm','grip','lat'],eq:['pull-up-bar'],fat:'light',sh:'safe',slot:null,hold:true},
   'Wall Handstand Hold':{pat:'vpush',prim:['front-delt','tri','core'],eq:['bodyweight'],fat:'light',sh:'warn',slot:null,hold:true},
   'Hollow Body Hold':{pat:'core',prim:['abs'],eq:['bodyweight'],fat:'light',sh:'safe',slot:null,hold:true},
@@ -3387,12 +3389,18 @@ function makeActivitySession(sess){
     activity:{durationMin:+a.durationMin||0,distance:+a.distance||0,effort:a.effort!=null?+a.effort:null,notes:a.notes||''},
     exercises:[],painEvents:[],status:'complete'};
 }
+// B3: a day tagged 'unmeasured' (snorkel week) logs duration only.
+function dayUnmeasured(sess){
+  try{const d=sess&&sess.dayIndex>=0&&S.program.days[sess.dayIndex];return !!(d&&(d.tags||[]).includes('unmeasured'));}catch(e){return false;}
+}
 function finalizeActivity(){
   const sess=S.activeSession;if(!sess)return;
   const a=sess.activity||{};
   // Swim distance is REQUIRED — a program swim day cannot save without it
-  // (it feeds the 1000 m goal; a 0 would silently reset the best).
-  if(sess.sessionType==='swim' && !(+a.distance>0)){
+  // (it feeds the 1000 m goal; a 0 would silently reset the best) — UNLESS
+  // the day is tagged 'unmeasured' (B3): the session still counts, swimBest
+  // ignores the 0.
+  if(sess.sessionType==='swim' && !(+a.distance>0) && !dayUnmeasured(sess)){
     toast('Distance required — log your longest continuous freestyle');
     return;
   }
@@ -3410,7 +3418,7 @@ function renderActivityLog(sess){
   const a=sess.activity;
   const st=sess.sessionType;
   const showDist=st!=='pilates'&&st!=='mobility';
-  const distReq=st==='swim';
+  const distReq=st==='swim'&&!dayUnmeasured(sess);
   const empty=st==='swim'
     ?(b=>b>0?`Best continuous: ${b} m. Beat it.`:ACTIVITY_EMPTY.swim)(swimBest(S.sessions))
     :(ACTIVITY_EMPTY[st]||'Log this session');
@@ -3424,7 +3432,7 @@ function renderActivityLog(sess){
         <div class="t-meta">minutes</div>
         <input type="range" min="0" max="120" step="1" value="${Math.round(a.durationMin||0)}" oninput="setActivityField('durationMin',+this.value);document.getElementById('actDur').textContent=this.value" aria-label="duration minutes" style="width:100%;margin-top:10px">
       </div>
-      ${showDist?`<div class="field"><label>Distance (${st==='swim'?'m':'km'})${distReq?' — required':''}</label><input type="number" step="${st==='swim'?'25':'0.1'}" value="${a.distance||''}" placeholder="${st==='swim'?'e.g. 500':'e.g. 5'}" oninput="setActivityField('distance',+this.value||0)" aria-label="distance"></div>`:''}
+      ${showDist?`<div class="field"><label>Distance (${st==='swim'?'m':'km'})${distReq?' — required':(st==='swim'?' — optional (snorkel)':'')}</label><input type="number" step="${st==='swim'?'25':'0.1'}" value="${a.distance||''}" placeholder="${st==='swim'?'e.g. 500':'e.g. 5'}" oninput="setActivityField('distance',+this.value||0)" aria-label="distance"></div>`:''}
       <div class="field"><label>Perceived effort (1–10)</label><div class="eff-row">${effChips}</div></div>
       <div class="field"><label>Notes</label><textarea rows="4" placeholder="How did it feel?" oninput="setActivityField('notes',this.value)" aria-label="notes">${a.notes||''}</textarea></div>
       <button class="btn btn-gold btn-w act-save" onclick="finalizeActivity()">Save ${st} session</button>
@@ -3519,7 +3527,7 @@ function getLastHint(exOrName){
         if(wu.length)detail+=`<div>Warmup: ${wu.map(s=>fmtW(s.weightKg,sx.prescribed?.unit)+'×'+s.reps).join(', ')}</div>`;
         detail+=`<div>Working: ${w.map(s=>fmtW(s.weightKg,sx.prescribed?.unit)+'×'+s.reps).join(', ')}</div>`;
         if(prog)detail+=`<div>Progression: ${prog}${sx.nextLoad&&sx.progression==='increase'?' → '+fmtW(sx.nextLoad,sx.prescribed?.unit):''}</div>`;
-        if(sx.notes)detail+=`<div>Notes: ${sx.notes}</div>`;
+        if(sx.notes)detail+=`<div>Notes: ${esc(sx.notes)}</div>`;
         detail+=`<div style="color:var(--tx3)">${fmtDate(S.sessions[i].date)}</div></div>`;
         return`<div class="last-hint" onclick="this.classList.toggle('expanded')"><span class="lh-label">Last</span><span class="lh-sets">${sets}</span><span class="last-hint-toggle">▸ detail</span>${detail}</div>`;
       }
@@ -3801,6 +3809,11 @@ function focusLogCurrent(p){
 function renderFocus(){
   const sess=S.activeSession;if(!sess)return;
   const track=document.getElementById('focusTrack');if(!track)return;
+  // B6: never rebuild the track out from under the notes caret — a re-render
+  // mid-typing destroys the textarea, the caret and the keyboard.
+  try{
+    if(document.activeElement&&document.activeElement.id==='fNotes'){renderFocusRail();return;}
+  }catch(e){}
   try{const l=document.getElementById('exList');if(l)l.innerHTML='';}catch(e){}
   const units=focusUnits(sess);
   const pos=focusPos();
@@ -3935,7 +3948,7 @@ function focusWrapCardHTML(sess){
     ${bonuses.length?`<div class="t-meta" style="margin-bottom:4px">Extra credit</div>`+bonuses.map((b,bi)=>`<div class="bonus-item" onclick="activateBonus(${bi})"><div style="flex:1"><div class="bi-name">${b.name}</div><div class="bi-rx">${b.sets}\u00d7${b.reps} @ ${fmtW(b.loadKg,b.unit)}</div></div><div class="bi-add">+</div></div>`).join(''):''}
     <button class="btn btn-gold btn-w" style="margin-top:12px" onclick="openExtras()">+ Add Extra</button>
     <button class="btn btn-g btn-w" style="margin-top:8px" onclick="addExMidSession()">+ Custom Exercise</button>
-    <div class="field" style="margin-top:16px"><label>Session Notes</label><textarea id="fNotes" rows="4" placeholder="How did it feel? Anything to flag..." oninput="if(S.activeSession){S.activeSession.notes=this.value;save();}" style="font-size:13px">${(sess.notes||'')}</textarea></div>
+    <div class="field" style="margin-top:16px"><label>Session Notes</label><textarea id="fNotes" rows="4" placeholder="How did it feel? Anything to flag..." oninput="if(S.activeSession){S.activeSession.notes=this.value;save();}" style="font-size:13px">${esc(sess.notes||'')}</textarea></div>
     <button class="btn btn-d btn-w" style="margin-top:16px;min-height:48px" onclick="endSession()">End Session</button>
   </div>`;
 }
@@ -3992,7 +4005,7 @@ let _kbT=null;
 document.addEventListener('focusin',e=>{
   try{
     const t=e.target;
-    if(t&&t.closest&&t.tagName==='INPUT'&&t.closest('.fcard')){
+    if(t&&t.closest&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA')&&t.closest('.fcard')){
       if(_kbT){clearTimeout(_kbT);_kbT=null;}
       const fr=document.getElementById('focusRoot');if(fr&&fr.classList)fr.classList.add('kb-compact');
     }
@@ -4004,7 +4017,7 @@ document.addEventListener('focusout',e=>{
     _kbT=setTimeout(()=>{
       _kbT=null;
       const ae=document.activeElement;
-      if(!(ae&&ae.closest&&ae.tagName==='INPUT'&&ae.closest('.fcard'))){
+      if(!(ae&&ae.closest&&(ae.tagName==='INPUT'||ae.tagName==='TEXTAREA')&&ae.closest('.fcard'))){
         const fr=document.getElementById('focusRoot');if(fr&&fr.classList)fr.classList.remove('kb-compact');
       }
     },120);
@@ -6348,8 +6361,11 @@ document.querySelectorAll('.overlay').forEach(o=>{
 document.addEventListener('focusin',e=>{
   try{
     const t=e.target;
-    if(!t||t.tagName!=='INPUT')return;
-    if(!(t.closest&&t.closest('.set-fields')))return;
+    // B6: textareas (session notes, focus wrap-up) get the same keyboard
+    // rescue as set inputs — they sit at the bottom of their screens.
+    const isSetInput=t&&t.tagName==='INPUT'&&t.closest&&t.closest('.set-fields');
+    const isNotes=t&&t.tagName==='TEXTAREA'&&(t.id==='sessNotes'||t.id==='fNotes'||(t.closest&&t.closest('.fcard')));
+    if(!isSetInput&&!isNotes)return;
     if(typeof t.scrollIntoView==='function')setTimeout(()=>t.scrollIntoView({block:'center',behavior:'smooth'}),150);
   }catch(err){}
 });

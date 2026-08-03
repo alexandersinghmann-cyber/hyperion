@@ -278,7 +278,7 @@ assert(!d1.exercises.some(e=>e.name==='DB Bench Press'), 'W2: DB Bench excluded 
 // Face Pull + Overhead Raise is its own track (distinct EX_META entry)
 const fpo=d1.exercises.find(e=>e.name==='Face Pull + Overhead Raise');
 assert(fpo&&fpo.loadKg===13.75&&fpo.variant.pulley==='single'&&fpo.variant.attachment==='rope', 'W2: FP+OHR 13.75 single/rope');
-assert(getMeta('Face Pull + Overhead Raise').slot==='rear-delt'&&!getMeta('Face Pull + Overhead Raise').avoid, 'W2: FP+OHR distinct entry, not avoided');
+assert(EX_META['Face Pull + Overhead Raise'].slot==='rear-delt'&&EX_META['Face Pull + Overhead Raise'].avoid===true&&/etired/.test(EX_META['Face Pull + Overhead Raise'].avoidReason), 'B5: FP+OHR retired from active use (history preserved)');
 assert(d1.exercises.find(e=>e.name==='Strict Dip').reps==='6-8', 'W2: dips progressed to 3x6-8');
 assert(d1.exercises.find(e=>e.name==='Narrow-Grip Cable Pulldown').loadKg===68&&d1.exercises.find(e=>e.name==='Narrow-Grip Cable Pulldown').variant.pulley==='double', 'W2: NG Pulldown 68 double-pulley');
 
@@ -2557,5 +2557,48 @@ assert(/gymId:sess\.gymId\|\|/.test(html)&&/gymId:\(S\.settings&&S\.settings\.ac
   assert(ex.progression==='increase'&&ex.nextLoad===162.5, 'B2+B4: calibrated machine resumes suggestions on the 2.5 grid. Got '+ex.progression+' '+ex.nextLoad);
   S.sessions=[];S.activeSession=null;S.settings.activeGymId='gym-commercial';
 })();
+
+// ===== W2: B3 UNMEASURED SWIM + B5 AVOID + B6 NOTES =====
+assert(typeof dayUnmeasured==='function'&&typeof esc==='function', 'W2: helpers defined');
+// B3: gate honours the day tag; ad-hoc + measured days still hard-block
+(()=>{
+  S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];
+  const si=S.program.days.findIndex(d=>d.sessionType==='swim');
+  const bak=S.program.days[si].tags;
+  S.program.days[si].tags=['unmeasured'];
+  S.activeSession={dayIndex:si,dayId:S.program.days[si].id,dayLabel:'Swim',sessionType:'swim',startTime:1,blockName:S.program.name,activity:{durationMin:40,distance:0,effort:6,notes:''},exercises:[],notes:''};
+  assert(dayUnmeasured(S.activeSession)===true, 'B3: tagged day detected');
+  const n0=S.sessions.length;
+  global.showView=global.showView||(()=>{});
+  finalizeActivity();
+  assert(S.sessions.length===n0+1, 'B3: distance-less swim SAVES on an unmeasured day');
+  assert(S.sessions[S.sessions.length-1].activity.distance===0, 'B3: record carries distance 0');
+  assert(swimBest(S.sessions)===0, 'B3: a 0 never becomes the best');
+  // measured day still blocks
+  S.program.days[si].tags=bak;
+  S.activeSession={dayIndex:si,dayId:S.program.days[si].id,dayLabel:'Swim',sessionType:'swim',startTime:1,blockName:S.program.name,activity:{durationMin:40,distance:0,effort:6,notes:''},exercises:[],notes:''};
+  const n1=S.sessions.length;
+  finalizeActivity();
+  assert(S.sessions.length===n1&&S.activeSession!==null, 'B3: untagged swim day still requires distance');
+  S.sessions=[];S.activeSession=null;
+})();
+assert(/distReq\?' — required':\(st==='swim'\?' — optional \(snorkel\)':''\)/.test(html), 'B3: form label flips to optional on unmeasured days');
+// B5: Bench Press avoided; never offered as a substitute; FIXED_MAINS untouched
+assert(EX_META['Bench Press'].avoid===true&&/2026-07-28/.test(EX_META['Bench Press'].avoidReason), 'B5: barbell Bench Press avoid-listed with the pain date');
+assert(FIXED_MAINS.includes('Bench Press'), 'B5: FIXED_MAINS not weakened (avoid affects pickers only)');
+(()=>{const subs=getSubstitutes('Iso-Lateral Bench Press')||[];assert(!subs.some(x=>(x.name||x)==='Bench Press'), 'B5: Bench Press never offered as a substitute');})();
+(()=>{const av=getAvoided('Machine Chest Press').map(a=>a.name);assert(av.includes('Bench Press'), 'B5: excluded expander lists Bench Press for hpush slots. Got '+av.join(','));})();
+// B6: escaping round-trip
+assert(esc('</textarea><b>&"')==='&lt;/textarea&gt;&lt;b&gt;&amp;&quot;', 'B6: esc() covers &<>\"');
+assert(/id="fNotes"[^>]*>\$\{esc\(sess\.notes\|\|''\)\}<\/textarea>/.test(html), 'B6: wrap-up notes interpolation escaped');
+assert(/Notes: \$\{esc\(sx\.notes\)\}/.test(html), 'B6: last-hint notes escaped');
+(()=>{ // focusWrapCardHTML survives hostile notes
+  const out=focusWrapCardHTML({dayIndex:0,notes:'</textarea><b>pwn'});
+  assert(!/<\/textarea><b>pwn/.test(out)&&/&lt;\/textarea&gt;/.test(out), 'B6: hostile notes cannot break out of the textarea');
+})();
+// B6: keyboard handlers cover textareas; renderFocus guards the caret
+assert(/isNotes=t&&t\.tagName==='TEXTAREA'/.test(html), 'B6: scrollIntoView rescue covers notes textareas');
+assert(/\(t\.tagName==='INPUT'\|\|t\.tagName==='TEXTAREA'\)&&t\.closest\('\.fcard'\)/.test(html), 'B6: kb-compact covers card textareas');
+assert(/document\.activeElement\.id==='fNotes'\)\{renderFocusRail\(\);return;\}/.test(html), 'B6: renderFocus never rebuilds under the notes caret');
 
 console.log('\n=== All tests passed ===');
