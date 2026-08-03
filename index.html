@@ -387,6 +387,8 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .h-line .val{font-family:var(--mono);color:var(--tx2)}
 
 /* ===== EXTRA CREDIT ===== */
+/* C8 unified add sheet */
+.sug-hdr{font:600 12px var(--sans);color:var(--brand);margin:4px 0 6px}
 .bonus-section{margin-top:12px;border:1px solid var(--gold-dim);border-radius:var(--r);overflow:hidden}
 .bonus-toggle{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:var(--gold-dim);cursor:pointer;-webkit-user-select:none}
 .bonus-toggle-label{font:600 12px var(--sans);color:var(--gold)}
@@ -456,7 +458,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .set-row.compact .set-summary{flex:1;font:600 15px var(--mono);color:var(--tx);letter-spacing:.2px}
 .set-row.compact.st-done .set-summary{color:var(--tx)}
 .set-row.compact.st-skip .set-summary{font:500 11px var(--mono);letter-spacing:.5px}
-.ex-cat{display:inline-block;padding:1px 6px;border-radius:3px;background:var(--s3);color:var(--tx3);font:600 10px var(--sans);margin-right:6px;vertical-align:1px;opacity:.8}
+.ex-cat{display:inline-block;padding:1px 6px;border-radius:3px;background:var(--s3);color:var(--tx3);font:600 10px var(--sans);margin-right:6px;vertical-align:1px;opacity:.8;text-transform:capitalize}
 .ex-prog-ind{font-size:15px;font-weight:600;padding:0 4px}
 .ex-menu{position:absolute;right:0;top:100%;margin-top:4px;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);box-shadow:0 6px 20px rgba(0,0,0,.35);z-index:95;min-width:160px;display:none;overflow:hidden}
 .ex-menu.on{display:block}
@@ -560,7 +562,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 #sessionHero .sh-target{font:600 14px var(--mono);color:var(--brand);letter-spacing:.3px}
 #sessionHero .sh-skip{font:500 11px var(--sans);color:var(--tx3);margin-top:16px}
 .sl{font:500 10px var(--sans);color:var(--tx3);opacity:.6}
-.tagm{font:500 10px var(--sans);color:var(--tx3);border:1px solid var(--s3);border-radius:10px;padding:2px 7px;opacity:.8}
+.tagm{font:500 10px var(--sans);color:var(--tx3);border:1px solid var(--s3);border-radius:10px;padding:2px 7px;opacity:.8;text-transform:capitalize}
 .bigrow{display:flex;align-items:baseline;gap:8px;margin:9px 0}
 .big{font:700 30px var(--mono);letter-spacing:-1px}
 .bigu{font:500 11px var(--mono);color:var(--tx3)}
@@ -966,7 +968,9 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 
 <div class="overlay" id="extrasModal">
   <div class="modal" style="max-height:90vh">
-    <div class="modal-t">Extras Library</div>
+    <div class="modal-t">Add exercise</div>
+    <div class="sug-hdr">Suggested for today</div>
+    <div id="extrasSuggested"></div>
     <div class="extras-pick-hint" id="extrasHint"></div>
     <div class="extras-tabs" id="extrasTabs">
       <button class="extras-tab" data-pool="upper" onclick="switchExtrasTab('upper')">Upper<span class="ec-count" id="cnt-upper"></span></button>
@@ -975,7 +979,8 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       <button class="extras-tab" data-pool="rehab" onclick="switchExtrasTab('rehab')">Rehab<span class="ec-count" id="cnt-rehab"></span></button>
     </div>
     <div id="extrasBody"></div>
-    <button class="btn btn-s btn-w" style="margin-top:12px" onclick="hideModal('extrasModal')">Close</button>
+    <button class="btn btn-g btn-w" style="margin-top:12px;min-height:48px" onclick="hideModal('extrasModal');addExMidSession()">Custom exercise...</button>
+    <button class="btn btn-s btn-w" style="margin-top:8px" onclick="hideModal('extrasModal')">Close</button>
   </div>
 </div>
 
@@ -3759,33 +3764,9 @@ function renderExList(){
     </div>`;
   }).join('');
 
-  // Extra Credit (bonus exercises) — only from active program
-  const day=S.program.days[sess.dayIndex];
-  const bonuses=(day&&day.bonus)||[];
-  // Filter out bonuses already activated into the session
-  const activatedNames=sess.exercises.filter(e=>(e.tags||[]).includes('bonus')).map(e=>e.name);
-  const available=bonuses.filter(b=>!activatedNames.includes(b.name));
-  if(available.length>0){
-    list.innerHTML+=`<div class="bonus-section" id="bonusSection" onclick="this.classList.toggle('open')">
-      <div class="bonus-toggle">
-        <span class="bonus-toggle-label">Extra Credit · ${available.length} available</span>
-        <span class="bonus-toggle-arrow">›</span>
-      </div>
-      <div class="bonus-list" onclick="event.stopPropagation()">
-        ${available.map((b,bi)=>{
-          const tagStr=(b.tags||[]).map(t=>' <span class="td" style="font-size:10px">/'+t+'</span>').join('');
-          return`<div class="bonus-item" onclick="activateBonus(${bi})">
-            <div style="flex:1"><div class="bi-name">${b.name}${tagStr}</div><div class="bi-rx">${b.sets}×${b.reps} @ ${fmtW(b.loadKg,b.unit)}</div></div>
-            <div class="bi-add">+</div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`;
-  }
-
-  // Extras Library (recommendation-sorted pool) + Custom exercise
-  list.innerHTML+=`<button class="btn btn-gold btn-w" style="margin-top:12px" onclick="openExtras()">+ Add Extra <span style="font:500 11px var(--mono);opacity:.75;margin-left:6px">recommended for today</span></button>`;
-  list.innerHTML+=`<button class="btn btn-g btn-w" style="margin-top:8px" onclick="addExMidSession()">+ Custom Exercise</button>`;
+  // C8: ONE ghost add-action; the sheet carries suggestions (day bonuses +
+  // top-scored extras), the pool picker and the custom flow.
+  list.innerHTML+=`<button class="btn btn-g btn-w" style="margin-top:12px;min-height:48px" onclick="openExtras()">+ Add Exercise</button>`;
 }
 
 // ===== FOCUS MODE RENDER LAYER (S5) =====
@@ -4035,13 +4016,9 @@ function focusCardHTML(u,p,sess,curPos){
   </div>`;
 }
 function focusWrapCardHTML(sess){
-  const day=S.program.days[sess.dayIndex];
-  const bonuses=((day&&day.bonus)||[]).filter(b=>!sess.exercises.some(e=>(e.tags||[]).includes('bonus')&&e.name===b.name));
   return `<div class="fcard fc-wrap">
     <div class="t-h1" style="margin:8px 0 12px">Wrap up</div>
-    ${bonuses.length?`<div class="t-meta" style="margin-bottom:4px">Extra credit</div>`+bonuses.map((b,bi)=>`<div class="bonus-item" onclick="activateBonus(${bi})"><div style="flex:1"><div class="bi-name">${b.name}</div><div class="bi-rx">${b.sets}\u00d7${b.reps} @ ${fmtW(b.loadKg,b.unit)}</div></div><div class="bi-add">+</div></div>`).join(''):''}
-    <button class="btn btn-gold btn-w" style="margin-top:12px" onclick="openExtras()">+ Add Extra</button>
-    <button class="btn btn-g btn-w" style="margin-top:8px" onclick="addExMidSession()">+ Custom Exercise</button>
+    <button class="btn btn-g btn-w" style="margin-top:12px;min-height:48px" onclick="openExtras()">+ Add Exercise</button>
     <div class="field" style="margin-top:16px"><label>Session Notes</label><textarea id="fNotes" rows="4" placeholder="How did it feel? Anything to flag..." oninput="if(S.activeSession){S.activeSession.notes=this.value;save();}" style="font-size:13px">${esc(sess.notes||'')}</textarea></div>
     <button class="btn btn-d btn-w" style="margin-top:16px;min-height:48px" onclick="endSession()">End Session</button>
   </div>`;
@@ -4426,6 +4403,20 @@ function openExtras(){
   document.querySelectorAll('.extras-tab').forEach(t=>t.classList.toggle('sel',t.dataset.pool===defaultPool));
 
   renderExtrasPool(defaultPool);
+  // C8: "Suggested for today" = the day's coach-authored bonus items plus
+  // the three highest-scored extras across every pool.
+  try{
+    const sug=document.getElementById('extrasSuggested');
+    if(sug){
+      const day=S.program.days[S.activeSession.dayIndex];
+      const activated=S.activeSession.exercises.filter(e=>(e.tags||[]).includes('bonus')).map(e=>e.name);
+      const bonuses=((day&&day.bonus)||[]).filter(b=>!activated.includes(b.name));
+      const top3=scored.slice().sort((a,b)=>b.score-a.score).slice(0,3);
+      sug.innerHTML=bonuses.map((b,bi)=>`<div class="bonus-item" onclick="activateBonus(${bi});hideModal('extrasModal')"><div style="flex:1"><div class="bi-name">${b.name}</div><div class="bi-rx">${b.sets}x${b.reps} @ ${fmtW(b.loadKg,b.unit)}</div></div><div class="bi-add">+</div></div>`).join('')
+        +top3.map(x=>`<div class="bonus-item" onclick="addExtraToSession('${x.key}')"><div style="flex:1"><div class="bi-name">${x.name}</div><div class="bi-rx">${x.sets}x${x.reps}${x.loadKg?' @ '+fmtW(x.loadKg,x.unit):''}${x.reasons&&x.reasons.length?' \u00b7 '+x.reasons[0]:''}</div></div><div class="bi-add">+</div></div>`).join('')
+        ||'<div class="t-meta">Nothing queued \u2014 browse the pools below</div>';
+    }
+  }catch(e){}
   showModal('extrasModal');
 }
 

@@ -2692,4 +2692,25 @@ assert(/\.rail-chip\{max-width:12ch/.test(html)&&/\.rail-chip\.pair\{max-width:1
 assert(/\.rail-scroll\{padding-right:24px;mask-image:linear-gradient/.test(html), 'C7: right-edge fade mask + clearance padding');
 assert(/<\/div><button class="rail-reorder"/.test(html), 'C7: reorder button outside the scroll area');
 
+// ===== W5: C8 UNIFIED ADD SHEET + C9 LABELS + C10 DISCIPLINE =====
+assert((html.match(/onclick="openExtras\(\)">\+ Add Exercise</g)||[]).length===2, 'C8: ONE ghost add button per session view (list tail + wrap card; the day-preview editor keeps its own). Got '+(html.match(/onclick="openExtras\(\)">\+ Add Exercise</g)||[]).length);
+assert(!/\+ Add Extra </.test(html)&&!/btn-gold btn-w" style="margin-top:12px" onclick="openExtras/.test(html), 'C8: legacy gold banner deleted');
+assert(!/\+ Custom Exercise</.test(html), 'C8: separate custom button retired (lives in the sheet)');
+assert(/id="extrasSuggested"/.test(html)&&/class="sug-hdr">Suggested for today</.test(html), 'C8: sheet leads with Suggested for today');
+assert(/\.sug-hdr\{font:600 12px var\(--sans\);color:var\(--brand\)/.test(html), 'C8: suggested header is flat brand (gradient budget untouched)');
+assert(/addExMidSession\(\)">Custom exercise\.\.\.</.test(html), 'C8: custom flow reachable from the sheet');
+assert(!/bonus-section" id="bonusSection"/.test(html), 'C8: list-view bonus section folded into the sheet');
+assert(typeof activateBonus==='function', 'C8: bonus activation engine kept');
+assert(/const top3=scored\.slice\(\)\.sort\(\(a,b\)=>b\.score-a\.score\)\.slice\(0,3\)/.test(html), 'C8: top-3 scored extras feed the suggestions');
+// C9: sentence-case chrome labels via capitalize (uppercase stays banned)
+assert(/\.ex-cat\{[^}]*text-transform:capitalize/.test(html), 'C9: category chips capitalize');
+assert(/\.tagm\{[^}]*text-transform:capitalize/.test(html), 'C9: goal manual tag capitalizes');
+assert(!/text-transform:uppercase/.test(html.match(/<style>([\s\S]*?)<\/style>/)[0].replace(/#blockHdr\{[^}]*\}/,'')), 'C9: #blockHdr remains the only uppercase (re-check)');
+// C10: neutral ghosts — no greens/gold in the ghost/outline controls
+(()=>{const st=html.match(/<style>([\s\S]*?)<\/style>/)[1];
+  ['fr-ghost','fr-skip','rail-chip{','ro-btn'].forEach(sel=>{
+    const i=st.indexOf(sel);const rule=st.slice(i,st.indexOf('}',i));
+    assert(!/var\(--grn\)|var\(--gold\)|#3[0-9a-f]{5}/i.test(rule), 'C10: '+sel+' stays neutral. Got '+rule.slice(0,80));
+  });})();
+
 console.log('\n=== All tests passed ===');
