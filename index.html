@@ -2254,7 +2254,9 @@ function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse
   // the user can switch back to Singapore in Settings and stay there.
   try{
     if(!S.settings.gyms.find(g=>g.id==='gym-holiday'))S.settings.gyms.push(JSON.parse(JSON.stringify(DEFAULT_GYMS.find(g=>g.id==='gym-holiday'))));
-    if(!S.settings._holidayGymActivated){S.settings._holidayGymActivated=true;S.settings.activeGymId='gym-holiday';}
+    // Also stamp the older Singapore one-shot so migrateV3 can't re-flip a
+    // fresh install back after this newer directive.
+    if(!S.settings._holidayGymActivated){S.settings._holidayGymActivated=true;S.settings._sgActivated=true;S.settings.activeGymId='gym-holiday';}
     save();
   }catch(e){}
   // v2→v3 multi-modal migration (idempotent; runs for fresh installs + imported data alike)
