@@ -1648,7 +1648,10 @@ S.settings.activeGymId='gym-commercial';
 assert(snapSuggestion(23.5,'db')===22.5, 'Snap: 23.5 db (2.5 step) → 22.5. Got: '+snapSuggestion(23.5,'db'));
 assert(snapSuggestion(118.5,'barbell')===117.5, 'Snap: 118.5 barbell → 117.5 (not 120). Got: '+snapSuggestion(118.5,'barbell'));
 assert(snapSuggestion(31.4,'cable')===31, 'Snap: cable snaps to 1 kg. Got: '+snapSuggestion(31.4,'cable'));
-assert(snapSuggestion(152.7,'sled')===152.7 && snapSuggestion(152.7,'machine')===152.7, 'Snap: machine/sled pass through');
+assert(snapSuggestion(152.7,'sled')===152.7, 'Snap: sled passes through');
+assert(snapSuggestion(152.7,'machine')===152.5, 'B4: machine snaps to the 2.5 stack step (floor)');
+assert(snapSuggestion(160*1.0125,'machine')===162.5, 'B4: 160 @ +1.25% lands on 162.5 (within the round-up window)');
+assert(snapLoadToEquipment(161.3,'machine')===162.5&&snapLoadToEquipment(160,'machine')===160, 'B4: prescription snap — 161.3 kg is impossible on a stack');
 // BW target helper
 assert(bwNextTarget('15s',true)==='20s', 'BW: hold 15s → 20s (+5 sec)');
 assert(bwNextTarget('8',false)==='9', 'BW: reps 8 → 9 (+1 rep)');
@@ -2478,5 +2481,81 @@ assert(/\.rail-chip\{[^}]*min-height:48px/.test(html)&&/\.fr-ghost\{min-height:4
 assert(/button:focus-visible[^{]*\{outline:2px solid var\(--brand\)/.test(html), 'S8 a11y: focus indicators visible');
 // Progression/e1RM/validator functions untouched: canary asserts
 assert(typeof evalProg==='function'&&typeof e1rm==='function'&&typeof validateSession==='function'&&typeof validateProgram==='function', 'S8: engine canaries intact');
+
+// ===== W1: B1 WARM-UP GENERATOR + B2 GYM TRACKS + B4 (extra) =====
+assert(typeof snapToMakeable==='function'&&typeof genWarmups==='function'&&typeof trackSessions==='function', 'W1: new helpers defined');
+// B1: makeable snapping
+assert(snapToMakeable(58.75,36,[20,15,10,5,2.5])===56, 'B1: 58.75 on a 36 bar w/ coarse plates → 56');
+assert(snapToMakeable(50,60,[25,20,15,10,5,2.5])===60, 'B1: never below the empty bar');
+// B1: the holiday deadlift ramp — 36 kg bar, coarse plates
+(()=>{
+  const wu=(function(){const bak=S.settings.activeGymId;S.settings.activeGymId='gym-holiday';ensureGyms();const r=genWarmups(117.5,{name:'Deadlift',barKg:36});S.settings.activeGymId=bak;return r;})();
+  assert(JSON.stringify(wu)===JSON.stringify([{w:56,reps:5},{w:86,reps:3},{w:106,reps:2}]), 'B1: 117.5 DL on the 36 bar → 56/86/106 ramp. Got '+JSON.stringify(wu));
+  assert(wu.every(x=>x.w!==60), 'B1: never prescribes 60 on a 36 kg bar');
+})();
+// B1: 20-bar values differ + are makeable
+(()=>{
+  const bak=S.settings.activeGymId;S.settings.activeGymId='gym-commercial';
+  const wu=genWarmups(117.5,{name:'X',barKg:20});
+  S.settings.activeGymId=bak;
+  assert(wu.length===3&&wu[0].w!==56&&wu.every((x,i,a)=>i===0||x.w>a[i-1].w), 'B1: 20-bar ramp differs and ascends. Got '+JSON.stringify(wu));
+  wu.forEach(x=>{const r=platesPerSide(x.w,20,[25,20,15,10,5,2.5,1.25,1]);assert(r.remainder===0, 'B1: every generated warmup is plate-exact. '+x.w+' left '+r.remainder);});
+})();
+// B1: startDay generates for barbell mains without authored warmups
+(()=>{
+  S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.activeSession=null;
+  global.startTimer=()=>{};global.showSessionHero=global.showSessionHero||(()=>{});
+  const di=S.program.days.findIndex(d=>d.exercises&&d.exercises.some(e=>e.name==='Deadlift'));
+  const dl=S.program.days[di].exercises.find(e=>e.name==='Deadlift');
+  const bakWu=dl.warmup;delete dl.warmup;
+  startDay(di);
+  const sdl=S.activeSession.exercises.find(e=>e.name==='Deadlift');
+  const gen=sdl.performed.filter(pp=>pp.type==='warmup');
+  assert(gen.length>=2&&gen.every(pp=>pp.weightKg>=exerciseBarKg(sdl)), 'B1: startDay generated a bar-aware ramp when no authored warmup. Got '+JSON.stringify(gen.map(g=>g.weightKg)));
+  assert(sdl.barKg===36||exerciseBarKg(sdl)===36, 'B1: barKg travels to the session exercise');
+  window.confirm=()=>true;cancelSession();
+  S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();
+})();
+// B2: holiday gym seeded + one-shot activation
+assert(DEFAULT_GYMS.some(g=>g.id==='gym-holiday'), 'B2: Holiday Gym in defaults');
+(()=>{const hg=DEFAULT_GYMS.find(g=>g.id==='gym-holiday');
+  assert(hg.equipment.includes('machine')&&hg.equipment.includes('hip-abduction')&&hg.equipment.includes('sled')&&hg.equipment.includes('leg-press')&&hg.equipment.includes('cable'), 'B2: holiday equipment list per spec');
+  assert(JSON.stringify(hg.plateInventory)==='[20,15,10,5,2.5]', 'B2: coarse holiday plates');})();
+assert(/_holidayGymActivated/.test(html)&&/activeGymId='gym-holiday'/.test(html), 'B2: one-shot activation wired in load()');
+// B2: gymId stamps + trackSessions scoping
+(()=>{
+  S.settings.activeGymId='gym-holiday';
+  S.sessions=[
+    {date:'2026-07-20',dayLabel:'X',exercises:[{name:'Sled Push',prescribed:{sets:4,reps:'15m',loadKg:170,unit:'kg'},performed:[{type:'working',weightKg:170,reps:15,logged:true}]}]},
+    {date:'2026-07-25',gymId:'gym-singapore',dayLabel:'X',exercises:[{name:'Sled Push',prescribed:{sets:4,reps:'15m',loadKg:172.5,unit:'kg'},performed:[{type:'working',weightKg:172.5,reps:15,logged:true}]}]},
+    {date:'2026-08-01',gymId:'gym-holiday',dayLabel:'X',exercises:[{name:'Sled Push',prescribed:{sets:4,reps:'15m',loadKg:80,unit:'kg'},performed:[{type:'working',weightKg:80,reps:15,logged:true}]}]}
+  ];
+  assert(trackSessions('Sled Push','').length===2, 'B2: holiday track = holiday + legacy (Singapore excluded). Got '+trackSessions('Sled Push','').length);
+  const hint=getLastHint({name:'Sled Push',variant:null});
+  assert(/80/.test(hint)&&!/172\.5/.test(hint), 'B2: last hint reads the holiday track, not Singapore. Got '+hint.slice(0,80));
+  S.settings.activeGymId='gym-singapore';
+  assert(trackSessions('Sled Push','').length===2&&trackSessions('Sled Push','').every(x=>x.gymId!=='gym-holiday'), 'B2: Singapore track excludes holiday');
+  S.sessions=[];S.settings.activeGymId='gym-commercial';
+})();
+assert(/gymId:sess\.gymId\|\|/.test(html)&&/gymId:\(S\.settings&&S\.settings\.activeGymId\)\|\|null/.test(html), 'B2: session records + activeSession stamp the gym');
+// B2: new-machine-calibrate holds until 2 track sessions
+(()=>{
+  S.sessions=[];S.settings.activeGymId='gym-holiday';
+  S.activeSession={dayIndex:0,dayLabel:'X',sessionType:'lifting',startTime:1,gymId:'gym-holiday',notes:'',exercises:[
+    {name:'Leg Press',cat:'squat',prescribed:{sets:3,reps:'10',loadKg:160,unit:'kg'},equipmentClass:'machine',
+     performed:[{type:'working',weightKg:160,reps:10,rpe:7,logged:true}],tags:['new-machine-calibrate'],progression:null,nextLoad:null,variant:null,painEvent:null}]};
+  evalProg(0);
+  const ex=S.activeSession.exercises[0];
+  assert(ex.progression==='hold'&&ex.nextLoad===160&&/alibrating/.test(ex.progressionReason), 'B2: calibrate session 1 → hold + reason. Got '+ex.progression+' '+ex.progressionReason);
+  // two sessions on the track → suggestions resume
+  S.sessions=[
+    {date:'2026-08-01',gymId:'gym-holiday',dayLabel:'X',exercises:[{name:'Leg Press',prescribed:{sets:3,reps:'10',loadKg:160,unit:'kg'},performed:[{type:'working',weightKg:160,reps:10,logged:true}]}]},
+    {date:'2026-08-02',gymId:'gym-holiday',dayLabel:'X',exercises:[{name:'Leg Press',prescribed:{sets:3,reps:'10',loadKg:160,unit:'kg'},performed:[{type:'working',weightKg:160,reps:10,logged:true}]}]}
+  ];
+  ex.progression=null;ex.progressionReason=null;
+  evalProg(0);
+  assert(ex.progression==='increase'&&ex.nextLoad===162.5, 'B2+B4: calibrated machine resumes suggestions on the 2.5 grid. Got '+ex.progression+' '+ex.nextLoad);
+  S.sessions=[];S.activeSession=null;S.settings.activeGymId='gym-commercial';
+})();
 
 console.log('\n=== All tests passed ===');

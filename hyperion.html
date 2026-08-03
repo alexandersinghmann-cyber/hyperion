@@ -1918,6 +1918,40 @@ function plateLabel(ex){
   if(r.remainder>0.01)s+=' · +'+r.remainder+' over';
   return s;
 }
+// B1: snap a total DOWN to the nearest bar+plates-makeable value (greedy
+// largest-first per side — coarse inventories land on "round" totals).
+function snapToMakeable(totalKg,barKg,plates){
+  const inv=(plates||activePlates()).slice().sort((a,b)=>b-a);
+  const bar=+barKg||0;
+  let per=((+totalKg||0)-bar)/2;
+  if(per<=0)return bar;
+  let got=0;
+  inv.forEach(pl=>{while(got+pl<=per+1e-9)got+=pl;});
+  return Math.round((bar+2*got)*100)/100;
+}
+// B1: bar-aware warm-up generator — ramps 50/75/92% of the top working load,
+// each snapped to a makeable total for the exercise's ACTUAL bar. A 36 kg
+// trap bar must never be prescribed a 60 kg "warm-up" it can't load cleanly.
+function genWarmups(workKg,ex){
+  const bar=exerciseBarKg(ex);
+  const plates=activePlates();
+  const out=[];
+  [[0.5,5],[0.75,3],[0.92,2]].forEach(([r,reps])=>{
+    let w=snapToMakeable((+workKg||0)*r,bar,plates);
+    if(w<bar)w=bar;
+    if(w>=(+workKg||0)*0.95)return;                 // too close to the work sets
+    if(out.length&&out[out.length-1].w>=w)return;   // strictly ascending
+    out.push({w:w,reps:reps});
+  });
+  return out;
+}
+// B2: the progression track = exercise + variant + GYM. Legacy records carry
+// no gymId and match every gym, so history continuity survives the feature;
+// two explicit gyms never cross (the holiday sled must not deload Singapore).
+function trackSessions(exName,vKey,gymId){
+  const g=(gymId!==undefined)?gymId:((S.settings&&S.settings.activeGymId)||null);
+  return S.sessions.filter(s=>(!s.gymId||!g||s.gymId===g)&&(s.exercises||[]).some(e=>histMatch(e,exName,vKey)));
+}
 // Snap a prescribed load to a valid increment for its equipment class.
 // db→gym DB increment, barbell→2.5kg plate, cable→1kg, machine/sled→pass-through, bw→0.
 function snapLoadToEquipment(loadKg,equipmentClass){
@@ -1928,16 +1962,20 @@ function snapLoadToEquipment(loadKg,equipmentClass){
     case 'barbell': return roundPlate(kg);
     case 'cable': return Math.round(kg);
     case 'bw': return 0;
-    default: return kg; // machine, sled, null — pass through
+    case 'machine': {const inc=activeGymMachineInc();return Math.round(Math.round(kg/inc)*inc*100)/100;}
+    default: return kg; // sled, null — pass through
   }
 }
+// B4: machine stacks move in fixed steps — "161.3 kg" must be impossible.
+function activeGymMachineInc(){const g=_activeGym();return (g&&g.machineIncrementKg)||2.5;}
 // The loadable step for a class, or null when anything goes (machine/sled/null).
 function snapIncrement(equipmentClass){
   switch(equipmentClass){
     case 'db': return activeGymDbInc();
     case 'barbell': return 2.5;
     case 'cable': return 1;
-    default: return null;
+    case 'machine': return activeGymMachineInc();
+    default: return null; // sled, bw, unknown
   }
 }
 // Snap a PROGRESSION SUGGESTION to a loadable weight. Conservative by design:
@@ -2161,6 +2199,13 @@ function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse
   if(S.sessions.length===0){S.sessions.push(JSON.parse(JSON.stringify(SEED_SESSION)));save()}
   // Ensure gyms seeded for fresh installs (no prior state branch above)
   try{ensureGyms();save();}catch(e){}
+  // W3 holiday week (B2): idempotent profile backfill + ONE-SHOT activation —
+  // the user can switch back to Singapore in Settings and stay there.
+  try{
+    if(!S.settings.gyms.find(g=>g.id==='gym-holiday'))S.settings.gyms.push(JSON.parse(JSON.stringify(DEFAULT_GYMS.find(g=>g.id==='gym-holiday'))));
+    if(!S.settings._holidayGymActivated){S.settings._holidayGymActivated=true;S.settings.activeGymId='gym-holiday';}
+    save();
+  }catch(e){}
   // v2→v3 multi-modal migration (idempotent; runs for fresh installs + imported data alike)
   try{migrateV3();save();}catch(e){}
   // Run validator sweep once (non-blocking) to surface any ordering issues in console
@@ -2530,12 +2575,15 @@ function resetBig3Targets(){
 }
 
 // ===== GYM PROFILES =====
-const EQ_TAGS=['cable','pulldown-station','pulley','pull-up-bar','barbell','rack','platform','bench','incline-bench','seal-bench','db','leg-press','hack-squat','v-squat','hamstring-curl','leg-extension','calf-raise','back-extension-bench','chest-press','pec-deck','preacher-bench','band','wall','bodyweight','treadmill','row-erg','assault-bike','ab-wheel','blocks','sled','parallel-bars'];
+const EQ_TAGS=['cable','pulldown-station','pulley','pull-up-bar','barbell','rack','platform','bench','incline-bench','seal-bench','db','leg-press','hack-squat','v-squat','hamstring-curl','leg-extension','calf-raise','back-extension-bench','chest-press','pec-deck','preacher-bench','band','wall','bodyweight','treadmill','row-erg','assault-bike','ab-wheel','blocks','sled','parallel-bars','machine','hip-abduction'];
 const DEFAULT_GYMS=[
   {id:'gym-singapore',name:'Singapore Gym',equipment:['cable','pulldown-station','pulley','pull-up-bar','barbell','rack','platform','bench','incline-bench','db','leg-press','hack-squat','v-squat','hamstring-curl','leg-extension','calf-raise','back-extension-bench','chest-press','pec-deck','preacher-bench','band','bodyweight','treadmill','row-erg','ab-wheel','parallel-bars'],dbIncrementKg:2.5,defaultBarKg:20,plateInventory:[25,20,15,10,5,2.5,1.25,1]},
   {id:'gym-commercial',name:'Commercial Gym',equipment:EQ_TAGS.slice(),dbIncrementKg:2.5,defaultBarKg:20,plateInventory:[25,20,15,10,5,2.5,1.25,1]},
   {id:'gym-hotel',name:'Hotel / Travel',equipment:['db','bench','incline-bench','treadmill','bodyweight','band'],dbIncrementKg:2.5,defaultBarKg:20,plateInventory:[20,10,5,2.5,1.25]},
-  {id:'gym-home',name:'Home Gym',equipment:['barbell','rack','bench','db','pull-up-bar','band','bodyweight'],dbIncrementKg:2.5,defaultBarKg:20,plateInventory:[20,15,10,5,2.5,1.25,1]}
+  {id:'gym-home',name:'Home Gym',equipment:['barbell','rack','bench','db','pull-up-bar','band','bodyweight'],dbIncrementKg:2.5,defaultBarKg:20,plateInventory:[20,15,10,5,2.5,1.25,1]},
+  // W3 holiday week: iso-lateral machines, cables, one rack, leg press, sled,
+  // hip-abduction. Coarse plate set — the warm-up generator keys off it.
+  {id:'gym-holiday',name:'Holiday Gym',equipment:['machine','chest-press','hip-abduction','cable','pulley','pulldown-station','barbell','rack','bench','db','leg-press','sled','pull-up-bar','parallel-bars','back-extension-bench','bodyweight'],dbIncrementKg:2.5,defaultBarKg:20,machineIncrementKg:2.5,plateInventory:[20,15,10,5,2.5]}
 ];
 function ensureGyms(){
   if(!S.settings.gyms)S.settings.gyms=JSON.parse(JSON.stringify(DEFAULT_GYMS));
@@ -3240,7 +3288,7 @@ function startDay(i){
   const st=day.sessionType||'lifting';
   // dayId is the day's immutable identity — dayLabel alone is ambiguous when
   // two days share a label (the deload has two "Swim" days).
-  S.activeSession={dayIndex:i,dayId:day.id,blockName:S.program.name,date:todayStr(),dayLabel:day.label,sessionType:st,startTime:Date.now(),exercises:[],notes:'',order:[]};
+  S.activeSession={dayIndex:i,dayId:day.id,blockName:S.program.name,date:todayStr(),dayLabel:day.label,sessionType:st,startTime:Date.now(),exercises:[],notes:'',order:[],gymId:(S.settings&&S.settings.activeGymId)||null};
   if(st==='swim'||st==='run'||st==='pilates'||st==='mobility'){
     // Activity-log session: one form, no exercise cards.
     S.activeSession.activity={durationMin:day.dur||0,distance:day.defaultDistance||0,effort:null,notes:''};
@@ -3250,12 +3298,22 @@ function startDay(i){
       name:ex.name,cat:ex.cat,cue:ex.cue||null,
       prescribed:{sets:ex.sets,reps:ex.reps,loadKg:ex.loadKg,unit:ex.unit||'kg',setScheme:Array.isArray(ex.setScheme)?JSON.parse(JSON.stringify(ex.setScheme)):null},
       warmup:Array.isArray(ex.warmup)?JSON.parse(JSON.stringify(ex.warmup)):null,
+      barKg:(typeof ex.barKg==='number')?ex.barKg:undefined,
       // equipmentClass drives suggestion snapping; variant keys the history track.
       equipmentClass:ex.equipmentClass||inferEquipmentClass(ex.name),
       variant:resolveSessionVariant(ex),
       performed:[],notes:'',progression:null,nextLoad:null,painEvent:null,tags:ex.tags||[],rest:ex.rest||(COMPOUNDS.includes(ex.cat)?150:90)
     }));
     S.activeSession.exercises.forEach(ex=>{
+      // B1: heavy barbell lifts with NO authored warm-up get a generated
+      // bar-aware ramp (authored arrays always win).
+      if(!ex.warmup&&ex.equipmentClass==='barbell'&&(ex.prescribed.loadKg||0)>=60){
+        try{
+          const top=(ex.prescribed.setScheme&&schemeTop(ex.prescribed.setScheme))||null;
+          ex.warmup=genWarmups(top?top.loadKg:ex.prescribed.loadKg,ex);
+          if(!ex.warmup.length)ex.warmup=null;
+        }catch(e){ex.warmup=null;}
+      }
       // Prescribed warm-ups render as one-tap "W" rows above the working sets.
       // All analytics (e1RM / progression / top set) already filter
       // type==='working', so these rows can never inflate strength numbers.
@@ -3445,7 +3503,11 @@ function rememberVariant(ex){
 function getLastHint(exOrName){
   const name=typeof exOrName==='string'?exOrName:exOrName.name;
   const vKey=typeof exOrName==='string'?'':variantKey(exOrName.variant);
+  const _g=(S.settings&&S.settings.activeGymId)||null;
   for(let i=S.sessions.length-1;i>=0;i--){
+    // B2: hints come from THIS gym's track (legacy no-gym records match all) —
+    // the holiday sled must not show Singapore's 172.5.
+    if(S.sessions[i].gymId&&_g&&S.sessions[i].gymId!==_g)continue;
     const sx=S.sessions[i].exercises.find(e=>histMatch(e,name,vKey));
     if(sx){
       const w=(sx.performed||[]).filter(p=>p.type==='working'&&p.logged!==false);
@@ -4578,7 +4640,9 @@ function logAll(ei){
 function addWu(ei){
   const ex=S.activeSession.exercises[ei];
   const fi=ex.performed.findIndex(s=>s.type==='working');
-  const wkg=Math.round(ex.prescribed.loadKg*0.5*2)/2;
+  // B1: barbell warm-ups snap to a bar+plate-makeable total; others to 0.5.
+  let wkg=Math.round(ex.prescribed.loadKg*0.5*2)/2;
+  if(ex.equipmentClass==='barbell')try{wkg=Math.max(exerciseBarKg(ex),snapToMakeable(ex.prescribed.loadKg*0.5,exerciseBarKg(ex)));}catch(e){}
   ex.performed.splice(fi,0,{type:'warmup',weightKg:wkg,reps:5,rpe:null,logged:false});
   save();renderEx();
 }
@@ -4905,6 +4969,17 @@ function evalProg(ei){
   const rnd=v=>Math.round(v*10)/10;
   const isBW=ex.prescribed.unit==='bw'||ex.equipmentClass==='bw';
 
+  // B2: new-machine-calibrate — an unfamiliar machine gets NO suggestions
+  // until its (exercise+variant+gym) track holds 2 sessions of baseline.
+  if((ex.tags||[]).includes('new-machine-calibrate')){
+    const _n=trackSessions(ex.name,variantKey(ex.variant)).length;
+    if(_n<2){
+      ex.progression='hold';ex.nextLoad=isBW?null:(topW||ex.prescribed.loadKg);ex.nextTarget=null;
+      ex.progressionReason='Calibrating — logging a baseline on this machine ('+(_n+1)+'/2 sessions)';
+      save();return;
+    }
+  }
+
   if(ex.painEvent&&ex.painEvent.severity!=='none'){
     ex.progression='flag';ex.nextLoad=topW||ex.prescribed.loadKg;
     ex.progressionReason='Pain event ('+ex.painEvent.severity+') — hold load, manual coach review';
@@ -4959,7 +5034,7 @@ function evalProg(ei){
   // Stall check — compare against last 2 sessions' top achieved weight (not
   // prescribed), on the SAME variant track (legacy no-variant records match).
   const vKey=variantKey(ex.variant);
-  const hist=S.sessions.filter(s=>s.exercises.some(e=>histMatch(e,ex.name,vKey)));
+  const hist=trackSessions(ex.name,vKey); // B2: stall compares within THIS gym's track
   if(hist.length>=2&&ex.progression==='hold'){
     const rec=hist.slice(-2);
     const same=rec.every(s=>{
@@ -5055,7 +5130,7 @@ function confirmRpe(){
   const dur=Math.round((Date.now()-(sess.startTime||Date.now()))/60000);
   sess.exercises.forEach((ex,i)=>{if(!ex.progression&&ex.performed.some(s=>s.logged))evalProg(i)});
 
-  const rec={id:'s_'+Date.now(),date:sess.date,dayLabel:sess.dayLabel,dayId:sess.dayId!=null?sess.dayId:null,blockName:S.program.name,duration:dur,rpe:selRpe,status:'complete',
+  const rec={id:'s_'+Date.now(),date:sess.date,dayLabel:sess.dayLabel,dayId:sess.dayId!=null?sess.dayId:null,gymId:sess.gymId||(S.settings&&S.settings.activeGymId)||null,blockName:S.program.name,duration:dur,rpe:selRpe,status:'complete',
     sessionNotes:sess.notes||'',
     exercises:sess.exercises.map(ex=>({name:ex.name,cat:ex.cat,prescribed:ex.prescribed,performed:ex.performed.filter(s=>s.logged),notes:ex.notes,progression:ex.progression,nextLoad:ex.nextLoad,nextTarget:ex.nextTarget||null,variant:ex.variant||null,painEvent:ex.painEvent,tags:ex.tags})),
     painEvents:sess.exercises.filter(e=>e.painEvent&&e.painEvent.severity!=='none').map(e=>({exercise:e.name,...e.painEvent}))
