@@ -150,6 +150,17 @@
 .ro-btn{min-width:48px;min-height:40px;border:1px solid var(--s3);background:none;color:var(--tx2);border-radius:var(--rs);font-size:11px;cursor:pointer}
 .ro-name{flex:1;font:600 14px var(--sans);min-width:0;overflow:hidden;text-overflow:ellipsis}
 .ro-handle{min-width:48px;min-height:48px;display:flex;align-items:center;justify-content:center;color:var(--tx3);font-size:20px;cursor:grab}
+/* ===== CIRCUIT BLOCKS (W4-B) ===== */
+.circ-head{display:flex;align-items:baseline;gap:8px;margin:8px 0}
+.circ-min{font:500 40px/1 var(--display)}
+.circ-min-u{font:500 14px var(--mono);color:var(--tx3)}
+.circ-fmt{font:600 14px var(--sans);color:var(--tx2)}
+.circ-load{font:500 12px var(--mono);color:var(--tx3)}
+.circ-moves{width:100%;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx);font:400 13px var(--sans);padding:8px;margin:8px 0;resize:vertical}
+.circ-log-row{display:flex;gap:8px;align-items:stretch}
+.circ-log-row input{flex:1;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx);font:500 16px var(--mono);padding:10px 12px;min-height:48px}
+.circ-result-done{display:flex;align-items:center;gap:8px;padding:10px 12px;background:color-mix(in srgb,var(--grn) 8%,var(--s1));border-radius:var(--rs);font-size:15px}
+.circ-result-done .set-edit{margin-left:auto}
 /* ===== SESSION SECTIONS (W4-A) ===== */
 .sec-hdr{font:600 12px var(--sans);color:var(--tx3);margin:16px 0 6px;display:flex;align-items:center;gap:8px}
 .sec-hdr-wu{cursor:pointer;min-height:32px}
@@ -1560,6 +1571,7 @@ function getMeta(name){
 // Deliberately unrounded — per-exercise ceil-rounding inflated a 10-exercise
 // day by ~5 min of pure rounding, tripping the time-budget validator.
 function estimateExTime(ex){
+  if(ex&&ex.entryType==='circuit')return (+ex.minutes||0)+2; // clock + setup
   if(!ex||!ex.sets)return 0;
   const sets=ex.sets||0;
   const rest=ex.rest||60;
@@ -2075,6 +2087,7 @@ function inferEquipmentClass(name){
   const eq=(getMeta(name).eq)||[];
   if(eq.includes('barbell'))return 'barbell';
   if(eq.includes('sled'))return 'sled';
+  if(eq.includes('kb'))return 'kb'; // kettlebells: load-based but no snap grid (bells are what they are)
   if(eq.includes('db'))return 'db';
   if(eq.includes('cable')||eq.includes('pulley'))return 'cable';
   const machineTags=['leg-press','hack-squat','v-squat','chest-press','pec-deck','leg-extension','hamstring-curl','calf-raise','pulldown-station','machine'];
@@ -2569,7 +2582,7 @@ function renderSessionBar(currentViewId){
     const pr=document.getElementById('sbProg');
     if(pr){
       const exs=sess.exercises||[];
-      const done=exs.filter(e=>e.performed&&e.performed.length&&e.performed.every(s=>s.logged)).length;
+      const done=exs.filter(e=>e.entryType==='circuit'?exDone(e):(e.performed&&e.performed.length&&e.performed.every(s2=>s2.logged))).length;
       pr.textContent=exs.length?done+'/'+exs.length:(sess.activity?'activity':'');
     }
   }
@@ -2655,7 +2668,7 @@ function resetBig3Targets(){
 }
 
 // ===== GYM PROFILES =====
-const EQ_TAGS=['cable','pulldown-station','pulley','pull-up-bar','barbell','rack','platform','bench','incline-bench','seal-bench','db','leg-press','hack-squat','v-squat','hamstring-curl','leg-extension','calf-raise','back-extension-bench','chest-press','pec-deck','preacher-bench','band','wall','bodyweight','treadmill','row-erg','assault-bike','ab-wheel','blocks','sled','parallel-bars','machine','hip-abduction'];
+const EQ_TAGS=['cable','pulldown-station','pulley','pull-up-bar','barbell','rack','platform','bench','incline-bench','seal-bench','db','leg-press','hack-squat','v-squat','hamstring-curl','leg-extension','calf-raise','back-extension-bench','chest-press','pec-deck','preacher-bench','band','wall','bodyweight','treadmill','row-erg','assault-bike','ab-wheel','blocks','sled','parallel-bars','machine','hip-abduction','kb'];
 const DEFAULT_GYMS=[
   {id:'gym-singapore',name:'Singapore Gym',equipment:['cable','pulldown-station','pulley','pull-up-bar','barbell','rack','platform','bench','incline-bench','db','leg-press','hack-squat','v-squat','hamstring-curl','leg-extension','calf-raise','back-extension-bench','chest-press','pec-deck','preacher-bench','band','bodyweight','treadmill','row-erg','ab-wheel','parallel-bars'],dbIncrementKg:2.5,defaultBarKg:20,plateInventory:[25,20,15,10,5,2.5,1.25,1]},
   {id:'gym-commercial',name:'Commercial Gym',equipment:EQ_TAGS.slice(),dbIncrementKg:2.5,defaultBarKg:20,plateInventory:[25,20,15,10,5,2.5,1.25,1]},
@@ -3362,6 +3375,40 @@ function toggleSessionView(){
   save();
   try{renderEx();}catch(e){}
 }
+// ===== CIRCUIT / EMOM BLOCKS (W4-B) =====
+// entryType:'circuit' — one card, no set rows; the whole block logs a
+// single result string ("12 rounds", "142 reps") after the clock stops.
+function exDone(ex){if(!ex)return false;if(ex.entryType==='circuit')return!!(ex.result&&String(ex.result).trim());return (ex.performed||[]).every(s2=>s2.logged);}
+function exResolved(ex){if(!ex)return false;if(ex.entryType==='circuit')return!!(ex.result&&String(ex.result).trim());return (ex.performed||[]).every(s2=>s2.logged||s2.skipped);}
+function setCircuitField(ei,field,val){
+  const ex=S.activeSession&&S.activeSession.exercises[ei];if(!ex)return;
+  ex[field]=val;save();
+}
+function logCircuit(ei){
+  const ex=S.activeSession&&S.activeSession.exercises[ei];if(!ex)return;
+  const inp=document.getElementById('circRes'+ei);
+  const v=inp&&inp.value!=null?String(inp.value).trim():'';
+  if(!v){toast('Log the result — rounds, reps or distance');return;}
+  ex.result=v;save();renderEx();
+}
+function editCircuit(ei){
+  const ex=S.activeSession&&S.activeSession.exercises[ei];if(!ex)return;
+  ex.result=null;save();renderEx();
+}
+// One template serves both views (the focus card wraps it in .fcard).
+function circuitCardHTML(ex,ei,mode){
+  const fmt=ex.format||'Circuit';
+  const mins=ex.minutes||'?';
+  const done=exDone(ex);
+  const readout=mode==='focus'
+    ?`<div class="fc-readout${done?' done':''}"><span class="fc-readout-w tnum">${mins}</span><span class="fc-readout-u">min</span><span class="fc-readout-x">${fmt}</span></div>`
+    :`<div class="circ-head tnum"><span class="circ-min">${mins}</span><span class="circ-min-u">min</span><span class="circ-fmt">${fmt}</span>${ex.loadKg?`<span class="circ-load">@ ${fmtW(ex.loadKg,'kg')}</span>`:''}</div>`;
+  return `${mode==='focus'&&ex.loadKg?`<div class="fc-meta">@ ${fmtW(ex.loadKg,'kg')}</div>`:''}${readout}
+    <textarea class="circ-moves" rows="3" placeholder="Movements — e.g. 10 swings / 8 goblet squats / 40m carry" oninput="setCircuitField(${ei},'movements',this.value)">${esc(ex.movements||'')}</textarea>
+    ${done
+      ?`<div class="circ-result-done"><span class="set-check">${icon('check',14)}</span><span class="tnum">${esc(ex.result)}</span><button class="set-edit" onclick="editCircuit(${ei})" aria-label="edit result">\u270e</button></div>`
+      :`<div class="circ-log-row"><input id="circRes${ei}" placeholder="Result — rounds / reps" aria-label="circuit result">${mode==='focus'?`<button class="fc-log" style="margin:0;flex:0 0 auto;width:auto;padding:0 20px" onclick="logCircuit(${ei})">Log result</button>`:`<button class="set-log ready" style="opacity:1" onclick="logCircuit(${ei})">Log result</button>`}</div>`}`;
+}
 // ===== SESSION SECTIONS (W4-A) =====
 // Exercise-level grouping: 'warmup' | 'main' (default) | 'finisher'.
 // Distinct from an exercise's warm-up SET rows, which are unchanged.
@@ -3386,6 +3433,7 @@ function startDay(i){
       warmup:Array.isArray(ex.warmup)?JSON.parse(JSON.stringify(ex.warmup)):null,
       barKg:(typeof ex.barKg==='number')?ex.barKg:undefined,
       section:ex.section||'main',
+      entryType:ex.entryType||undefined,format:ex.format||undefined,minutes:ex.minutes||undefined,movements:ex.movements||undefined,result:null,
       // equipmentClass drives suggestion snapping; variant keys the history track.
       equipmentClass:ex.equipmentClass||inferEquipmentClass(ex.name),
       variant:resolveSessionVariant(ex),
@@ -3552,7 +3600,7 @@ function variantValueAvoided(field,val){
 }
 function variantChips(ex,ei){
   const cls=ex.equipmentClass;
-  if(cls==='bw'||cls==='sled')return'';
+  if(cls==='bw'||cls==='sled'||cls==='kb')return'';
   const v=ex.variant||{};
   const pat=getMeta(ex.name).pat||'';
   // Gate by MOVEMENT PATTERN, not equipment (5c): angle chips only make sense
@@ -3659,7 +3707,7 @@ function renderExList(){
 
   // Progress indicator
   const totalEx=sess.exercises.length;
-  const doneEx=sess.exercises.filter(ex=>ex.performed.every(s=>s.logged)).length;
+  const doneEx=sess.exercises.filter(ex=>exDone(ex)).length;
   document.getElementById('sessProgText').textContent=doneEx+' / '+totalEx+' exercises';
   document.getElementById('sessProgFill').style.width=(totalEx>0?(doneEx/totalEx*100):0)+'%';
 
@@ -3703,7 +3751,7 @@ function renderExList(){
     return _lastSec!==null&&_secAll.some(e=>sectionOf(e)!=='main')?`<div class="sec-hdr">Main</div>`:'';
   };
   list.innerHTML=sess.exercises.map((ex,i)=>{
-    const allDone=ex.performed.every(s=>s.logged);
+    const allDone=exDone(ex);
     const anyDone=ex.performed.some(s=>s.logged);
     const stCls=allDone?'done':anyDone?'partial':'pending';
     const autoOpen=!allDone&&(i===0||sess.exercises.slice(0,i).every(e=>e.performed.every(s=>s.logged)));
@@ -3724,6 +3772,16 @@ function renderExList(){
       return t.weightKg>0?fmtW(t.weightKg,ex.prescribed.unit)+' × '+t.reps+(ru2?' '+ru2:''):t.reps+(ru2?' '+ru2:' reps');
     })():null;
     const secCls=sectionOf(ex)==='warmup'?' sec-warmup':sectionOf(ex)==='finisher'?' sec-finisher':'';
+    if(ex.entryType==='circuit'){
+      const cDone=exDone(ex);
+      return _secHdr(ex)+`<div class="ex-card open${cDone?' done':''}${secCls}" id="ex${i}">
+        <div class="ex-head"><div class="ex-status ${cDone?'done':'pending'}">${cDone?'\u2713':'\u25cb'}</div>
+          <div class="ex-info"><div class="ex-name">${ex.name}</div></div>
+          <button class="pain-flag${ex.painEvent&&ex.painEvent.severity!=='none'?' has':''}" onclick="event.stopPropagation();openPainModal(${i})" aria-label="Log pain for ${ex.name.replace(/"/g,'')}" title="Pain check">\u2691</button>
+        </div>
+        <div class="ex-body" style="display:block">${circuitCardHTML(ex,i,'list')}</div>
+      </div>`;
+    }
     return _secHdr(ex)+`<div class="ex-card ${autoOpen?'open':''} ${autoOpen&&!allDone?'active':''}${allDone?' done':''}${FIXED_MAINS.includes(canonName(ex.name))?' main-lift':''}${ssTop}${ssBot}${secCls}" id="ex${i}">
       <div class="ex-head" onclick="document.getElementById('ex${i}').classList.toggle('open')">
         <div class="ex-status ${stCls}">${allDone?'✓':anyDone?'◐':'○'}</div>
@@ -3855,7 +3913,7 @@ function focusUnits(sess){
   }
   return out;
 }
-function unitDone(sess,u){return u.eis.every(ei=>((sess.exercises[ei]||{}).performed||[]).every(s2=>s2.logged||s2.skipped));}
+function unitDone(sess,u){return u.eis.every(ei=>exResolved(sess.exercises[ei]));}
 // Interleaved logging sequence for a unit: each member's warm-ups first,
 // then working rows round-robin (A1,B1,A2,B2 …) — rows carry real (ei,si).
 function unitSeq(sess,u){
@@ -4063,6 +4121,17 @@ function focusCardHTML(u,p,sess,curPos){
              :`<div class="fc-readout done"><span class="fc-readout-x">\u2713 done</span></div>`;
   } else {
     readout=`<div class="fc-readout done"><span class="fc-readout-x">all sets resolved</span></div>`;
+  }
+  // W4-B: a circuit unit renders its own body — clock readout, movements,
+  // one result input. No set rows, no per-set Log.
+  if(u.eis.length===1&&sess.exercises[u.eis[0]]&&sess.exercises[u.eis[0]].entryType==='circuit'){
+    const cEx=sess.exercises[u.eis[0]],cEi=u.eis[0];
+    const cPains=cEx.painEvent?`<div style="margin-top:8px;padding:8px 12px;border-radius:var(--rs);background:var(--red-dim);font-size:12px;color:var(--red)">\u26a0 ${cEx.painEvent.severity} pain</div>`:'';
+    return `<div class="fcard${exDone(cEx)?' done':''}${secCls}" id="fcard${cEi}">${secHdr}
+      ${focusMemberHeadHTML(cEx,cEi,null)}
+      ${circuitCardHTML(cEx,cEi,'focus')}
+      ${cPains}
+    </div>`;
   }
   const members=u.eis.map((ei,mi)=>focusMemberHeadHTML(sess.exercises[ei],ei,u.eis.length>1?String.fromCharCode(65+mi):null)).join('');
   const rows=seq.map(([ei,si])=>focusSetRowHTML(sess.exercises[ei],ei,sess.exercises[ei].performed[si],si,u.eis.length>1?String.fromCharCode(65+u.eis.indexOf(ei)):null)).join('');
@@ -5312,7 +5381,7 @@ function confirmRpe(){
 
   const rec={id:'s_'+Date.now(),date:sess.date,dayLabel:sess.dayLabel,dayId:sess.dayId!=null?sess.dayId:null,gymId:sess.gymId||(S.settings&&S.settings.activeGymId)||null,blockName:S.program.name,duration:dur,rpe:selRpe,status:'complete',
     sessionNotes:sess.notes||'',
-    exercises:sess.exercises.map(ex=>({name:ex.name,cat:ex.cat,section:ex.section||'main',prescribed:ex.prescribed,performed:ex.performed.filter(s=>s.logged),notes:ex.notes,progression:ex.progression,nextLoad:ex.nextLoad,nextTarget:ex.nextTarget||null,variant:ex.variant||null,painEvent:ex.painEvent,tags:ex.tags})),
+    exercises:sess.exercises.map(ex=>({name:ex.name,cat:ex.cat,section:ex.section||'main',...(ex.entryType==='circuit'?{entryType:'circuit',format:ex.format,minutes:ex.minutes,movements:ex.movements||'',result:ex.result||null,loadKg:ex.prescribed&&ex.prescribed.loadKg||ex.loadKg||null}:{}),prescribed:ex.prescribed,performed:ex.performed.filter(s=>s.logged),notes:ex.notes,progression:ex.progression,nextLoad:ex.nextLoad,nextTarget:ex.nextTarget||null,variant:ex.variant||null,painEvent:ex.painEvent,tags:ex.tags})),
     painEvents:sess.exercises.filter(e=>e.painEvent&&e.painEvent.severity!=='none').map(e=>({exercise:e.name,...e.painEvent}))
   };
   S.sessions.push(rec);
@@ -6338,6 +6407,11 @@ function buildCoachReport(sessions,program,weekDates){
         else if(_sec==='finisher')r+='  [Finisher]\n';
         else if(_rptSec!==null)r+='  [Main]\n';
         _rptSec=_sec;
+      }
+      if(ex.entryType==='circuit'){
+        r+=`  ${ex.format||'Circuit'} ${ex.minutes||'?'}min${ex.loadKg?' @'+ex.loadKg+'kg':''} \u2014 ${ex.result||'no result logged'}\n`;
+        if(ex.movements)r+=`    (${String(ex.movements).replace(/\n+/g,' / ')})\n`;
+        return;
       }
       const w=(ex.performed||[]).filter(p=>p.type==='working');
       const wu=(ex.performed||[]).filter(p=>p.type==='warmup');

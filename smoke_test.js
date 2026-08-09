@@ -2734,7 +2734,7 @@ assert(sectionOf({})==='main'&&sectionOf({section:'warmup'})==='warmup'&&section
 })();
 // startDay carries section; record carries section
 assert(/section:ex\.section\|\|'main',/.test(html), 'V1: startDay carries section');
-assert(/section:ex\.section\|\|'main',prescribed:ex\.prescribed/.test(html), 'V1: session record carries section');
+assert(/section:ex\.section\|\|'main',\.\.\.\(ex\.entryType==='circuit'/.test(html), 'V1+V2: session record carries section + circuit fields');
 // list interleave + collapse rule + tint
 assert(/_secHdr\(ex\)\+`<div class="ex-card /.test(html), 'V1: headers interleave inside the joined string (ids untouched)');
 assert(/#exList\.wu-collapsed \.ex-card\.sec-warmup\{display:none\}/.test(html), 'V1: collapsible warm-up group');
@@ -2750,5 +2750,38 @@ assert(/\.ex-card\.sec-finisher\{background:color-mix\(in srgb,var\(--brand\) 4%
   assert(/Back Squat[^\n]*: 110 kg\u00d75/.test(r)||/Back Squat[^\n]*110/.test(r), 'V1: exercise lines intact');
   S.sessions=[];
 })();
+
+// ===== V2: CIRCUIT BLOCKS + KB =====
+assert(typeof exDone==='function'&&typeof exResolved==='function'&&typeof circuitCardHTML==='function'&&typeof logCircuit==='function', 'V2: circuit API defined');
+// done-state: circuits are NOT instantly done despite performed:[]
+(()=>{
+  const c={name:'KB Circuit',entryType:'circuit',format:'EMOM',minutes:12,performed:[]};
+  assert(exDone(c)===false&&exResolved(c)===false, 'V2: unlogged circuit is NOT done ([].every trap closed)');
+  c.result='12 rounds';
+  assert(exDone(c)===true&&exResolved(c)===true, 'V2: result string completes the block');
+  assert(exDone({performed:[{logged:true}]})===true, 'V2: normal exercises unchanged');
+})();
+// units + estimator
+(()=>{
+  const sess={exercises:[{name:'C',entryType:'circuit',format:'AMRAP',minutes:25,performed:[],section:'main'}],order:[0]};
+  assert(focusUnits(sess).length===1&&unitDone(sess,focusUnits(sess)[0])===false, 'V2: circuit unit pending until result');
+})();
+assert(estimateExTime({entryType:'circuit',minutes:12})===14, 'V2: circuit bills clock+2. Got '+estimateExTime({entryType:'circuit',minutes:12}));
+// report line
+(()=>{
+  S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();
+  S.sessions=[{date:'2026-08-10',dayLabel:'KB',dayId:1,blockName:S.program.name,duration:40,rpe:7,status:'complete',exercises:[
+    {name:'KB Circuit',entryType:'circuit',format:'EMOM',minutes:12,loadKg:24,movements:'10 swings / 8 goblets',result:'12 rounds',section:'main',prescribed:{},performed:[],tags:[]}],painEvents:[]}];
+  const r=buildCoachReport(S.sessions,S.program,weekDatesFor('2026-08-10'));
+  assert(/  EMOM 12min @24kg \u2014 12 rounds\n/.test(r), 'V2: report prints "EMOM 12min @24kg — 12 rounds". Got: '+(r.split('###')[1]||'').slice(0,120));
+  assert(/    \(10 swings \/ 8 goblets\)/.test(r), 'V2: movements line follows');
+  S.sessions=[];
+})();
+// kb class
+assert(EQ_TAGS.includes('kb'), 'V2: kb equipment tag exists');
+assert(inferEquipmentClass('KB Swing')!=='bw'||!EX_META['KB Swing'], 'V2: kb never falls through to bw once EX_META lands (V5)');
+assert(/if\(eq\.includes\('kb'\)\)return 'kb';/.test(html), 'V2: inferEquipmentClass kb branch');
+assert(/cls==='bw'\|\|cls==='sled'\|\|cls==='kb'/.test(html), 'V2: kb skips variant chips');
+assert(snapIncrement('kb')===null&&snapSuggestion(23.7,'kb')===23.7, 'V2: kb loads pass through un-snapped (bells are fixed)');
 
 console.log('\n=== All tests passed ===');
