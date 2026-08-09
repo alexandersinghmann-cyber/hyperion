@@ -2784,4 +2784,31 @@ assert(/if\(eq\.includes\('kb'\)\)return 'kb';/.test(html), 'V2: inferEquipmentC
 assert(/cls==='bw'\|\|cls==='sled'\|\|cls==='kb'/.test(html), 'V2: kb skips variant chips');
 assert(snapIncrement('kb')===null&&snapSuggestion(23.7,'kb')===23.7, 'V2: kb loads pass through un-snapped (bells are fixed)');
 
+// ===== V3: RETRO SESSION LOGGING =====
+assert(typeof openRetroLog==='function'&&typeof startRetroSession==='function'&&typeof toggleTrainMenu==='function', 'V3: retro API defined');
+assert(/id="trainMenu"/.test(html)&&/Log a past session</.test(html)&&/Copy coach report</.test(html), 'V3: Train overflow carries both actions');
+assert(/id="retroSheet"/.test(html)&&/id="retroDate"[^>]*max="\$\{yd\}"/.test(html), 'V3: retro sheet with past-only date input');
+// retro record: date + flag + chronological re-sort + week-guard
+(()=>{
+  S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.activeSession=null;
+  global.startTimer=()=>{};global.showSessionHero=global.showSessionHero||(()=>{});
+  // a normal session logged today first
+  S.sessions.push({id:'sA',date:todayStr(),dayLabel:'X',dayId:null,blockName:S.program.name,duration:60,rpe:7,status:'complete',exercises:[],painEvents:[]});
+  // retro-log day 0 for a date LAST week
+  startDay(0);
+  S.activeSession.date='2026-08-01';S.activeSession.retro=true;
+  S.activeSession.exercises.forEach((ex,i)=>{ex.performed.forEach(s2=>{s2.logged=true;if(s2.type==='working')s2.rpe=7;});});
+  selRpe=7;confirmRpe();
+  const rec=S.sessions.find(s=>s.retro);
+  assert(rec&&rec.date==='2026-08-01', 'V3: record saved with the picked past date');
+  assert(S.sessions[0].retro===true&&S.sessions[1].id==='sA', 'V3: history re-sorted chronologically after a backfill');
+  assert(rec.duration===(S.program.days[0].dur||0), 'V3: retro duration = planned day length, not wall-clock');
+  // week-guard: last week's backfill must NOT mark this week's day done
+  assert(isDayDone(0)===false, 'V3: out-of-week retro record does not complete the current day');
+  // an in-week retro record DOES count
+  rec.date=todayStr();
+  assert(isDayDone(0)===true, 'V3: in-week retro record counts normally');
+  S.sessions=[];S.activeSession=null;
+})();
+
 console.log('\n=== All tests passed ===');

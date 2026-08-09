@@ -674,9 +674,13 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
         <div id="greeting" style="margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span class="q-mark" aria-hidden="true">&ldquo;</span><span style="font-style:italic;font:400 var(--t-meta) var(--sans);color:var(--tx2)" id="quoteText"></span><span style="font:500 10px var(--sans);color:var(--tx3);margin-left:6px;font-style:normal" id="quoteAuthor"></span></div>
       </div>
       <div style="display:flex;gap:6px;align-items:center">
-        <button class="btn btn-sm btn-g" onclick="copyWeeklyReport()" title="Copy weekly coach report" aria-label="Copy weekly coach report" style="padding:6px 10px;border-radius:2px;display:flex;align-items:center">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/></svg>
-        </button>
+        <div class="ex-more-wrap" style="position:relative">
+          <button class="btn btn-sm btn-g" onclick="toggleTrainMenu()" title="More" aria-label="More actions" style="padding:6px 10px;border-radius:2px">⋯</button>
+          <div class="ex-menu" id="trainMenu">
+            <button onclick="closeTrainMenu();copyWeeklyReport()">Copy coach report</button>
+            <button onclick="closeTrainMenu();openRetroLog()">Log a past session</button>
+          </div>
+        </div>
         <button class="btn btn-sm btn-g" onclick="toggleUnit()" id="unitBtn" style="font-family:var(--mono);padding:6px 10px;font-size:10px;letter-spacing:1px;border-radius:2px">KG</button>
         <button class="btn btn-sm btn-g" onclick="showSettings()" title="Settings" style="padding:6px 10px;border-radius:2px;display:flex;align-items:center;gap:5px">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
@@ -1191,6 +1195,14 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <div class="t-meta" style="margin-bottom:8px">Auto-checks from logged calisthenics (Strict Pull-Up, Strict Dip, False-Grip Pull-Up, MU Negative, Bar Muscle-Up). Tick manually to override.</div>
     <div id="muDetailBody"></div>
     <button class="btn btn-s btn-w" style="margin-top:12px" onclick="hideModal('muDetailModal')">Close</button>
+  </div>
+</div>
+
+<div class="overlay" id="retroSheet">
+  <div class="modal">
+    <div class="modal-t">Log a past session</div>
+    <div id="retroBody"></div>
+    <button class="btn btn-s btn-w" style="margin-top:12px;min-height:48px" onclick="hideModal('retroSheet')">Cancel</button>
   </div>
 </div>
 
@@ -2754,7 +2766,11 @@ function recMatchesDay(rec,day){
 }
 function sessionForDay(day){
   const bn=S.program.name;
-  return S.sessions.find(s=>recMatchesDay(s,day)&&(s.blockName===bn||(bn==='Apr 11–16 Block'&&!s.blockName)))||null;
+  // W4-C: a RETRO record only counts toward the plan when its date falls
+  // in the current week — backfilling last week's squat must not mark this
+  // week's squat day done.
+  const wk=weekDatesFor(todayStr());
+  return S.sessions.find(s=>recMatchesDay(s,day)&&(s.blockName===bn||(bn==='Apr 11–16 Block'&&!s.blockName))&&(!s.retro||wk.includes(s.date)))||null;
 }
 function isDayDone(dayIdx){const day=S.program.days[dayIdx];if(!day)return false;return !!sessionForDay(day)}
 function isDaySkipped(dayIdx){return !!getDaySkip(dayIdx)}
@@ -3374,6 +3390,36 @@ function toggleSessionView(){
   S.settings.sessionView=(S.settings.sessionView==='list')?'focus':'list';
   save();
   try{renderEx();}catch(e){}
+}
+// ===== RETRO SESSION LOGGING (W4-C) =====
+function toggleTrainMenu(){const m=document.getElementById('trainMenu');if(m&&m.classList)m.classList.toggle('on');}
+function closeTrainMenu(){const m=document.getElementById('trainMenu');if(m&&m.classList)m.classList.remove('on');}
+function openRetroLog(){
+  const body=document.getElementById('retroBody');
+  if(body){
+    const y=new Date(Date.now()-86400000);
+    const yd=y.getFullYear()+'-'+String(y.getMonth()+1).padStart(2,'0')+'-'+String(y.getDate()).padStart(2,'0');
+    body.innerHTML=`<div class="field"><label>Date trained</label><input type="date" id="retroDate" value="${yd}" max="${yd}"></div>
+      <div class="t-meta" style="margin:8px 0 4px">Which session?</div>`+
+      S.program.days.map((d,i)=>`<button class="sheet-btn" onclick="startRetroSession(${i})">${d.label} <span class="t-meta">· ${d.defaultDay||d.dayOfWeek||''}</span></button>`).join('');
+  }
+  showModal('retroSheet');
+}
+function startRetroSession(i){
+  const inp=document.getElementById('retroDate');
+  const date=(inp&&inp.value)||'';
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||date>=todayStr()){toast('Pick a past date');return;}
+  hideModal('retroSheet');
+  startDay(i);
+  if(S.activeSession){
+    // Backdate the session; the record commits with this date. retro:true
+    // keeps a backfill from a PREVIOUS week from marking this week's day
+    // done (isDayDone guard) and re-sorts history chronologically.
+    S.activeSession.date=date;
+    S.activeSession.retro=true;
+    save();try{renderEx();}catch(e){}
+    toast('Logging for '+date);
+  }
 }
 // ===== CIRCUIT / EMOM BLOCKS (W4-B) =====
 // entryType:'circuit' — one card, no set rows; the whole block logs a
@@ -5376,15 +5422,20 @@ function confirmRpe(){
   // NOW stop the session timer — we're committing the record.
   stopRest();if(sessionTimer)clearInterval(sessionTimer);sessionTimer=null;
   const sess=S.activeSession;
-  const dur=Math.round((Date.now()-(sess.startTime||Date.now()))/60000);
+  // W4-C: a retro session's wall-clock is data-entry time, not training
+  // time — bill the day's planned duration instead.
+  const dur=sess.retro?((S.program.days[sess.dayIndex]&&S.program.days[sess.dayIndex].dur)||0):Math.round((Date.now()-(sess.startTime||Date.now()))/60000);
   sess.exercises.forEach((ex,i)=>{if(!ex.progression&&ex.performed.some(s=>s.logged))evalProg(i)});
 
-  const rec={id:'s_'+Date.now(),date:sess.date,dayLabel:sess.dayLabel,dayId:sess.dayId!=null?sess.dayId:null,gymId:sess.gymId||(S.settings&&S.settings.activeGymId)||null,blockName:S.program.name,duration:dur,rpe:selRpe,status:'complete',
+  const rec={id:'s_'+Date.now(),date:sess.date,retro:sess.retro||undefined,dayLabel:sess.dayLabel,dayId:sess.dayId!=null?sess.dayId:null,gymId:sess.gymId||(S.settings&&S.settings.activeGymId)||null,blockName:S.program.name,duration:dur,rpe:selRpe,status:'complete',
     sessionNotes:sess.notes||'',
     exercises:sess.exercises.map(ex=>({name:ex.name,cat:ex.cat,section:ex.section||'main',...(ex.entryType==='circuit'?{entryType:'circuit',format:ex.format,minutes:ex.minutes,movements:ex.movements||'',result:ex.result||null,loadKg:ex.prescribed&&ex.prescribed.loadKg||ex.loadKg||null}:{}),prescribed:ex.prescribed,performed:ex.performed.filter(s=>s.logged),notes:ex.notes,progression:ex.progression,nextLoad:ex.nextLoad,nextTarget:ex.nextTarget||null,variant:ex.variant||null,painEvent:ex.painEvent,tags:ex.tags})),
     painEvents:sess.exercises.filter(e=>e.painEvent&&e.painEvent.severity!=='none').map(e=>({exercise:e.name,...e.painEvent}))
   };
   S.sessions.push(rec);
+  // W4-C: keep history chronological so hints/stall (array-order readers)
+  // see the true latest session. Stable sort — same-date order preserved.
+  if(rec.retro)S.sessions.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
 
   // Update program loads by day index + exercise index (skip bonus exercises)
   const dayExs=S.program.days[sess.dayIndex]?.exercises||[];
