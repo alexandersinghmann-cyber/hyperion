@@ -672,14 +672,16 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   <!-- ===== TRAIN VIEW ===== -->
   <div class="view on pad" id="vTrain">
     <div id="trainHdr" style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
-      <div>
+      <!-- min-width:0 lets the nowrap quote truncate; without it this flex
+           child sizes to the quote and shoves the buttons off-screen. -->
+      <div style="flex:1 1 auto;min-width:0">
         <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px">
           <svg id="wordmark" width="104" height="14" viewBox="0 0 104 14" aria-label="HYPERION" role="img"><defs><linearGradient id="wmSun" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--brand)"/><stop offset="1" style="stop-color:var(--brand2)"/></linearGradient><clipPath id="wmHz"><rect x="0" y="0" width="14" height="9.5"/></clipPath></defs><circle cx="7" cy="7.5" r="5" fill="url(#wmSun)" clip-path="url(#wmHz)"/><rect x="1.5" y="10.5" width="11" height="1.2" rx=".6" fill="#EDEDED"/><text x="20" y="11" style="font:500 10.5px var(--display);letter-spacing:3.5px" fill="#EDEDED">HYPERION</text></svg>
           <span style="font:500 10px var(--mono);color:var(--tx3);letter-spacing:.5px" id="blockDateRange"></span>
         </div>
         <div id="greeting" style="margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span class="q-mark" aria-hidden="true">&ldquo;</span><span style="font-style:italic;font:400 var(--t-meta) var(--sans);color:var(--tx2)" id="quoteText"></span><span style="font:500 10px var(--sans);color:var(--tx3);margin-left:6px;font-style:normal" id="quoteAuthor"></span></div>
       </div>
-      <div style="display:flex;gap:6px;align-items:center">
+      <div style="display:flex;gap:6px;align-items:center;flex:none">
         <div class="ex-more-wrap" style="position:relative">
           <button class="btn btn-sm btn-g" onclick="toggleTrainMenu()" title="More" aria-label="More actions" style="padding:6px 10px;border-radius:2px">⋯</button>
           <div class="ex-menu" id="trainMenu">
