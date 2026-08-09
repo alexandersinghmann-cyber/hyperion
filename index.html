@@ -5466,6 +5466,7 @@ function logPain(sev){
 // ===== END SESSION =====
 function cancelSession(){
   flushNotesSave();
+  try{const _ae=document.activeElement;if(_ae&&_ae.tagName==='TEXTAREA')_ae.blur();}catch(e){}
   _userOpened=new Set();_userClosed=new Set();
   if(!S.activeSession)return;
   const anyLogged=S.activeSession.exercises.some(ex=>ex.performed.some(s=>s.logged));
@@ -5485,6 +5486,7 @@ function cancelSession(){
 
 function endSession(){
   flushNotesSave();
+  try{const _ae=document.activeElement;if(_ae&&_ae.tagName==='TEXTAREA')_ae.blur();}catch(e){}
   // Activity-log sessions finalize directly (no per-exercise RPE modal).
   const st=S.activeSession&&S.activeSession.sessionType;
   if(st==='swim'||st==='run'||st==='pilates'||st==='mobility'){finalizeActivity();return;}
