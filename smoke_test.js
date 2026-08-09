@@ -44,6 +44,7 @@ const patched = js
   .replace(/\blet _lastReadoutKey\s*=/g, 'var _lastReadoutKey =')
   .replace(/\blet _rowHoldT\s*=/g, 'var _rowHoldT =')
   .replace(/\blet _railHoldT\s*=/g, 'var _railHoldT =')
+  .replace(/\blet _wuCollapsed\s*=/g, 'var _wuCollapsed =')
   .replace(/\blet _railDragged\s*=/g, 'var _railDragged =');
 (0, eval)(patched);
 // Expose helpers globally (they were `function` declarations, already global when eval'd indirectly)
@@ -2717,5 +2718,37 @@ assert(!/text-transform:uppercase/.test(html.match(/<style>([\s\S]*?)<\/style>/)
 
 // ===== HOTFIX: iOS always-bounce scroll tail =====
 assert(/\.view\{position:relative\}/.test(html)&&/\.view::after\{content:'';position:absolute;top:100%;left:0;width:1px;height:1px;pointer-events:none\}/.test(html), 'Scroll: absolute 1px tail past 100% keeps every view scrollable so iOS always rubber-bands');
+
+// ===== V1: SESSION SECTIONS =====
+assert(typeof sectionOf==='function'&&typeof toggleWuSection==='function', 'V1: section API defined');
+assert(sectionOf({})==='main'&&sectionOf({section:'warmup'})==='warmup'&&sectionOf(null)==='main', 'V1: default main, null-safe');
+// focus: consecutive warm-up exercises merge into one unit; finisher tagged
+(()=>{
+  const sess={exercises:[
+    {name:'Cat-Camel',section:'warmup',performed:[]},
+    {name:'Wall Slide',section:'warmup',performed:[]},
+    {name:'Back Squat',performed:[]},
+    {name:'Circuit',section:'finisher',performed:[]}],order:[0,1,2,3]};
+  const u=focusUnits(sess);
+  assert(u.length===3&&JSON.stringify(u[0].eis)==='[0,1]'&&u[0].sec==='warmup'&&u[1].sec==='main'&&u[2].sec==='finisher', 'V1: warmup mega-unit + section tags. Got '+JSON.stringify(u));
+})();
+// startDay carries section; record carries section
+assert(/section:ex\.section\|\|'main',/.test(html), 'V1: startDay carries section');
+assert(/section:ex\.section\|\|'main',prescribed:ex\.prescribed/.test(html), 'V1: session record carries section');
+// list interleave + collapse rule + tint
+assert(/_secHdr\(ex\)\+`<div class="ex-card /.test(html), 'V1: headers interleave inside the joined string (ids untouched)');
+assert(/#exList\.wu-collapsed \.ex-card\.sec-warmup\{display:none\}/.test(html), 'V1: collapsible warm-up group');
+assert(/\.ex-card\.sec-finisher\{background:color-mix\(in srgb,var\(--brand\) 4%/.test(html), 'V1: finisher tint is FLAT brand (budget-safe)');
+// report markers between groups, exercise lines untouched
+(()=>{
+  S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();
+  S.sessions=[{date:'2026-08-10',dayLabel:'X',dayId:1,blockName:S.program.name,duration:60,rpe:7,status:'complete',exercises:[
+    {name:'Cat-Camel',cat:'rehab',section:'warmup',prescribed:{sets:1,reps:'8',loadKg:0,unit:'bw'},performed:[{type:'working',weightKg:0,reps:8,logged:true}],progression:'hold',nextLoad:null,tags:[]},
+    {name:'Back Squat',cat:'squat',section:'main',prescribed:{sets:1,reps:'5',loadKg:110,unit:'kg'},performed:[{type:'working',weightKg:110,reps:5,logged:true}],progression:'hold',nextLoad:110,tags:[]}],painEvents:[]}];
+  const r=buildCoachReport(S.sessions,S.program,weekDatesFor('2026-08-10'));
+  assert(/  \[Warm-up\]\n/.test(r)&&/  \[Main\]\n/.test(r), 'V1: report groups by section. Got: '+r.split('###')[1].slice(0,140));
+  assert(/Back Squat[^\n]*: 110 kg\u00d75/.test(r)||/Back Squat[^\n]*110/.test(r), 'V1: exercise lines intact');
+  S.sessions=[];
+})();
 
 console.log('\n=== All tests passed ===');

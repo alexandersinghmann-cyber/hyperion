@@ -150,6 +150,19 @@
 .ro-btn{min-width:48px;min-height:40px;border:1px solid var(--s3);background:none;color:var(--tx2);border-radius:var(--rs);font-size:11px;cursor:pointer}
 .ro-name{flex:1;font:600 14px var(--sans);min-width:0;overflow:hidden;text-overflow:ellipsis}
 .ro-handle{min-width:48px;min-height:48px;display:flex;align-items:center;justify-content:center;color:var(--tx3);font-size:20px;cursor:grab}
+/* ===== SESSION SECTIONS (W4-A) ===== */
+.sec-hdr{font:600 12px var(--sans);color:var(--tx3);margin:16px 0 6px;display:flex;align-items:center;gap:8px}
+.sec-hdr-wu{cursor:pointer;min-height:32px}
+.sec-hdr-fin{color:var(--brand)}
+.sec-count{font:500 11px var(--mono);color:var(--tx3)}
+.sec-chev{margin-left:auto;color:var(--tx3)}
+.ex-card.sec-warmup .ex-head{min-height:40px}
+.ex-card.sec-warmup .ex-name{font-size:14px;color:var(--tx2)}
+#exList.wu-collapsed .ex-card.sec-warmup{display:none}
+.ex-card.sec-finisher{background:color-mix(in srgb,var(--brand) 4%,var(--s1))}
+.fcard.fc-sec-warmup .fc-name{font-size:16px;color:var(--tx2)}
+.fcard.fc-sec-finisher{background:color-mix(in srgb,var(--brand) 4%,transparent)}
+.rail-chip.fin-sec{border-color:color-mix(in srgb,var(--brand) 40%,var(--s3))}
 .sum-order-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 16px;background:var(--s1);border:1px solid var(--s2);border-radius:var(--r);margin:12px 0}
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{transition:none !important;animation:none !important}
@@ -3349,6 +3362,12 @@ function toggleSessionView(){
   save();
   try{renderEx();}catch(e){}
 }
+// ===== SESSION SECTIONS (W4-A) =====
+// Exercise-level grouping: 'warmup' | 'main' (default) | 'finisher'.
+// Distinct from an exercise's warm-up SET rows, which are unchanged.
+function sectionOf(ex){return (ex&&ex.section)||'main';}
+let _wuCollapsed=null; // null = auto (collapse once every warm-up exercise resolves); true/false = user override
+function toggleWuSection(){const sess=S.activeSession;const wu=(sess&&sess.exercises||[]).filter(e=>sectionOf(e)==='warmup');const wuDone=wu.length>0&&wu.every(e=>(e.performed||[]).every(s2=>s2.logged||s2.skipped));const cur=(_wuCollapsed===null)?wuDone:_wuCollapsed;_wuCollapsed=!cur;try{renderEx();}catch(e){}}
 function startDay(i){
   const day=S.program.days[i];if(!day)return;
   viewDayI=i;
@@ -3366,6 +3385,7 @@ function startDay(i){
       prescribed:{sets:ex.sets,reps:ex.reps,loadKg:ex.loadKg,unit:ex.unit||'kg',setScheme:Array.isArray(ex.setScheme)?JSON.parse(JSON.stringify(ex.setScheme)):null},
       warmup:Array.isArray(ex.warmup)?JSON.parse(JSON.stringify(ex.warmup)):null,
       barKg:(typeof ex.barKg==='number')?ex.barKg:undefined,
+      section:ex.section||'main',
       // equipmentClass drives suggestion snapping; variant keys the history track.
       equipmentClass:ex.equipmentClass||inferEquipmentClass(ex.name),
       variant:resolveSessionVariant(ex),
@@ -3401,6 +3421,7 @@ function startDay(i){
     });
     // Focus-mode display order: identity permutation at start (S4).
     S.activeSession.order=S.activeSession.exercises.map((_,i)=>i);
+    _wuCollapsed=null;
   }
   save();sessionStart=Date.now();startTimer();
   showView('vSession');renderEx();
@@ -3664,6 +3685,23 @@ function renderExList(){
   }catch(e){}
 
   const list=document.getElementById('exList');
+  // W4-A: section headers interleave INSIDE the joined string so every
+  // handler keeps its raw exercises[] index. Auto-collapse the warm-up
+  // group once all its exercises are resolved.
+  const _secAll=sess.exercises;
+  const _wuAll=_secAll.filter(e=>sectionOf(e)==='warmup');
+  const _wuDone=_wuAll.length>0&&_wuAll.every(e=>(e.performed||[]).every(s2=>s2.logged||s2.skipped));
+  const _collapsed=(_wuCollapsed===null)?_wuDone:_wuCollapsed;
+  try{list.classList.toggle('wu-collapsed',!!_collapsed);}catch(e){}
+  let _lastSec=null;
+  const _secHdr=(ex)=>{
+    const sec=sectionOf(ex);
+    if(sec===_lastSec)return'';
+    _lastSec=sec;
+    if(sec==='warmup')return`<div class="sec-hdr sec-hdr-wu" onclick="toggleWuSection()">Warm-up <span class="sec-count">${_wuAll.filter(e=>(e.performed||[]).every(s2=>s2.logged||s2.skipped)).length}/${_wuAll.length}</span><span class="sec-chev">${_collapsed?'\u203a':'\u2304'}</span></div>`;
+    if(sec==='finisher')return`<div class="sec-hdr sec-hdr-fin">Finisher</div>`;
+    return _lastSec!==null&&_secAll.some(e=>sectionOf(e)!=='main')?`<div class="sec-hdr">Main</div>`:'';
+  };
   list.innerHTML=sess.exercises.map((ex,i)=>{
     const allDone=ex.performed.every(s=>s.logged);
     const anyDone=ex.performed.some(s=>s.logged);
@@ -3685,7 +3723,8 @@ function renderExList(){
       const ru2=repsUnit(ex.prescribed.reps);
       return t.weightKg>0?fmtW(t.weightKg,ex.prescribed.unit)+' × '+t.reps+(ru2?' '+ru2:''):t.reps+(ru2?' '+ru2:' reps');
     })():null;
-    return`<div class="ex-card ${autoOpen?'open':''} ${autoOpen&&!allDone?'active':''}${allDone?' done':''}${FIXED_MAINS.includes(canonName(ex.name))?' main-lift':''}${ssTop}${ssBot}" id="ex${i}">
+    const secCls=sectionOf(ex)==='warmup'?' sec-warmup':sectionOf(ex)==='finisher'?' sec-finisher':'';
+    return _secHdr(ex)+`<div class="ex-card ${autoOpen?'open':''} ${autoOpen&&!allDone?'active':''}${allDone?' done':''}${FIXED_MAINS.includes(canonName(ex.name))?' main-lift':''}${ssTop}${ssBot}${secCls}" id="ex${i}">
       <div class="ex-head" onclick="document.getElementById('ex${i}').classList.toggle('open')">
         <div class="ex-status ${stCls}">${allDone?'✓':anyDone?'◐':'○'}</div>
         <div class="ex-info">
@@ -3797,13 +3836,21 @@ function focusUnits(sess){
   let i=0;
   while(i<ord.length){
     const eis=[ord[i]];
+    // W4-A: consecutive display-adjacent warm-up-section exercises merge
+    // into ONE compact unit (activations are quick — one card, one stop).
+    if(sectionOf(exs[ord[i]])==='warmup'){
+      while(i+eis.length<ord.length&&sectionOf(exs[ord[i+eis.length]])==='warmup')eis.push(ord[i+eis.length]);
+      out.push({eis,sec:'warmup'});
+      i+=eis.length;
+      continue;
+    }
     // Merge runs that are BOTH array-adjacent (supersetNext semantics) and
     // display-adjacent; a separated pair degrades to two cards, flag intact.
     while(i+eis.length<ord.length){
       const last=eis[eis.length-1],next=ord[i+eis.length];
       if(exs[last]&&exs[last].supersetNext&&next===last+1)eis.push(next);else break;
     }
-    out.push({eis});
+    out.push({eis,sec:sectionOf(exs[eis[0]])});
     i+=eis.length;
   }
   return out;
@@ -3881,8 +3928,8 @@ function renderFocusRail(){
   const pos=focusPos();
   const chips=units.map((u,p)=>{
     const done=unitDone(sess,u);
-    const names=u.eis.map(ei=>sess.exercises[ei].name).join(' \u29c9 ');
-    return `<button class="rail-chip${done?' done':''}${p===pos?' current':''}${u.eis.length>1?' pair':''}" data-pos="${p}" onclick="focusGoTo(${p})">${done?'\u2713 ':''}${names}</button>`;
+    const names=u.sec==='warmup'?'Warm-up':u.eis.map(ei=>sess.exercises[ei].name).join(' \u29c9 ');
+    return `<button class="rail-chip${done?' done':''}${p===pos?' current':''}${u.eis.length>1&&u.sec!=='warmup'?' pair':''}${u.sec==='finisher'?' fin-sec':''}" data-pos="${p}" onclick="focusGoTo(${p})">${done?'\u2713 ':''}${names}</button>`;
   }).join('');
   const doneN=units.filter(u=>unitDone(sess,u)).length;
   rail.innerHTML=`<div class="rail-scroll" id="railScroll">${chips}<button class="rail-chip fin${pos===units.length?' current':''}" onclick="focusGoTo(${units.length})">Finish</button></div><button class="rail-reorder" onclick="openReorderSheet()" aria-label="Reorder exercises">\u21c5</button><span class="rail-count tnum">${doneN}/${units.length}</span>`;
@@ -4023,7 +4070,9 @@ function focusCardHTML(u,p,sess,curPos){
   const logLbl=cur?('Log '+(sess.exercises[cur[0]].performed[cur[1]].type==='warmup'?'warm-up':'set '+(sess.exercises[cur[0]].performed.slice(0,cur[1]).filter(x=>x.type==='working').length+1))):null;
   const prog=u.eis.map(ei=>sess.exercises[ei]).filter(ex=>done&&ex.progression).map(ex=>`<div class="prog-badge prog-${ex.progression==='increase'?'up':ex.progression==='flag'?'flag':ex.progression==='stall'?'stall':ex.progression==='skipped'?'skip':'hold'}"><span>${ex.progression==='increase'?'\u2191 Increase':ex.progression==='flag'?'\u26a0 Flagged':ex.progression==='stall'?'\u23f8 Stall':ex.progression==='skipped'?'\u23ed Skipped':'\u2192 Hold'}</span>${ex.nextLoad&&ex.progression==='increase'?`<span class="tm">${fmtW(ex.nextLoad,ex.prescribed.unit)}</span>`:''}</div>`).join('');
   const pains=u.eis.map(ei=>sess.exercises[ei]).filter(ex=>ex.painEvent).map(ex=>`<div style="margin-top:8px;padding:8px 12px;border-radius:var(--rs);background:var(--red-dim);font-size:12px;color:var(--red)">\u26a0 ${ex.painEvent.severity} pain${ex.painEvent.action?' \u2014 '+ex.painEvent.action:''}</div>`).join('');
-  return `<div class="fcard${done?' done':''}" id="fcard${u.eis[0]}">
+  const secCls=u.sec==='warmup'?' fc-sec-warmup':u.sec==='finisher'?' fc-sec-finisher':'';
+  const secHdr=u.sec==='warmup'?`<div class="sec-hdr sec-hdr-wu" style="margin-top:4px">Warm-up</div>`:u.sec==='finisher'?`<div class="sec-hdr sec-hdr-fin" style="margin-top:4px">Finisher</div>`:'';
+  return `<div class="fcard${done?' done':''}${secCls}" id="fcard${u.eis[0]}">${secHdr}
     ${members}
     ${readout}
     ${rows}
@@ -4171,7 +4220,7 @@ function renderReorderRows(){
   if(!sess){list.innerHTML='';return;}
   const units=focusUnits(sess);
   list.innerHTML=units.map((u,p)=>{
-    const names=u.eis.map(ei=>sess.exercises[ei].name).join(' \u29c9 ');
+    const names=u.sec==='warmup'?('Warm-up block ('+u.eis.length+')'):u.eis.map(ei=>sess.exercises[ei].name).join(' \u29c9 ');
     const done=unitDone(sess,u);
     return `<div class="ro-row${u.eis.length>1?' ro-pair':''}" data-pos="${p}">
       <div class="ro-updown"><button class="ro-btn" onclick="moveUnit(${p},-1)" aria-label="Move ${names} up">\u25b2</button><button class="ro-btn" onclick="moveUnit(${p},1)" aria-label="Move ${names} down">\u25bc</button></div>
@@ -5263,7 +5312,7 @@ function confirmRpe(){
 
   const rec={id:'s_'+Date.now(),date:sess.date,dayLabel:sess.dayLabel,dayId:sess.dayId!=null?sess.dayId:null,gymId:sess.gymId||(S.settings&&S.settings.activeGymId)||null,blockName:S.program.name,duration:dur,rpe:selRpe,status:'complete',
     sessionNotes:sess.notes||'',
-    exercises:sess.exercises.map(ex=>({name:ex.name,cat:ex.cat,prescribed:ex.prescribed,performed:ex.performed.filter(s=>s.logged),notes:ex.notes,progression:ex.progression,nextLoad:ex.nextLoad,nextTarget:ex.nextTarget||null,variant:ex.variant||null,painEvent:ex.painEvent,tags:ex.tags})),
+    exercises:sess.exercises.map(ex=>({name:ex.name,cat:ex.cat,section:ex.section||'main',prescribed:ex.prescribed,performed:ex.performed.filter(s=>s.logged),notes:ex.notes,progression:ex.progression,nextLoad:ex.nextLoad,nextTarget:ex.nextTarget||null,variant:ex.variant||null,painEvent:ex.painEvent,tags:ex.tags})),
     painEvents:sess.exercises.filter(e=>e.painEvent&&e.painEvent.severity!=='none').map(e=>({exercise:e.name,...e.painEvent}))
   };
   S.sessions.push(rec);
@@ -6281,7 +6330,15 @@ function buildCoachReport(sessions,program,weekDates){
     const vol=s.exercises.reduce((a,e)=>(e.performed||[]).filter(p=>(p.type==='working'||p.type==='warmup')&&!p.skipped).reduce((b,p)=>b+p.weightKg*p.reps,a),0);
     const skippedN=s.exercises.reduce((a,e)=>a+(e.performed||[]).filter(p=>p.type==='working'&&p.skipped).length,0);
     r+=`### ${s.dayLabel} — ${fmtDate(s.date)} — ${s.duration||'?'}m — RPE ${s.rpe||'?'}\n`;
+    let _rptSec=null;
     s.exercises.forEach(ex=>{
+      const _sec=(ex.section)||'main';
+      if(_sec!==_rptSec){
+        if(_sec==='warmup')r+='  [Warm-up]\n';
+        else if(_sec==='finisher')r+='  [Finisher]\n';
+        else if(_rptSec!==null)r+='  [Main]\n';
+        _rptSec=_sec;
+      }
       const w=(ex.performed||[]).filter(p=>p.type==='working');
       const wu=(ex.performed||[]).filter(p=>p.type==='warmup');
       const pi=ex.progression==='increase'?'↑':ex.progression==='flag'?'⚠':ex.progression==='stall'?'⏸':'→';
