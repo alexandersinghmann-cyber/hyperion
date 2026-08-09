@@ -760,7 +760,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       <div id="focusRail"></div>
     </div>
     <div style="margin-top:12px" id="sessNotesWrap">
-      <div class="field"><label>Session Notes</label><textarea id="sessNotes" rows="4" placeholder="How did it feel? Anything to flag..." oninput="saveSessionNotes();this.style.height='auto';this.style.height=this.scrollHeight+'px'" style="font-size:13px"></textarea></div>
+      <div class="field"><label>Session Notes</label><textarea id="sessNotes" rows="4" placeholder="How did it feel? Anything to flag..." oninput="queueNotesSave(this.value);this.style.height='auto';this.style.height=this.scrollHeight+'px'" style="font-size:13px"></textarea></div>
     </div>
   </div>
 
@@ -3412,6 +3412,52 @@ function toggleSessionView(){
   save();
   try{renderEx();}catch(e){}
 }
+// ===== F1: CARD OPEN-STATE SURVIVES RE-RENDERS =====
+// autoOpen is recomputed every render; a manual open/close previously
+// lived only in the DOM and died on ANY re-render (logging out of order
+// collapsed the card you were reading). Explicit choices win over auto.
+let _userOpened=new Set();
+let _userClosed=new Set();
+function cardAutoOpen(sess,i){
+  const ex=sess.exercises[i];
+  return !exDone(ex)&&(i===0||sess.exercises.slice(0,i).every(e=>exDone(e)));
+}
+function cardOpen(sess,i){
+  if(_userClosed.has(i))return false;
+  if(_userOpened.has(i))return true;
+  return cardAutoOpen(sess,i);
+}
+function toggleCardOpen(i){
+  const sess=S.activeSession;if(!sess)return;
+  if(cardOpen(sess,i)){_userOpened.delete(i);_userClosed.add(i);}
+  else{_userClosed.delete(i);_userOpened.add(i);}
+  const el=document.getElementById('ex'+i);if(el&&el.classList)el.classList.toggle('open');
+}
+// ===== F2: NOTES — DEBOUNCED COMMIT =====
+// Root cause of the "broken text box": save() stringifies the ENTIRE state
+// per keystroke (tens–hundreds of KB) — typing jank, dropped strokes. The
+// value lands on the session synchronously; the expensive persist waits.
+let _notesT=null;
+function queueNotesSave(val,field){
+  const sess=S.activeSession;if(!sess)return;
+  if(field==='activity'){if(sess.activity)sess.activity.notes=val;}
+  else sess.notes=val;
+  if(_notesT)clearTimeout(_notesT);
+  _notesT=setTimeout(()=>{_notesT=null;save();},600);
+}
+function flushNotesSave(){if(_notesT){clearTimeout(_notesT);_notesT=null;save();}}
+// ===== F3: SUGGESTION VALUES SNAP AT DISPLAY TIME =====
+// Records written before the machine-snap fix carry raw suggestions
+// (161.3 kg). The display owes a loadable number: increases round to the
+// nearest step (161.3 → 162.5), deloads floor, HOLDS render raw — an
+// achieved weight is history, not a suggestion.
+function dispSuggest(kg,cls,progression){
+  let v=+kg||0;
+  if(v<=0)return v;
+  if(progression==='increase')v=snapLoadToEquipment(v,cls)||v;
+  else if(progression==='flag'){const inc=snapIncrement(cls);if(inc)v=Math.round(Math.floor(v/inc+1e-9)*inc*100)/100;}
+  return v;
+}
 // ===== PAUSED GOALS (W4-D) =====
 let _pausedOpen=false;
 function togglePausedGoals(){_pausedOpen=!_pausedOpen;try{renderGoalsDashboard();}catch(e){}}
@@ -3546,6 +3592,7 @@ function startDay(i){
     // Focus-mode display order: identity permutation at start (S4).
     S.activeSession.order=S.activeSession.exercises.map((_,i)=>i);
     _wuCollapsed=null;
+    _userOpened=new Set();_userClosed=new Set();
   }
   save();sessionStart=Date.now();startTimer();
   showView('vSession');renderEx();
@@ -3572,7 +3619,6 @@ function hideSessionHero(){
   const h=document.getElementById('sessionHero');if(h&&h.classList)h.classList.remove('on');
 }
 
-function saveSessionNotes(){if(S.activeSession){S.activeSession.notes=document.getElementById('sessNotes').value;save()}}
 
 // Start an ad-hoc activity session (no program day) — used by tappable empty
 // goal cards so they open the matching logging flow directly (no dead ends).
@@ -3604,6 +3650,7 @@ function dayUnmeasured(sess){
   try{const d=sess&&sess.dayIndex>=0&&S.program.days[sess.dayIndex];return !!(d&&(d.tags||[]).includes('unmeasured'));}catch(e){return false;}
 }
 function finalizeActivity(){
+  flushNotesSave();
   const sess=S.activeSession;if(!sess)return;
   const a=sess.activity||{};
   // Swim distance is REQUIRED — a program swim day cannot save without it
@@ -3625,6 +3672,8 @@ function finalizeActivity(){
 }
 function renderActivityLog(sess){
   const _dayNote=(sess&&sess.dayIndex>=0&&S.program.days[sess.dayIndex]&&S.program.days[sess.dayIndex].note)||'';
+  // F2: never rebuild the form under the notes caret (effort taps re-render).
+  try{if(document.activeElement&&document.activeElement.id==='actNotes')return;}catch(e){}
   sess.activity=sess.activity||{durationMin:0,distance:0,effort:null,notes:''};
   const a=sess.activity;
   const st=sess.sessionType;
@@ -3645,7 +3694,7 @@ function renderActivityLog(sess){
       </div>
       ${showDist?`<div class="field"><label>Distance (${st==='swim'?'m':'km'})${distReq?' — required':(st==='swim'?' — optional (snorkel)':'')}</label><input type="number" step="${st==='swim'?'25':'0.1'}" value="${a.distance||''}" placeholder="${st==='swim'?'e.g. 500':'e.g. 5'}" oninput="setActivityField('distance',+this.value||0)" aria-label="distance"></div>`:''}
       <div class="field"><label>Perceived effort (1–10)</label><div class="eff-row">${effChips}</div></div>
-      <div class="field"><label>Notes</label><textarea rows="4" placeholder="How did it feel?" oninput="setActivityField('notes',this.value)" aria-label="notes">${a.notes||''}</textarea></div>
+      <div class="field"><label>Notes</label><textarea id="actNotes" rows="4" placeholder="How did it feel?" oninput="queueNotesSave(this.value,'activity')" aria-label="notes">${esc(a.notes||'')}</textarea></div>
       <button class="btn btn-gold btn-w act-save" onclick="finalizeActivity()">Save ${st} session</button>
     </div>`;
 }
@@ -3748,7 +3797,7 @@ function getLastHint(exOrName){
         let detail=`<div class="last-hint-detail">`;
         if(wu.length)detail+=`<div>Warmup: ${wu.map(s=>fmtW(s.weightKg,sx.prescribed?.unit)+'×'+s.reps).join(', ')}</div>`;
         detail+=`<div>Working: ${w.map(s=>fmtW(s.weightKg,sx.prescribed?.unit)+'×'+s.reps).join(', ')}</div>`;
-        if(prog)detail+=`<div>Progression: ${prog}${sx.nextLoad&&sx.progression==='increase'?' → '+fmtW(sx.nextLoad,sx.prescribed?.unit):''}</div>`;
+        if(prog)detail+=`<div>Progression: ${prog}${sx.nextLoad&&sx.progression==='increase'?' → '+fmtW(dispSuggest(sx.nextLoad,sx.equipmentClass||inferEquipmentClass(sx.name),'increase'),sx.prescribed?.unit):''}</div>`;
         if(sx.notes)detail+=`<div>Notes: ${esc(sx.notes)}</div>`;
         detail+=`<div style="color:var(--tx3)">${fmtDate(S.sessions[i].date)}</div></div>`;
         return`<div class="last-hint" onclick="this.classList.toggle('expanded')"><span class="lh-label">Last</span><span class="lh-sets">${sets}</span><span class="last-hint-toggle">▸ detail</span>${detail}</div>`;
@@ -3859,8 +3908,9 @@ function renderExList(){
         <div class="ex-body" style="display:block">${circuitCardHTML(ex,i,'list')}</div>
       </div>`;
     }
-    return _secHdr(ex)+`<div class="ex-card ${autoOpen?'open':''} ${autoOpen&&!allDone?'active':''}${allDone?' done':''}${FIXED_MAINS.includes(canonName(ex.name))?' main-lift':''}${ssTop}${ssBot}${secCls}" id="ex${i}">
-      <div class="ex-head" onclick="document.getElementById('ex${i}').classList.toggle('open')">
+    const isOpen=cardOpen(sess,i);
+    return _secHdr(ex)+`<div class="ex-card ${isOpen?'open':''} ${autoOpen&&!allDone?'active':''}${allDone?' done':''}${FIXED_MAINS.includes(canonName(ex.name))?' main-lift':''}${ssTop}${ssBot}${secCls}" id="ex${i}">
+      <div class="ex-head" onclick="toggleCardOpen(${i})">
         <div class="ex-status ${stCls}">${allDone?'✓':anyDone?'◐':'○'}</div>
         <div class="ex-info">
           <div class="ex-name">${(ex.tags||[]).includes('bonus')?'<span style="color:var(--gold);font-size:10px;margin-right:4px">★</span>':''}${st==='calisthenics'&&(ex.prescribed.unit==='bw'||!ex.prescribed.loadKg)?'<span style="background:var(--brand-dim);color:var(--brand);font:600 10px var(--sans);padding:1px 5px;border-radius:3px;margin-right:5px">BW</span>':''}${ex.name}${(ex.tags||[]).includes('full-depth-standard')?' <span class="std-chip">Full depth standard</span>':''}${ex.tags.includes('per side')?' <span class="td" style="font-size:11px">/side</span>':''}${ex.tags.includes('per hand')?' <span class="td" style="font-size:11px">/hand</span>':''}${ex.tags.includes('per leg')?' <span class="td" style="font-size:11px">/leg</span>':''}</div>
@@ -4230,7 +4280,7 @@ function focusWrapCardHTML(sess){
   return `<div class="fcard fc-wrap">
     <div class="t-h1" style="margin:8px 0 12px">Wrap up</div>
     <button class="btn btn-g btn-w" style="margin-top:12px;min-height:48px" onclick="openExtras()">+ Add Exercise</button>
-    <div class="field" style="margin-top:16px"><label>Session Notes</label><textarea id="fNotes" rows="4" placeholder="How did it feel? Anything to flag..." oninput="if(S.activeSession){S.activeSession.notes=this.value;save();}" style="font-size:13px">${esc(sess.notes||'')}</textarea></div>
+    <div class="field" style="margin-top:16px"><label>Session Notes</label><textarea id="fNotes" rows="4" placeholder="How did it feel? Anything to flag..." oninput="queueNotesSave(this.value)" style="font-size:13px">${esc(sess.notes||'')}</textarea></div>
     <button class="btn btn-d btn-w" style="margin-top:16px;min-height:48px" onclick="endSession()">End Session</button>
   </div>`;
 }
@@ -4295,6 +4345,7 @@ document.addEventListener('focusin',e=>{
 });
 document.addEventListener('focusout',e=>{
   try{
+    if(e&&e.target&&e.target.tagName==='TEXTAREA')flushNotesSave(); // F2
     if(_kbT)clearTimeout(_kbT);
     _kbT=setTimeout(()=>{
       _kbT=null;
@@ -5414,6 +5465,8 @@ function logPain(sev){
 
 // ===== END SESSION =====
 function cancelSession(){
+  flushNotesSave();
+  _userOpened=new Set();_userClosed=new Set();
   if(!S.activeSession)return;
   const anyLogged=S.activeSession.exercises.some(ex=>ex.performed.some(s=>s.logged));
   const elapsedSec=sessionStart?Math.round((Date.now()-sessionStart)/1000):0;
@@ -5431,6 +5484,7 @@ function cancelSession(){
 }
 
 function endSession(){
+  flushNotesSave();
   // Activity-log sessions finalize directly (no per-exercise RPE modal).
   const st=S.activeSession&&S.activeSession.sessionType;
   if(st==='swim'||st==='run'||st==='pilates'||st==='mobility'){finalizeActivity();return;}
@@ -5523,7 +5577,7 @@ function renderSummary(rec){
         </div>
         <div class="${pc}" style="font-weight:700;font-size:16px">${pi}</div>
       </div>
-      ${ex.nextLoad&&ex.progression==='increase'?`<div style="font-size:11px;color:var(--grn);margin-top:3px">Next: ${fmtW(ex.nextLoad,ex.prescribed?.unit)}</div>`:ex.nextTarget&&ex.progression==='increase'?`<div style="font-size:11px;color:var(--grn);margin-top:3px">Next: ${ex.nextTarget}${/^\d+$/.test(ex.nextTarget)?' reps':''}</div>`:''}
+      ${ex.nextLoad&&ex.progression==='increase'?`<div style="font-size:11px;color:var(--grn);margin-top:3px">Next: ${fmtW(dispSuggest(ex.nextLoad,ex.equipmentClass||inferEquipmentClass(ex.name),'increase'),ex.prescribed?.unit)}</div>`:ex.nextTarget&&ex.progression==='increase'?`<div style="font-size:11px;color:var(--grn);margin-top:3px">Next: ${ex.nextTarget}${/^\d+$/.test(ex.nextTarget)?' reps':''}</div>`:''}
       ${ex.progression==='flag'&&ex.progressionReason?`<div style="font-size:11px;color:var(--warn);margin-top:3px;line-height:1.4">${ex.progressionReason}</div>`:''}
     </div>`;
   }).join('');
@@ -6519,10 +6573,10 @@ function buildCoachReport(sessions,program,weekDates){
       // "deload" (pain/bigMiss flags set nextLoad=topW; the report was
       // advertising "deload to 16.5" after a 16.5 session).
       const topPerf=w.reduce((m,s2)=>!s2.skipped&&s2.weightKg>m?s2.weightKg:m,0);
-      if(ex.progression==='increase'&&ex.nextLoad)r+=` → next ${ex.nextLoad} kg`;
+      if(ex.progression==='increase'&&ex.nextLoad)r+=` → next ${dispSuggest(ex.nextLoad,ex.equipmentClass||inferEquipmentClass(ex.name),'increase')} kg`;
       else if(ex.progression==='increase'&&ex.nextTarget)r+=` → next ${ex.nextTarget}${/^\d+$/.test(ex.nextTarget)?' reps':''}`;
       else if(ex.progression==='hold'&&ex.nextLoad)r+=` → hold ${ex.nextLoad} kg`;
-      else if(ex.progression==='flag'&&ex.nextLoad)r+=(ex.nextLoad>=topPerf&&topPerf>0)?` → hold ${ex.nextLoad} kg`:` → deload to ${ex.nextLoad} kg`;
+      else if(ex.progression==='flag'&&ex.nextLoad)r+=(ex.nextLoad>=topPerf&&topPerf>0)?` → hold ${ex.nextLoad} kg`:` → deload to ${dispSuggest(ex.nextLoad,ex.equipmentClass||inferEquipmentClass(ex.name),'flag')} kg`;
       r+='\n';
       if(wu.length)r+=`    w: ${wu.map(s=>fmtW(s.weightKg,ex.prescribed?.unit)+'×'+s.reps).join(', ')}\n`;
       if(ex.notes)r+=`    Note: ${ex.notes}\n`;
@@ -6539,13 +6593,13 @@ function buildCoachReport(sessions,program,weekDates){
     const vl=variantLabel(ex.variant);
     const key=ex.name+(vl?' ('+vl+')':'');
     if(!exProg[key])exProg[key]=[];
-    exProg[key].push({prog:ex.progression,load:ex.prescribed?.loadKg,next:ex.nextLoad,date:s.date});
+    exProg[key].push({prog:ex.progression,load:ex.prescribed?.loadKg,next:ex.nextLoad,cls:ex.equipmentClass||inferEquipmentClass(ex.name),date:s.date});
   })});
   Object.entries(exProg).forEach(([name,entries])=>{
     const last=entries[entries.length-1];
     const arrow=last.prog==='increase'?'↑':last.prog==='flag'?'⚠':last.prog==='stall'?'⏸':'→';
     r+=`  ${arrow} ${name}: ${entries.map(e=>(e.load||'?')+' kg').join(' → ')}`;
-    if(last.prog==='increase'&&last.next)r+=` → ${last.next} kg`;
+    if(last.prog==='increase'&&last.next)r+=` → ${dispSuggest(last.next,last.cls,'increase')} kg`;
     r+='\n';
   });
 

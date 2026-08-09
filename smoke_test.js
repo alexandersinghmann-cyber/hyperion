@@ -46,7 +46,10 @@ const patched = js
   .replace(/\blet _railHoldT\s*=/g, 'var _railHoldT =')
   .replace(/\blet _wuCollapsed\s*=/g, 'var _wuCollapsed =')
   .replace(/\blet _pausedOpen\s*=/g, 'var _pausedOpen =')
-  .replace(/\blet _railDragged\s*=/g, 'var _railDragged =');
+  .replace(/\blet _railDragged\s*=/g, 'var _railDragged =')
+  .replace(/\blet _userOpened\s*=/g, 'var _userOpened =')
+  .replace(/\blet _userClosed\s*=/g, 'var _userClosed =')
+  .replace(/\blet _notesT\s*=/g, 'var _notesT =');
 (0, eval)(patched);
 // Expose helpers globally (they were `function` declarations, already global when eval'd indirectly)
 
@@ -2802,5 +2805,60 @@ assert(/const activeCards=\[card1000, _pausedIds\.has\('g-mu'\)\?null:cardMU, ca
 assert(/id="pausedWrap"/.test(html)&&/Resume Muscle-Up</.test(html)&&/Resume Running</.test(html), 'V4: Paused expander + resume actions');
 assert(/if\(!_muPaused\)celebrateMilestone\('mu_'/.test(html), 'V4: paused milestones stay silent (data still updates)');
 assert(!/kb.*goal|goal.*kettlebell/i.test((html.match(/migrateV3[\s\S]{0,3000}/)||[''])[0]), 'V4: no KB goal invented');
+
+// ===== V6: F1 OPEN-STATE + F2 NOTES DEBOUNCE + F3 DISPLAY SNAP =====
+console.log('\n--- V6: fix pack ---');
+// --- F3 unit: suggestions snap at display time, holds stay raw ---
+assert(dispSuggest(161.3,'machine','increase')===162.5, 'F3: stored 161.3 machine increase displays 162.5. Got: '+dispSuggest(161.3,'machine','increase'));
+assert(dispSuggest(16.5,'cable','hold')===16.5, 'F3: hold renders raw — achieved weight is history');
+assert(dispSuggest(70,'barbell','flag')===70, 'F3: deload 70 barbell unchanged by floor snap');
+assert(dispSuggest(69.1,'barbell','flag')===67.5, 'F3: deload floors to a loadable step. Got: '+dispSuggest(69.1,'barbell','flag'));
+assert(dispSuggest(24,'kb','increase')===24, 'F3: kb passes through — bells are fixed weights');
+// --- F3 seeded report: pre-fix stored 161.3 renders loadable in tail + summary chain ---
+S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();
+S.sessions=[{date:'2026-08-10',dayLabel:'Squat',dayId:1,blockName:S.program.name,duration:60,rpe:7,status:'complete',exercises:[
+  {name:'Leg Press',cat:'legs',equipmentClass:'machine',prescribed:{sets:3,reps:'10',loadKg:160,unit:'kg'},performed:[{type:'working',weightKg:160,reps:10,logged:true}],progression:'increase',nextLoad:161.3,variant:null,tags:[]}
+]}];
+const rptV6=buildCoachReport(S.sessions,S.program,weekDatesFor('2026-08-10'));
+assert(/Leg Press.*→ next 162\.5 kg/.test(rptV6), 'F3: report tail snaps 161.3 → next 162.5 kg. Got: '+(rptV6.split('\n').find(l=>/Leg Press.*next/.test(l))||'none'));
+assert(/↑ Leg Press: 160 kg → 162\.5 kg/.test(rptV6), 'F3: progression-summary chain snaps too. Got: '+(rptV6.split('\n').find(l=>/↑ Leg Press/.test(l))||'none'));
+assert(/dispSuggest\(sx\.nextLoad/.test(html), 'F3: getLastHint progression line routed through dispSuggest');
+assert(/Next: \$\{fmtW\(dispSuggest\(ex\.nextLoad/.test(html), 'F3: renderSummary Next line routed through dispSuggest');
+// --- F1: manual open/close survives re-render decisions ---
+S.sessions=[];S.activeSession=null;
+startDay(0); // W4 Squat day
+const sF1=S.activeSession;
+assert(cardOpen(sF1,0)===true, 'F1: first card auto-opens');
+assert(cardOpen(sF1,3)===false, 'F1: later card starts closed');
+toggleCardOpen(3);
+assert(cardOpen(sF1,3)===true, 'F1: manual open recorded');
+sF1.exercises[0].performed.forEach(p2=>{p2.logged=true;}); // out-of-order log on ex0
+assert(cardOpen(sF1,3)===true, 'F1: card 3 stays open after out-of-order logging elsewhere');
+toggleCardOpen(3);
+assert(cardOpen(sF1,3)===false, 'F1: manual close recorded');
+assert(cardOpen(sF1,1)===true, 'F1: auto-open advanced to card 1 after card 0 done');
+toggleCardOpen(1);
+assert(cardOpen(sF1,1)===false&&_userClosed.has(1), 'F1: manual close wins over auto-open');
+assert(/onclick="toggleCardOpen\(\$\{i\}\)"/.test(html), 'F1: card header routes through toggleCardOpen');
+assert(/const isOpen=cardOpen\(sess,i\);/.test(html), 'F1: list open class reads cardOpen, not raw autoOpen');
+assert(html.split('_userOpened=new Set();_userClosed=new Set();').length===3, 'F1: state cleared on startDay AND cancelSession');
+// --- F2: notes land synchronously, save() deferred, flush works ---
+queueNotesSave('torture-typing-200-chars');
+assert(sF1.notes==='torture-typing-200-chars', 'F2: notes land on the session synchronously');
+assert(_notesT!==null&&_notesT!==undefined, 'F2: save() deferred behind a timer');
+flushNotesSave();
+assert(_notesT===null, 'F2: flush clears the pending timer');
+sF1.activity={type:'swim'};
+queueNotesSave('activity-notes','activity');
+assert(sF1.activity.notes==='activity-notes', 'F2: activity notes land synchronously');
+flushNotesSave();
+S.activeSession=null;
+assert(/id="sessNotes"[^>]*queueNotesSave/.test(html), 'F2: sessNotes debounced');
+assert(/oninput="queueNotesSave\(this\.value\)"/.test(html), 'F2: fNotes debounced');
+assert(/id="actNotes"/.test(html)&&/oninput="queueNotesSave\(this\.value,'activity'\)"/.test(html), 'F2: activity notes box has an id + debounced route');
+assert(/activeElement\.id==='actNotes'\)return;/.test(html), 'F2: renderActivityLog never rebuilds under the notes caret');
+assert(!/saveSessionNotes/.test(html), 'F2: per-keystroke saver removed');
+assert(/tagName==='TEXTAREA'\)flushNotesSave\(\); \/\/ F2/.test(html), 'F2: focusout flushes pending notes');
+assert(/function endSession\(\)\{\n  flushNotesSave\(\);/.test(html)&&/function cancelSession\(\)\{\n  flushNotesSave\(\);/.test(html)&&/function finalizeActivity\(\)\{\n  flushNotesSave\(\);/.test(html), 'F2: end/cancel/finalize flush before teardown');
 
 console.log('\n=== All tests passed ===');
