@@ -150,6 +150,12 @@
 .ro-btn{min-width:48px;min-height:40px;border:1px solid var(--s3);background:none;color:var(--tx2);border-radius:var(--rs);font-size:11px;cursor:pointer}
 .ro-name{flex:1;font:600 14px var(--sans);min-width:0;overflow:hidden;text-overflow:ellipsis}
 .ro-handle{min-width:48px;min-height:48px;display:flex;align-items:center;justify-content:center;color:var(--tx3);font-size:20px;cursor:grab}
+/* ===== PAUSED GOALS (W4-D) ===== */
+.paused-wrap{margin-top:8px;border:1px solid var(--s2);border-radius:var(--r);overflow:hidden}
+.paused-toggle{display:flex;align-items:center;gap:8px;padding:12px 16px;font:600 13px var(--sans);color:var(--tx3);cursor:pointer;min-height:48px}
+.paused-body{display:none;padding:0 12px 12px}
+.paused-wrap.open .paused-body{display:block}
+.goal-card.paused{opacity:.6}
 /* ===== CIRCUIT BLOCKS (W4-B) ===== */
 .circ-head{display:flex;align-items:baseline;gap:8px;margin:8px 0}
 .circ-min{font:500 40px/1 var(--display)}
@@ -2372,6 +2378,12 @@ function migrateV3(){
   if(!S.goals.some(g=>g.id==='g-mu'))S.goals.push({id:'g-mu',name:'Bar Muscle-Up',type:'milestone-checklist',target:5,current:0,targetDate:'2026-12-31',dataSource:'calisthenics',milestones:muscleUpMilestones()});
   if(!S.goals.some(g=>g.id==='g-swim'))S.goals.push({id:'g-swim',name:'1000m Freestyle',type:'distance-progressive',target:1000,current:0,unit:'m',targetDate:'2026-12-31',dataSource:'swim'});
   if(!S.goals.some(g=>g.id==='g-run'))S.goals.push({id:'g-run',name:'Weekly Running',type:'weekly-distance',target:null,current:0,unit:'km',targetDate:null,dataSource:'run'});
+  // W4-D: goal refocus — MU + weekly running paused (one-shot; a later
+  // manual resume survives reloads). Data keeps updating underneath.
+  if(!S.settings._goalsPausedW4){
+    S.settings._goalsPausedW4=true;
+    S.goals.forEach(g=>{if(g.id==='g-mu'||g.id==='g-run')g.paused=true;});
+  }
   // --- Recurring activities ---
   if(!Array.isArray(S.recurringActivities))S.recurringActivities=JSON.parse(JSON.stringify(DEFAULT_RECURRING));
   // --- Program days: sessionType + defaultDay alias; exercises: angle/grip/equipmentClass ---
@@ -3390,6 +3402,15 @@ function toggleSessionView(){
   S.settings.sessionView=(S.settings.sessionView==='list')?'focus':'list';
   save();
   try{renderEx();}catch(e){}
+}
+// ===== PAUSED GOALS (W4-D) =====
+let _pausedOpen=false;
+function togglePausedGoals(){_pausedOpen=!_pausedOpen;try{renderGoalsDashboard();}catch(e){}}
+function resumeGoal(id){
+  const g=(S.goals||[]).find(x=>x.id===id);if(!g)return;
+  g.paused=false;save();
+  try{renderGoalsDashboard();}catch(e){}
+  toast('Goal resumed');
 }
 // ===== RETRO SESSION LOGGING (W4-C) =====
 function toggleTrainMenu(){const m=document.getElementById('trainMenu');if(m&&m.classList)m.classList.toggle('on');}
@@ -5531,6 +5552,7 @@ function big3PaceParts(b3,tgts,wkLeft){
 // Goal-level pace: counts sessions of the goal's modality in the trailing
 // 2-week window. <2 → muted grey (BUG 1 — no false red on low-data windows).
 function computePace(goal,todayDate){
+  if(goal&&goal.paused)return 'pace-muted'; // W4-D: paused goals leave pace logic
   const today=todayDate||todayStr();
   const cut=dateAddDays(today,-14);
   if(goal.type==='big3-total'){
@@ -5574,11 +5596,12 @@ function detectMuscleUpMilestones(sessions){
 }
 // Sync detection into the muscle-up goal; fire single-use celebration on new unlocks.
 function refreshMuscleUpGoal(){
+  const _muPaused=!!((S.goals||[]).find(g=>g.id==='g-mu')||{}).paused;
   const g=(S.goals||[]).find(g=>g.id==='g-mu');if(!g||!Array.isArray(g.milestones))return 0;
   const det=detectMuscleUpMilestones(S.sessions);
   let current=0;
   g.milestones.forEach(m=>{
-    if((det[m.key]||m.manual)&&!m.done){m.done=true;celebrateMilestone('mu_'+m.key,m.label);}
+    if((det[m.key]||m.manual)&&!m.done){m.done=true;if(!_muPaused)celebrateMilestone('mu_'+m.key,m.label);}
     if(m.done)current++;
   });
   g.current=current;save();return current;
@@ -6045,7 +6068,17 @@ function renderGoalsDashboard(){
     <div class="bigrow"><span class="big" style="color:var(--m-run)">${thisWk.toFixed(1)}</span><span class="bigu">km this wk</span><button class="qlog" onclick="quickLogActivity('run')" aria-label="Log a run">+ Log run</button></div>
     <svg viewBox="0 0 100 28" width="100%" height="30" preserveAspectRatio="none" aria-hidden="true"><polyline points="${spark}" fill="none" stroke="${runEmpty?'#2f4a3f':'var(--m-run)'}" stroke-width="1.5" ${runEmpty?'stroke-dasharray="3 3"':''}/></svg>
     <div class="t-meta">${runEmpty?'No run logged this week':'4-wk avg '+avg.toFixed(1)+' km'}</div></div>`;
-  dash.innerHTML=card1000+cardMU+cardSwim+cardRun;
+  // W4-D: dashboard order = active goals first (1000 lb, Freestyle); paused
+  // goals live behind a collapsed expander, data retained, one-tap resume.
+  const _pausedIds=new Set((S.goals||[]).filter(g=>g.paused).map(g=>g.id));
+  const activeCards=[card1000, _pausedIds.has('g-mu')?null:cardMU, cardSwim, _pausedIds.has('g-run')?null:cardRun].filter(Boolean).join('');
+  const pausedCards=[_pausedIds.has('g-mu')?cardMU:null, _pausedIds.has('g-run')?cardRun:null].filter(Boolean);
+  const pausedBlock=pausedCards.length?`<div class="paused-wrap${_pausedOpen?' open':''}" id="pausedWrap">
+    <div class="paused-toggle" onclick="togglePausedGoals()">Paused <span class="sec-count">${pausedCards.length}</span><span class="sec-chev">${_pausedOpen?'\u2304':'\u203a'}</span></div>
+    <div class="paused-body">${pausedCards.map(c=>c.replace('class="goal-card','class="goal-card paused')).join('')}
+      <div style="display:flex;gap:8px;margin-top:4px">${_pausedIds.has('g-mu')?'<button class="btn btn-sm btn-g" style="min-height:44px" onclick="resumeGoal(\'g-mu\')">Resume Muscle-Up</button>':''}${_pausedIds.has('g-run')?'<button class="btn btn-sm btn-g" style="min-height:44px" onclick="resumeGoal(\'g-run\')">Resume Running</button>':''}</div>
+    </div></div>`:'';
+  dash.innerHTML=activeCards+pausedBlock;
 }
 // 2-tap quick-log for run/swim (stays on the dashboard, no full session screen).
 let _qlType=null;
@@ -6122,7 +6155,7 @@ function renderProgress(){
     const pct=g.target>0?Math.min(100,g.current/g.target*100):0;
     return`<div style="background:var(--s1);border-radius:var(--rs);padding:12px;margin-bottom:6px;border:1px solid var(--s2)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <span style="font-weight:600;font-size:13px">${g.name}</span>
+        <span style="font-weight:600;font-size:13px">${g.name}${g.paused?' <span class="tagm" style="opacity:.7">paused</span>':''}</span>
         ${!g.auto?`<button class="btn btn-sm btn-g" onclick="S.goals.splice(${i},1);save();renderProgress()" style="padding:2px 6px;font-size:10px">×</button>`:''}
       </div>
       <div style="display:flex;justify-content:space-between;font:13px var(--mono);color:var(--tx2);margin-bottom:4px"><span>${g.current} ${g.unit}</span><span>${g.target} ${g.unit}</span></div>

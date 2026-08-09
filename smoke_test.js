@@ -45,6 +45,7 @@ const patched = js
   .replace(/\blet _rowHoldT\s*=/g, 'var _rowHoldT =')
   .replace(/\blet _railHoldT\s*=/g, 'var _railHoldT =')
   .replace(/\blet _wuCollapsed\s*=/g, 'var _wuCollapsed =')
+  .replace(/\blet _pausedOpen\s*=/g, 'var _pausedOpen =')
   .replace(/\blet _railDragged\s*=/g, 'var _railDragged =');
 (0, eval)(patched);
 // Expose helpers globally (they were `function` declarations, already global when eval'd indirectly)
@@ -2810,5 +2811,28 @@ assert(/id="retroSheet"/.test(html)&&/id="retroDate"[^>]*max="\$\{yd\}"/.test(ht
   assert(isDayDone(0)===true, 'V3: in-week retro record counts normally');
   S.sessions=[];S.activeSession=null;
 })();
+
+// ===== V4: PAUSED GOALS =====
+assert(typeof resumeGoal==='function'&&typeof togglePausedGoals==='function', 'V4: pause API defined');
+(()=>{
+  // one-shot migration pauses MU + running exactly once; resume survives
+  S.settings._goalsPausedW4=undefined;
+  (S.goals||[]).forEach(g=>{if(g.id==='g-mu'||g.id==='g-run')g.paused=false;});
+  migrateV3();
+  const mu=S.goals.find(g=>g.id==='g-mu'),run=S.goals.find(g=>g.id==='g-run');
+  assert(mu.paused===true&&run.paused===true, 'V4: one-shot pauses g-mu + g-run');
+  resumeGoal('g-mu');
+  migrateV3();
+  assert(S.goals.find(g=>g.id==='g-mu').paused===false, 'V4: manual resume survives re-migration (one-shot flag)');
+  // pace exclusion
+  assert(computePace({type:'big3-total',paused:true},'2026-08-10')==='pace-muted', 'V4: paused goals leave pace logic');
+  assert(/if\(goal&&goal\.paused\)return 'pace-muted'/.test(html), 'V4: pace guard wired');
+  // restore paused state for the ship default
+  S.goals.find(g=>g.id==='g-mu').paused=true;
+})();
+assert(/const activeCards=\[card1000, _pausedIds\.has\('g-mu'\)\?null:cardMU, cardSwim/.test(html), 'V4: dashboard order 1000lb, Freestyle; paused cards pulled out');
+assert(/id="pausedWrap"/.test(html)&&/Resume Muscle-Up</.test(html)&&/Resume Running</.test(html), 'V4: Paused expander + resume actions');
+assert(/if\(!_muPaused\)celebrateMilestone\('mu_'/.test(html), 'V4: paused milestones stay silent (data still updates)');
+assert(!/kb.*goal|goal.*kettlebell/i.test((html.match(/migrateV3[\s\S]{0,3000}/)||[''])[0]), 'V4: no KB goal invented');
 
 console.log('\n=== All tests passed ===');
