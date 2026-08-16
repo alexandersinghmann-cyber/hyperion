@@ -1378,9 +1378,16 @@ function applyBrand(){
 // idempotent across reloads.
 function maybeAdvanceBrand(){
   if(!S.settings)return;
-  if(S.settings.brandBlock!==S.program.name){
+  // F1: advance only on a genuinely NEWER block (version increase), so a
+  // downgrade/cache flap can't cycle the accent. Legacy states without a
+  // program version fall back to the old name comparison once.
+  const pv=S.program.version??0;
+  const seen=S.settings.brandVersion??0;
+  const newer=pv>0?pv>seen:(S.settings.brandBlock!==S.program.name);
+  if(newer){
     S.settings.brandIdx=(((S.settings.brandIdx??-1))+1)%BRAND_CYCLE.length;
     S.settings.brandBlock=S.program.name;
+    if(pv>0)S.settings.brandVersion=pv;
     save();
   }
   applyBrand();
@@ -1748,7 +1755,10 @@ function recommendSupersets(exList){
 }
 
 // ===== DEFAULT PROGRAM =====
-const DEF_PROGRAM={name:"Aug 10 Block 5 W4",active:true,days:[
+// F1: version is the block's ORDER. The banner offers a sync only when the
+// shipped version is NEWER than the installed one — a stale cached HTML can
+// never re-offer an old block ("Jul 27 W2" over "Aug 3 W3").
+const DEF_PROGRAM={name:"Aug 10 Block 5 W4",version:9,active:true,days:[
 // Back home — Singapore Gym reactivates (one-shot in load()). KB circuit
 // blocks are entryType:'circuit'; movements are user-defined on the card.
 {id:1,label:"Squat",defaultDay:"Monday",dayOfWeek:"Monday",sessionType:"lifting",dur:70,exercises:[
@@ -2408,6 +2418,20 @@ function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse
   }catch(e){}
   // v2→v3 multi-modal migration (idempotent; runs for fresh installs + imported data alike)
   try{migrateV3();save();}catch(e){}
+  // F2: a permanent day whose label is ABSENT from a NEWER coach block is
+  // stale (the 24-exercise W2 "Mobility" day) — remove it once, sweep its
+  // skips. User-authored permanent days with other labels are untouched.
+  try{
+    if(!S.settings._staleMobilityRemovedB6&&DEF_PROGRAM.version>=10){
+      S.settings._staleMobilityRemovedB6=true;
+      const stale=(S.program.days||[]).filter(d=>d.permanent===true&&!d.userAuthored&&!DEF_PROGRAM.days.some(nd=>nd.label===d.label));
+      if(stale.length){
+        S.program.days=S.program.days.filter(d=>!stale.includes(d));
+        S.skips=(S.skips||[]).filter(sk=>!stale.some(d=>d.id===sk.dayId));
+      }
+      save();
+    }
+  }catch(e){}
   // Run validator sweep once (non-blocking) to surface any ordering issues in console
   setTimeout(()=>{try{validateProgram();const vw=validateWeek();if(vw.length){console.group('[Hyperion] Cross-session week warnings');vw.forEach(r=>r.warnings.forEach(w=>console.warn(w.level.toUpperCase()+' '+r.date+': '+w.msg)));console.groupEnd();}}catch(e){}},1200);
   // Brand accent: advance if the block changed while we were away (restore/
@@ -2553,7 +2577,7 @@ function syncProgram(){
       S.program.days.push(copy);
     });
   }catch(e){}
-  delete S.settings._dismissedBlock; // a fresh adoption clears any prior skip
+  delete S.settings._dismissedBlock;delete S.settings._dismissedProgramVersion; // a fresh adoption clears any prior skip
   maybeAdvanceBrandSafe();
   save();
   hideModal('settingsModal');
@@ -3303,7 +3327,7 @@ function renderTrain(){
   upcoming.sort((a,b)=>a.sort<b.sort?-1:a.sort>b.sort?1:a.idx-b.idx);
   let html='';
   // New-block banner (surfaces when the built-in default differs from the loaded block)
-  if(DEF_PROGRAM.name!==S.program.name && S.settings._dismissedBlock!==DEF_PROGRAM.name){
+  if(DEF_PROGRAM.version>(S.program.version??0) && S.settings._dismissedProgramVersion!==DEF_PROGRAM.version){
     html+=`<div class="block-banner"><div><div class="t-meta" style="color:var(--gold)">New block available</div><div style="font:600 14px var(--sans);margin-top:2px">${DEF_PROGRAM.name}</div></div><div style="display:flex;gap:6px"><button class="btn btn-sm btn-gold" onclick="event.stopPropagation();reviewNewBlock()">Review</button><button class="btn btn-sm btn-g" onclick="event.stopPropagation();dismissNewBlock()">Skip</button></div></div>`;
   }
   // Cross-session recovery conflicts (validateWeek) — warn banner if the
@@ -3381,7 +3405,7 @@ function dayEffectiveDate(day,todayD){
 // Banner "Review" adopts the built-in DEF_PROGRAM (preserves history) — this is
 // the sync path, distinct from the JSON-paste import button (BUG 6).
 function reviewNewBlock(){if(S.activeSession){alert('End your current session first.');return}syncProgram();}
-function dismissNewBlock(){S.settings._dismissedBlock=DEF_PROGRAM.name;save();renderTrain();}
+function dismissNewBlock(){S.settings._dismissedProgramVersion=DEF_PROGRAM.version;save();renderTrain();}
 
 function showDayPreview(i){
   previewDayI=i;

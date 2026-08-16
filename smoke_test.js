@@ -1472,9 +1472,10 @@ assert(typeof br==='string' && br.indexOf(String(d0))>=0 && br.indexOf(String(dE
 assert(typeof dayEffectiveDate==='function', 'BUG5: dayEffectiveDate defined');
 assert(/\.comp-toggle/.test(html) && /\.block-banner/.test(html), 'BUG5: completed-section + new-block-banner CSS present');
 assert(typeof dismissNewBlock==='function' && typeof reviewNewBlock==='function', 'BUG5: new-block banner handlers defined');
-S.settings._dismissedBlock=undefined;dismissNewBlock();
-assert(S.settings._dismissedBlock===DEF_PROGRAM.name, 'BUG5: dismissNewBlock records the dismissed block name');
-S.settings._dismissedBlock=undefined;
+// G7: dismissal is version-keyed now — a name flap can't re-arm the banner.
+S.settings._dismissedProgramVersion=undefined;dismissNewBlock();
+assert(S.settings._dismissedProgramVersion===DEF_PROGRAM.version, 'BUG5/G7: dismissNewBlock records the dismissed VERSION');
+S.settings._dismissedProgramVersion=undefined;
 
 // FEATURE: drag-drop core
 assert(typeof dragMoveTo==='function', 'Drag: dragMoveTo defined');
@@ -1906,14 +1907,22 @@ assert(typeof applyBrand==='function' && typeof maybeAdvanceBrand==='function' &
 // applyBrand is harness-safe (mock document has no documentElement)
 let abThrew=false;try{applyBrand();}catch(e){abThrew=true;}
 assert(abThrew===false, 'Brand: applyBrand no-ops cleanly under the mock document');
-// advance-once semantics, whatever the adoption path
+// advance-once semantics. G7: version-era gates on a version INCREASE;
+// legacy states (no program version) fall back to the name comparison.
+const _pvSave=S.program.version,_bvSave=S.settings.brandVersion;
+delete S.program.version;delete S.settings.brandVersion;
 S.settings.brandIdx=-1;S.settings.brandBlock='Jun 29 Block 4 W2';S.program.name='Jul 8 Block 4 W3';
 maybeAdvanceBrand();
-assert(S.settings.brandIdx===0 && S.settings.brandBlock==='Jul 8 Block 4 W3', 'Brand: adopting W3 advances -1 → 0 = ember, stamps block. Got idx '+S.settings.brandIdx);
+assert(S.settings.brandIdx===0 && S.settings.brandBlock==='Jul 8 Block 4 W3', 'Brand: legacy (no version) adopting W3 advances -1 → 0. Got idx '+S.settings.brandIdx);
 maybeAdvanceBrand();
 assert(S.settings.brandIdx===0, 'Brand: idempotent — same block never advances twice');
-S.program.name='Next Block';maybeAdvanceBrand();
-assert(S.settings.brandIdx===1, 'Brand: next block advances to cycle[1]');
+// version era: an INCREASE advances once; a name flap at the same version doesn't.
+S.program.version=9;S.settings.brandVersion=undefined;
+maybeAdvanceBrand();
+assert(S.settings.brandIdx===1&&S.settings.brandVersion===9, 'G7: version 9 over seen 0 advances + stamps. Got idx '+S.settings.brandIdx);
+S.program.name='Cache Flap Old Name';maybeAdvanceBrand();
+assert(S.settings.brandIdx===1, 'G7: same version never advances again, whatever the name does');
+S.program.version=_pvSave;S.settings.brandVersion=_bvSave;
 S.program.name='Jul 8 Block 4 W3';S.settings.brandIdx=0;S.settings.brandBlock='Jul 8 Block 4 W3';
 // wired into every adoption path
 assert(/maybeAdvanceBrand\(\);\}catch/.test(html.replace(/\s+/g,'')) || /try\{maybeAdvanceBrand\(\);\}catch\(e\)\{\}/.test(html), 'Brand: load() advances after restore/cross-device');
@@ -3090,5 +3099,31 @@ assert(/openAddSession\('\$\{r\.date\}'\)/.test(html), 'G6: every week row carri
 assert(/confirmRemoveWeekDay\(\$\{dayIdx\}\)/.test(html)&&/Remove from this week/.test(html), 'G6: session sheet offers week-scoped delete with confirm');
 assert(/setPointerCapture\(e\.pointerId\)/.test(html), 'G6: drag captures the pointer');
 assert(/Math\.abs\(e\.clientY-startY\)>8/.test(html), 'G6: pre-arm scroll guard cancels the hold');
+
+// ===== G7: BLOCK BANNER VERSIONING + STALE MOBILITY REMOVAL =====
+console.log('\n--- G7: banner versioning + F2 ---');
+assert(DEF_PROGRAM.version===9, 'G7: DEF_PROGRAM carries version 9 (G10 bumps to 10). Got: '+DEF_PROGRAM.version);
+assert(/DEF_PROGRAM\.version>\(S\.program\.version\?\?0\) && S\.settings\._dismissedProgramVersion!==DEF_PROGRAM\.version/.test(html), 'G7: banner fires only for a NEWER version');
+assert(!/DEF_PROGRAM\.name!==S\.program\.name && S\.settings\._dismissedBlock/.test(html), 'G7: the direction-blind name banner is gone');
+// An OLDER cached HTML (lower version) can never re-offer itself:
+(()=>{
+  const cond=(defV,progV,dismissed)=>defV>(progV??0)&&dismissed!==defV;
+  assert(cond(9,undefined,undefined)===true, 'G7: legacy program (no version) sees the v9 offer');
+  assert(cond(8,9,undefined)===false, 'G7: stale v8 HTML over an installed v9 stays silent (the Jul-27-over-Aug-3 bug)');
+  assert(cond(10,9,10)===false, 'G7: dismissing v10 silences exactly v10');
+  assert(cond(11,9,10)===true, 'G7: a later v11 re-offers after a v10 dismissal');
+})();
+// F2: stale coach-permanent day whose label left the block is removed; user-authored survives
+(()=>{
+  const days=[
+    {id:8,label:'Mobility',permanent:true,sessionType:'lifting',exercises:[]},
+    {id:9,label:'My Custom Day',permanent:true,userAuthored:true,sessionType:'lifting',exercises:[]},
+    {id:1,label:'Squat',sessionType:'lifting',exercises:[]}
+  ];
+  const stale=days.filter(d=>d.permanent===true&&!d.userAuthored&&!DEF_PROGRAM.days.some(nd=>nd.label===d.label));
+  assert(stale.length===1&&stale[0].label==='Mobility', 'G7/F2: removal predicate hits only the stale coach Mobility day');
+})();
+assert(/_staleMobilityRemovedB6&&DEF_PROGRAM\.version>=10/.test(html), 'G7/F2: removal one-shot gated on the v10 ship');
+assert(/S\.skips=\(S\.skips\|\|\[\]\)\.filter\(sk=>!stale\.some\(d=>d\.id===sk\.dayId\)\)/.test(html), 'G7/F2: removed day sweeps its skips');
 
 console.log('\n=== All tests passed ===');
