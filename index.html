@@ -1687,6 +1687,20 @@ function validateSession(exList,opts){
       streak=1;
     }
   }
+  // 5b (D): an authored barbell load the gym can't rack is a coach flag —
+  // warn with the nearest rackable value, never block or silently edit.
+  exList.forEach((ex,i)=>{
+    const cls=ex.equipmentClass||inferEquipmentClass(ex.name);
+    if(cls!=='barbell')return;
+    const bar=exerciseBarKg(ex);
+    const loads=[];
+    if(+ex.loadKg>0)loads.push(+ex.loadKg);
+    (ex.setScheme||[]).forEach(r2=>{if(+r2.loadKg>0)loads.push(+r2.loadKg);});
+    loads.filter((v,ix,a)=>a.indexOf(v)===ix).forEach(L=>{
+      if(!isMakeableTotal(L,bar))out.push({level:'warn',exIdx:i,msg:ex.name+': '+L+' kg is not loadable on the '+bar+' kg bar with this gym\'s plates (nearest '+nearestMakeableTotal(L,bar)+' kg)'});
+    });
+  });
+
   // 5. Time budget — warn only when the estimate runs past the day's planned
   // duration + a 15-min margin (fallback to an absolute 95-min ceiling). A
   // legitimately long heavy day (10 exercises) should not nag.
@@ -1995,7 +2009,10 @@ function activeGymDbInc(){const g=(S.settings&&S.settings.gyms||[]).find(x=>x.id
 // ===== BAR + PLATE MATH (display only — does not touch loads) =====
 function _activeGym(){return (S.settings&&S.settings.gyms||[]).find(x=>x.id===S.settings.activeGymId)||null;}
 function activeGymBar(){const g=_activeGym();return (g&&g.defaultBarKg)||20;}
-function activePlates(){const g=_activeGym();return (g&&g.plateInventory)||[25,20,15,10,5,2.5,1.25,1];}
+// G3 (user-confirmed): standard rack down to 1.25 kg pairs, NO 1 kg — keeps
+// the 97.5 squat backoff loadable while 122.5-style DL totals stay impossible.
+const DEFAULT_PLATES=[25,20,15,10,5,2.5,1.25];
+function activePlates(){const g=_activeGym();return (g&&g.plateInventory)||DEFAULT_PLATES;}
 // Per-exercise bar weight: explicit override > known default > active gym default.
 const BAR_DEFAULTS={'Deadlift':36};
 function exerciseBarKg(ex){
@@ -2038,16 +2055,53 @@ function plateLabel(ex){
   if(r.remainder>0.01)s+=' · +'+r.remainder+' over';
   return s;
 }
-// B1: snap a total DOWN to the nearest bar+plates-makeable value (greedy
-// largest-first per side — coarse inventories land on "round" totals).
+// G3: reachable per-side sums for an inventory, in 0.25 kg units (unbounded
+// plate counts, capped at 200 kg/side). The greedy largest-first walk misses
+// sums on odd inventories; this is the ground truth the snappers share.
+let _reachCache={};
+function _reachableSides(plates){
+  const key=(plates||[]).slice().sort((a,b)=>a-b).join(',');
+  if(_reachCache[key])return _reachCache[key];
+  const cap=800;
+  const reach=new Array(cap+1).fill(false);reach[0]=true;
+  (plates||[]).map(p=>Math.round(p*4)).filter(u=>u>0).forEach(u=>{
+    for(let t=u;t<=cap;t++)if(reach[t-u])reach[t]=true;
+  });
+  _reachCache[key]=reach;return reach;
+}
+// B1: snap a total DOWN to the nearest bar+plates-makeable value.
 function snapToMakeable(totalKg,barKg,plates){
-  const inv=(plates||activePlates()).slice().sort((a,b)=>b-a);
+  const inv=plates||activePlates();
   const bar=+barKg||0;
-  let per=((+totalKg||0)-bar)/2;
+  const per=((+totalKg||0)-bar)/2;
   if(per<=0)return bar;
-  let got=0;
-  inv.forEach(pl=>{while(got+pl<=per+1e-9)got+=pl;});
-  return Math.round((bar+2*got)*100)/100;
+  const reach=_reachableSides(inv);
+  let t=Math.max(0,Math.min(800,Math.floor(per*4+1e-9)));
+  while(t>0&&!reach[t])t--;
+  return Math.round((bar+2*(t/4))*100)/100;
+}
+// D: is this exact total rackable as bar + 2×(side from the inventory)?
+function isMakeableTotal(totalKg,barKg,plates){
+  const bar=+barKg||0;const per=((+totalKg||0)-bar)/2;
+  if(per<0)return false;if(per===0)return true;
+  const u=Math.round(per*4);
+  if(Math.abs(per*4-u)>1e-6||u>800)return false;
+  return _reachableSides(plates||activePlates())[u]===true;
+}
+// D: nearest bar-loadable total; ties round DOWN — a suggestion the gym
+// can't rack is a lie, and rounding a tie up invents progress.
+function nearestMakeableTotal(totalKg,barKg,plates){
+  const inv=plates||activePlates();
+  const bar=+barKg||0;
+  const per=((+totalKg||0)-bar)/2;
+  if(per<=0)return bar;
+  const reach=_reachableSides(inv);
+  const t0=Math.max(0,Math.min(800,Math.round(per*4)));
+  for(let d=0;d<=800;d++){
+    if(t0-d>=0&&reach[t0-d])return Math.round((bar+2*((t0-d)/4))*100)/100;
+    if(t0+d<=800&&reach[t0+d])return Math.round((bar+2*((t0+d)/4))*100)/100;
+  }
+  return bar;
 }
 // B1: bar-aware warm-up generator — ramps 50/75/92% of the top working load,
 // each snapped to a makeable total for the exercise's ACTUAL bar. A 36 kg
@@ -2074,12 +2128,12 @@ function trackSessions(exName,vKey,gymId){
 }
 // Snap a prescribed load to a valid increment for its equipment class.
 // db→gym DB increment, barbell→2.5kg plate, cable→1kg, machine/sled→pass-through, bw→0.
-function snapLoadToEquipment(loadKg,equipmentClass){
+function snapLoadToEquipment(loadKg,equipmentClass,ex){
   const kg=+loadKg||0;
   if(kg<=0)return equipmentClass==='bw'?0:kg;
   switch(equipmentClass){
     case 'db': {const inc=activeGymDbInc();return Math.round(kg/inc)*inc;}
-    case 'barbell': return roundPlate(kg);
+    case 'barbell': return nearestMakeableTotal(kg,exerciseBarKg(ex),activePlates());
     case 'cable': return Math.round(kg);
     case 'bw': return 0;
     case 'machine': {const inc=activeGymMachineInc();return Math.round(Math.round(kg/inc)*inc*100)/100;}
@@ -2102,10 +2156,13 @@ function snapIncrement(equipmentClass){
 // round UP only when the raw suggestion is within 20% of the increment below
 // the upper step; otherwise round DOWN — a +1.3% earned bump must not silently
 // become a +2.7% jump (e.g. 93.8 on a barbell → 92.5, not 95).
-function snapSuggestion(raw,equipmentClass){
+function snapSuggestion(raw,equipmentClass,ex){
   const kg=+raw||0;
+  if(kg<=0)return kg;
+  // D: barbell suggestions must be rackable on the exercise's actual bar.
+  if(equipmentClass==='barbell')return nearestMakeableTotal(kg,exerciseBarKg(ex),activePlates());
   const inc=snapIncrement(equipmentClass);
-  if(!inc||kg<=0)return kg;
+  if(!inc)return kg;
   const lower=Math.round(Math.floor(kg/inc+1e-9)*inc*100)/100;
   const upper=Math.round((lower+inc)*100)/100;
   if(Math.abs(kg-lower)<1e-9)return lower;           // already loadable
@@ -2329,6 +2386,9 @@ function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse
     if(!S.settings._holidayGymActivated){S.settings._holidayGymActivated=true;S.settings._sgActivated=true;S.settings.activeGymId='gym-holiday';}
     // W4: back home — Singapore reactivates exactly once (newer directive).
     if(!S.settings._sgReactivatedW4){S.settings._sgReactivatedW4=true;S.settings.activeGymId='gym-singapore';}
+    // B6-G3 (user-confirmed): the rack has no 1 kg pairs — drop them from the
+    // stored Singapore inventory once so working-set snapping tells the truth.
+    if(!S.settings._sgPlates1kgDroppedB6){S.settings._sgPlates1kgDroppedB6=true;const _sg=(S.settings.gyms||[]).find(g=>g.id==='gym-singapore');if(_sg&&Array.isArray(_sg.plateInventory))_sg.plateInventory=_sg.plateInventory.filter(pl=>pl!==1);}
     save();
   }catch(e){}
   // v2→v3 multi-modal migration (idempotent; runs for fresh installs + imported data alike)
@@ -2430,7 +2490,7 @@ function migrateV3(){
     }
     if(!S.settings._sgActivated){S.settings.activeGymId='gym-singapore';S.settings._sgActivated=true;}
     // Backfill bar/plate config onto existing gyms (refresh chunk 2).
-    (S.settings.gyms||[]).forEach(g=>{if(g.defaultBarKg==null)g.defaultBarKg=20;if(!Array.isArray(g.plateInventory))g.plateInventory=[25,20,15,10,5,2.5,1.25,1];});
+    (S.settings.gyms||[]).forEach(g=>{if(g.defaultBarKg==null)g.defaultBarKg=20;if(!Array.isArray(g.plateInventory))g.plateInventory=DEFAULT_PLATES.slice();});
   }catch(e){}
   // --- Version stamp ---
   if(!S.version||S.version<3)S.version=3;
@@ -2708,7 +2768,7 @@ function resetBig3Targets(){
 // ===== GYM PROFILES =====
 const EQ_TAGS=['cable','pulldown-station','pulley','pull-up-bar','barbell','rack','platform','bench','incline-bench','seal-bench','db','leg-press','hack-squat','v-squat','hamstring-curl','leg-extension','calf-raise','back-extension-bench','chest-press','pec-deck','preacher-bench','band','wall','bodyweight','treadmill','row-erg','assault-bike','ab-wheel','blocks','sled','parallel-bars','machine','hip-abduction','kb'];
 const DEFAULT_GYMS=[
-  {id:'gym-singapore',name:'Singapore Gym',equipment:['cable','pulldown-station','pulley','pull-up-bar','barbell','rack','platform','bench','incline-bench','db','leg-press','hack-squat','v-squat','hamstring-curl','leg-extension','calf-raise','back-extension-bench','chest-press','pec-deck','preacher-bench','band','bodyweight','treadmill','row-erg','ab-wheel','parallel-bars','kb','sled','machine','hip-abduction'],dbIncrementKg:2.5,defaultBarKg:20,machineIncrementKg:2.5,plateInventory:[25,20,15,10,5,2.5,1.25,1]},
+  {id:'gym-singapore',name:'Singapore Gym',equipment:['cable','pulldown-station','pulley','pull-up-bar','barbell','rack','platform','bench','incline-bench','db','leg-press','hack-squat','v-squat','hamstring-curl','leg-extension','calf-raise','back-extension-bench','chest-press','pec-deck','preacher-bench','band','bodyweight','treadmill','row-erg','ab-wheel','parallel-bars','kb','sled','machine','hip-abduction'],dbIncrementKg:2.5,defaultBarKg:20,machineIncrementKg:2.5,plateInventory:[25,20,15,10,5,2.5,1.25]},
   {id:'gym-commercial',name:'Commercial Gym',equipment:EQ_TAGS.slice(),dbIncrementKg:2.5,defaultBarKg:20,plateInventory:[25,20,15,10,5,2.5,1.25,1]},
   {id:'gym-hotel',name:'Hotel / Travel',equipment:['db','bench','incline-bench','treadmill','bodyweight','band'],dbIncrementKg:2.5,defaultBarKg:20,plateInventory:[20,10,5,2.5,1.25]},
   {id:'gym-home',name:'Home Gym',equipment:['barbell','rack','bench','db','pull-up-bar','band','bodyweight'],dbIncrementKg:2.5,defaultBarKg:20,plateInventory:[20,15,10,5,2.5,1.25,1]},
@@ -3460,11 +3520,14 @@ function flushNotesSave(){if(_notesT){clearTimeout(_notesT);_notesT=null;save();
 // (161.3 kg). The display owes a loadable number: increases round to the
 // nearest step (161.3 → 162.5), deloads floor, HOLDS render raw — an
 // achieved weight is history, not a suggestion.
-function dispSuggest(kg,cls,progression){
+function dispSuggest(kg,cls,progression,ex){
   let v=+kg||0;
   if(v<=0)return v;
-  if(progression==='increase')v=snapLoadToEquipment(v,cls)||v;
-  else if(progression==='flag'){const inc=snapIncrement(cls);if(inc)v=Math.round(Math.floor(v/inc+1e-9)*inc*100)/100;}
+  if(progression==='increase')v=snapLoadToEquipment(v,cls,ex)||v;
+  else if(progression==='flag'){
+    if(cls==='barbell')v=snapToMakeable(v,exerciseBarKg(ex),activePlates());
+    else{const inc=snapIncrement(cls);if(inc)v=Math.round(Math.floor(v/inc+1e-9)*inc*100)/100;}
+  }
   return v;
 }
 // ===== PAUSED GOALS (W4-D) =====
@@ -3809,7 +3872,7 @@ function getLastHint(exOrName){
         let detail=`<div class="last-hint-detail">`;
         if(wu.length)detail+=`<div>Warmup: ${wu.map(s=>fmtW(s.weightKg,sx.prescribed?.unit)+'×'+s.reps).join(', ')}</div>`;
         detail+=`<div>Working: ${w.map(s=>fmtW(s.weightKg,sx.prescribed?.unit)+'×'+s.reps).join(', ')}</div>`;
-        if(prog)detail+=`<div>Progression: ${prog}${sx.nextLoad&&sx.progression==='increase'?' → '+fmtW(dispSuggest(sx.nextLoad,sx.equipmentClass||inferEquipmentClass(sx.name),'increase'),sx.prescribed?.unit):''}</div>`;
+        if(prog)detail+=`<div>Progression: ${prog}${sx.nextLoad&&sx.progression==='increase'?' → '+fmtW(dispSuggest(sx.nextLoad,sx.equipmentClass||inferEquipmentClass(sx.name),'increase',sx),sx.prescribed?.unit):''}</div>`;
         if(sx.notes)detail+=`<div>Notes: ${esc(sx.notes)}</div>`;
         detail+=`<div style="color:var(--tx3)">${fmtDate(S.sessions[i].date)}</div></div>`;
         return`<div class="last-hint" onclick="this.classList.toggle('expanded')"><span class="lh-label">Last</span><span class="lh-sets">${sets}</span><span class="last-hint-toggle">▸ detail</span>${detail}</div>`;
@@ -4834,7 +4897,7 @@ function doSwap(encName){
   }
   ex.name=name;ex.cat=c.cat||ex.cat;
   ex.equipmentClass=inferEquipmentClass(name);
-  const swapLoad=snapLoadToEquipment(c.loadKg,ex.equipmentClass);
+  const swapLoad=snapLoadToEquipment(c.loadKg,ex.equipmentClass,c);
   ex.prescribed={sets:c.sets,reps:c.reps,loadKg:swapLoad,unit:c.unit||'kg'};
   // Reset only un-logged sets to new prescription; keep logged ones
   const rr=repRange(c.reps);const targetReps=rr.max||parseInt(c.reps)||ex.performed[0]?.reps||8;
@@ -4941,7 +5004,7 @@ function openSubstitute(ei){
   } else {
     const dispU=S.settings.unit||'kg';
     const renderCard=(s)=>{
-      const snapped=snapLoadToEquipment(loadAdjustForSub(ex.name,s.name,ex.prescribed.loadKg||0),inferEquipmentClass(s.name));
+      const snapped=snapLoadToEquipment(loadAdjustForSub(ex.name,s.name,ex.prescribed.loadKg||0),inferEquipmentClass(s.name),{name:s.name});
       const loadDisp=snapped===0?'bodyweight':(dispU==='lb'?Math.round(snapped*K2L*10)/10+' lb':snapped+' kg');
       const eqTags=(s.meta.eq||[]).join(' · ');
       const hint=s.hint?`<span style="color:var(--brand);font-size:11px;margin-left:6px">${s.hint}</span>`:'';
@@ -4973,7 +5036,7 @@ function doSubstitute(encName){
   const fromName=ex.name;
   ex.name=name;
   ex.equipmentClass=inferEquipmentClass(name);
-  const newLoad=snapLoadToEquipment(loadAdjustForSub(fromName,name,ex.prescribed.loadKg||0),ex.equipmentClass);
+  const newLoad=snapLoadToEquipment(loadAdjustForSub(fromName,name,ex.prescribed.loadKg||0),ex.equipmentClass,{name:name});
   // Map new pattern back to legacy cat for existing progression engine compatibility
   const patToCat={squat:'squat',hinge:'hinge',hpush:'push',vpush:'push',hpull:'pull',vpull:'pull','rear-delt':'pull','iso-bi':'isolation','iso-tri':'isolation','iso-delt':'isolation','iso-ham':'isolation','iso-quad':'isolation','iso-calf':'isolation','iso-core':'core',carry:'core',rehab:'rehab',cardio:'cardio'};
   if(patToCat[m.pat])ex.cat=patToCat[m.pat];
@@ -5409,11 +5472,12 @@ function evalProg(ei){
   } else if(ex.nextLoad!=null){
     if(ex.progression==='flag'&&ex.nextLoad<topW){
       // Deload: snap DOWN to the nearest loadable step (never round a deload up).
-      const dinc=snapIncrement(ex.equipmentClass);
-      if(dinc)ex.nextLoad=Math.round(Math.floor(ex.nextLoad/dinc+1e-9)*dinc*100)/100;
+      if(ex.equipmentClass==='barbell')ex.nextLoad=snapToMakeable(ex.nextLoad,exerciseBarKg(ex),activePlates());
+      else{const dinc=snapIncrement(ex.equipmentClass);
+      if(dinc)ex.nextLoad=Math.round(Math.floor(ex.nextLoad/dinc+1e-9)*dinc*100)/100;}
     } else if(ex.progression==='increase'){
       // Route earned bumps through the equipment snap (93.8 → 92.5, not 95).
-      const snapped=snapSuggestion(ex.nextLoad,ex.equipmentClass);
+      const snapped=snapSuggestion(ex.nextLoad,ex.equipmentClass,ex);
       if(snapped<=topW){
         const earned=rnd(ex.nextLoad-topW);
         ex.progression='hold';ex.nextLoad=topW;
@@ -5593,7 +5657,7 @@ function renderSummary(rec){
         </div>
         <div class="${pc}" style="font-weight:700;font-size:16px">${pi}</div>
       </div>
-      ${ex.nextLoad&&ex.progression==='increase'?`<div style="font-size:11px;color:var(--grn);margin-top:3px">Next: ${fmtW(dispSuggest(ex.nextLoad,ex.equipmentClass||inferEquipmentClass(ex.name),'increase'),ex.prescribed?.unit)}</div>`:ex.nextTarget&&ex.progression==='increase'?`<div style="font-size:11px;color:var(--grn);margin-top:3px">Next: ${ex.nextTarget}${/^\d+$/.test(ex.nextTarget)?' reps':''}</div>`:''}
+      ${ex.nextLoad&&ex.progression==='increase'?`<div style="font-size:11px;color:var(--grn);margin-top:3px">Next: ${fmtW(dispSuggest(ex.nextLoad,ex.equipmentClass||inferEquipmentClass(ex.name),'increase',ex),ex.prescribed?.unit)}</div>`:ex.nextTarget&&ex.progression==='increase'?`<div style="font-size:11px;color:var(--grn);margin-top:3px">Next: ${ex.nextTarget}${/^\d+$/.test(ex.nextTarget)?' reps':''}</div>`:''}
       ${ex.progression==='flag'&&ex.progressionReason?`<div style="font-size:11px;color:var(--warn);margin-top:3px;line-height:1.4">${ex.progressionReason}</div>`:''}
     </div>`;
   }).join('');
@@ -6425,7 +6489,7 @@ function saveExEdit(){
   // Snap to a valid increment for the exercise's equipment class.
   ex.equipmentClass=inferEquipmentClass(ex.name);
   const rawKg=lu==='lb'?lv*L2K:lu==='bw'?0:lv;
-  const _newLoad=snapLoadToEquipment(rawKg,ex.equipmentClass);
+  const _newLoad=snapLoadToEquipment(rawKg,ex.equipmentClass,ex);
   if(Array.isArray(ex.setScheme)&&ex.setScheme.length){
     if(ex.sets!==ex.setScheme.length){
       // Sets count no longer matches the scheme — uniform edit wins.
@@ -6460,7 +6524,7 @@ function addExToDay(){
   const lu=document.getElementById('aUnit').value;
   const cat=document.getElementById('aCat').value;
   const equipmentClass=inferEquipmentClass(n);
-  const loadKg=snapLoadToEquipment(lu==='lb'?lv*L2K:lv,equipmentClass);
+  const loadKg=snapLoadToEquipment(lu==='lb'?lv*L2K:lv,equipmentClass,{name:name});
   const restSec=COMPOUNDS.includes(cat)?150:90;
   // Add to program
   S.program.days[viewDayI].exercises.push({id:'ex_'+Date.now(),name:n,cat,sets,reps,loadKg,unit:lu,rest:restSec,tags:[],angle:null,grip:null,equipmentClass});
@@ -6590,10 +6654,10 @@ function buildCoachReport(sessions,program,weekDates){
       // "deload" (pain/bigMiss flags set nextLoad=topW; the report was
       // advertising "deload to 16.5" after a 16.5 session).
       const topPerf=w.reduce((m,s2)=>!s2.skipped&&s2.weightKg>m?s2.weightKg:m,0);
-      if(ex.progression==='increase'&&ex.nextLoad)r+=` → next ${dispSuggest(ex.nextLoad,ex.equipmentClass||inferEquipmentClass(ex.name),'increase')} kg`;
+      if(ex.progression==='increase'&&ex.nextLoad)r+=` → next ${dispSuggest(ex.nextLoad,ex.equipmentClass||inferEquipmentClass(ex.name),'increase',ex)} kg`;
       else if(ex.progression==='increase'&&ex.nextTarget)r+=` → next ${ex.nextTarget}${/^\d+$/.test(ex.nextTarget)?' reps':''}`;
       else if(ex.progression==='hold'&&ex.nextLoad)r+=` → hold ${ex.nextLoad} kg`;
-      else if(ex.progression==='flag'&&ex.nextLoad)r+=(ex.nextLoad>=topPerf&&topPerf>0)?` → hold ${ex.nextLoad} kg`:` → deload to ${dispSuggest(ex.nextLoad,ex.equipmentClass||inferEquipmentClass(ex.name),'flag')} kg`;
+      else if(ex.progression==='flag'&&ex.nextLoad)r+=(ex.nextLoad>=topPerf&&topPerf>0)?` → hold ${ex.nextLoad} kg`:` → deload to ${dispSuggest(ex.nextLoad,ex.equipmentClass||inferEquipmentClass(ex.name),'flag',ex)} kg`;
       r+='\n';
       if(wu.length)r+=`    w: ${wu.map(s=>fmtW(s.weightKg,ex.prescribed?.unit)+'×'+s.reps).join(', ')}\n`;
       if(ex.notes)r+=`    Note: ${ex.notes}\n`;
@@ -6616,7 +6680,7 @@ function buildCoachReport(sessions,program,weekDates){
     const last=entries[entries.length-1];
     const arrow=last.prog==='increase'?'↑':last.prog==='flag'?'⚠':last.prog==='stall'?'⏸':'→';
     r+=`  ${arrow} ${name}: ${entries.map(e=>(e.load||'?')+' kg').join(' → ')}`;
-    if(last.prog==='increase'&&last.next)r+=` → ${dispSuggest(last.next,last.cls,'increase')} kg`;
+    if(last.prog==='increase'&&last.next)r+=` → ${dispSuggest(last.next,last.cls,'increase',{name:name})} kg`;
     r+='\n';
   });
 

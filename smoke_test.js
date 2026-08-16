@@ -51,7 +51,9 @@ const patched = js
   .replace(/\blet _userClosed\s*=/g, 'var _userClosed =')
   .replace(/\blet _notesT\s*=/g, 'var _notesT =')
   .replace(/\bconst ACTIVITY_TYPES\s*=/g, 'var ACTIVITY_TYPES =')
-  .replace(/\bconst MODALITY_TYPES\s*=/g, 'var MODALITY_TYPES =');
+  .replace(/\bconst MODALITY_TYPES\s*=/g, 'var MODALITY_TYPES =')
+  .replace(/\blet _reachCache\s*=/g, 'var _reachCache =')
+  .replace(/\bconst DEFAULT_PLATES\s*=/g, 'var DEFAULT_PLATES =');
 (0, eval)(patched);
 // Expose helpers globally (they were `function` declarations, already global when eval'd indirectly)
 
@@ -772,8 +774,13 @@ assert(!wlOk.some(w=>/shares prime movers/.test(w.msg)), 'Phase B: weak-leg-focu
 // - Back Squat → BSS exempted via weak-leg-focus.
 // - D3 is calisthenics → lifting rules short-circuit.
 const progWarns = validateProgram();
-const warnTotal = progWarns.reduce((a,r)=>a+(r.warnings||[]).filter(w=>w.level==='warn').length,0);
-assert(warnTotal === 0, 'Phase B: validateProgram runs clean (0 warnings). Got: '+warnTotal+' ('+progWarns.map(r=>r.day+':'+r.warnings.filter(w=>w.level==='warn').length).join(',')+')');
+// G3 INTERIM: the W4 program's authored DL 122.5 on the 36 kg bar is exactly
+// the unrackable load Part D now flags — one expected plate-math warning until
+// G10 lands the Block 6 program (126). Everything else must stay clean.
+const warnList = progWarns.flatMap(r=>(r.warnings||[]).filter(w=>w.level==='warn'));
+const nonPlate = warnList.filter(w=>!/not loadable on the 36 kg bar/.test(w.msg));
+assert(nonPlate.length === 0, 'Phase B: validateProgram clean apart from the known W4 plate warning. Got: '+nonPlate.map(w=>w.msg).join(' | '));
+assert(warnList.length===1 && /Deadlift: 122\.5 kg is not loadable/.test(warnList[0].msg), 'G3: the W4 122.5 DL is flagged as unrackable (expected until G10). Got: '+warnList.map(w=>w.msg).join(' | '));
 // validateWeek defined + clean on the W3 Wed/Fri/Sat/Sun week: Fri→Sat and
 // Sat→Sun are <36h, but the Sat cali day's compounds (vpull/dip) share no
 // pattern with Fri (squat/hinge) or Sun (hinge/squat/hpull) → 0 warns
@@ -1167,8 +1174,10 @@ assert(typeof snapLoadToEquipment === 'function', 'Snap: snapLoadToEquipment def
 S.settings.activeGymId='gym-commercial';
 assert(snapLoadToEquipment(14,'db') === 15, 'Snap: db 14 → 15 (nearest 2.5)'); // confirms why literal must be 12.5
 assert(snapLoadToEquipment(12.5,'db') === 12.5, 'Snap: db 12.5 stays 12.5');
-assert(snapLoadToEquipment(83.7,'barbell') === 82.5, 'Snap: barbell rounds to nearest 2.5 plate. Got: '+snapLoadToEquipment(83.7,'barbell'));
-assert(snapLoadToEquipment(84,'barbell') === 85, 'Snap: barbell 84 → 85 (nearest 2.5)');
+// G3: barbell snaps to the nearest RACKABLE total for the bar + this gym's
+// plates — commercial keeps 1 kg pairs, so 83.5 (20 + 2×31.75) is real.
+assert(snapLoadToEquipment(83.7,'barbell') === 83.5, 'Snap: barbell → nearest rackable total. Got: '+snapLoadToEquipment(83.7,'barbell'));
+assert(snapLoadToEquipment(84,'barbell') === 84, 'Snap: 84 already rackable (20 bar + 2×32). Got: '+snapLoadToEquipment(84,'barbell'));
 assert(snapLoadToEquipment(62.4,'cable') === 62, 'Snap: cable rounds to nearest 1. Got: '+snapLoadToEquipment(62.4,'cable'));
 assert(snapLoadToEquipment(145,'machine') === 145, 'Snap: machine passes through');
 assert(snapLoadToEquipment(125,'sled') === 125, 'Snap: sled passes through');
@@ -1634,13 +1643,15 @@ assert(/<svg viewBox="0 0 190 190"[^>]*aria-hidden="true"/.test(html) && /<svg v
 
 // ===== C2: PROGRESSION SNAPPING + BW RULES =====
 assert(typeof snapSuggestion==='function' && typeof snapIncrement==='function' && typeof bwNextTarget==='function', 'Snap: helpers defined');
-// The 20%-of-increment rule: round UP only within 20% of the upper step, else DOWN
-assert(snapSuggestion(93.8,'barbell')===92.5, 'Snap: 93.8 barbell → 92.5 (a +1.3 earned bump must not become +2.5). Got: '+snapSuggestion(93.8,'barbell'));
-assert(snapSuggestion(94.6,'barbell')===95, 'Snap: 94.6 barbell → 95 (within 20% of upper step). Got: '+snapSuggestion(94.6,'barbell'));
-assert(snapSuggestion(95,'barbell')===95, 'Snap: exact multiple passes through');
+// G3: barbell suggestions go to the nearest RACKABLE total (spec D: nearest,
+// ties down) — the old 20%-window rule now applies to non-barbell classes only.
+// Active gym here has 1 kg pairs, so 93.8 → 94 (20 bar + 2×37) is honest.
+assert(snapSuggestion(93.8,'barbell')===94, 'Snap: 93.8 barbell → nearest rackable 94. Got: '+snapSuggestion(93.8,'barbell'));
+assert(snapSuggestion(94.6,'barbell')===94.5, 'Snap: 94.6 barbell → 94.5 (nearest, ties down). Got: '+snapSuggestion(94.6,'barbell'));
+assert(snapSuggestion(95,'barbell')===95, 'Snap: exact rackable passes through');
 S.settings.activeGymId='gym-commercial';
 assert(snapSuggestion(23.5,'db')===22.5, 'Snap: 23.5 db (2.5 step) → 22.5. Got: '+snapSuggestion(23.5,'db'));
-assert(snapSuggestion(118.5,'barbell')===117.5, 'Snap: 118.5 barbell → 117.5 (not 120). Got: '+snapSuggestion(118.5,'barbell'));
+assert(snapSuggestion(118.5,'barbell')===118.5, 'G3: 118.5 already rackable here (20 bar + 2×49.25) — passes through. Got: '+snapSuggestion(118.5,'barbell'));
 assert(snapSuggestion(31.4,'cable')===31, 'Snap: cable snaps to 1 kg. Got: '+snapSuggestion(31.4,'cable'));
 assert(snapSuggestion(152.7,'sled')===152.7, 'Snap: sled passes through');
 assert(snapSuggestion(152.7,'machine')===152.5, 'B4: machine snaps to the 2.5 stack step (floor)');
@@ -1663,12 +1674,15 @@ S.activeSession={dayIndex:0,date:'2026-07-10',dayLabel:'T',sessionType:'lifting'
 evalProg(0);
 const sqEx=S.activeSession.exercises[0];
 assert(sqEx.progression==='increase' && sqEx.nextLoad===97.5, 'evalProg(E2): Back Squat @8 hitTop → +5 per-lift step (92.5→97.5). Got: '+sqEx.progression+' '+sqEx.nextLoad);
-// non-override barbell lift keeps the half-at-8 + demote-to-hold behavior
+// G3: on a rack with 1 kg pairs a +1.25 earned bump IS deliverable — the old
+// 2.5-grid demote no longer applies here; nearest rackable above 92.5 is 94.
 S.activeSession.exercises[0]={name:'Pause Squat',cat:'squat',prescribed:{sets:2,reps:'5',loadKg:92.5,unit:'kg'},equipmentClass:'barbell',
   performed:[{type:'working',weightKg:92.5,reps:5,rpe:8,logged:true},{type:'working',weightKg:92.5,reps:5,rpe:8,logged:true}],tags:[],progression:null,nextLoad:null};
 evalProg(0);
-assert(S.activeSession.exercises[0].progression==='hold' && S.activeSession.exercises[0].nextLoad===92.5, 'evalProg: non-override RPE-8 +half (93.75) still demotes to HOLD at 92.5. Got: '+S.activeSession.exercises[0].progression+' '+S.activeSession.exercises[0].nextLoad);
-assert(/below the smallest loadable step/.test(S.activeSession.exercises[0].progressionReason||''), 'evalProg: demotion carries an honest reason');
+assert(S.activeSession.exercises[0].progression==='increase' && S.activeSession.exercises[0].nextLoad===94, 'G3: RPE-8 +half (93.75) → nearest rackable 94 on a 1 kg rack. Got: '+S.activeSession.exercises[0].progression+' '+S.activeSession.exercises[0].nextLoad);
+// The demote-to-hold guard input: a sub-step raw bump snaps BACK to topW
+// (92.6 → nearest rackable 92.5), which is exactly what trips the demote.
+assert(snapSuggestion(92.6,'barbell',{name:'Pause Squat'})===92.5, 'G3: sub-step raw bump rounds back to topW (demote guard). Got: '+snapSuggestion(92.6,'barbell',{name:'Pause Squat'}));
 // RPE-7 on the override lift → same full step
 S.activeSession.exercises[0]={name:'Back Squat',cat:'squat',prescribed:{sets:2,reps:'5',loadKg:92.5,unit:'kg'},equipmentClass:'barbell',
   performed:[{type:'working',weightKg:92.5,reps:5,rpe:7,logged:true},{type:'working',weightKg:92.5,reps:5,rpe:7,logged:true}],tags:[],progression:null,nextLoad:null};
@@ -2814,7 +2828,7 @@ console.log('\n--- V6: fix pack ---');
 assert(dispSuggest(161.3,'machine','increase')===162.5, 'F3: stored 161.3 machine increase displays 162.5. Got: '+dispSuggest(161.3,'machine','increase'));
 assert(dispSuggest(16.5,'cable','hold')===16.5, 'F3: hold renders raw — achieved weight is history');
 assert(dispSuggest(70,'barbell','flag')===70, 'F3: deload 70 barbell unchanged by floor snap');
-assert(dispSuggest(69.1,'barbell','flag')===67.5, 'F3: deload floors to a loadable step. Got: '+dispSuggest(69.1,'barbell','flag'));
+assert(dispSuggest(69.1,'barbell','flag')===69, 'F3+G3: deload floors to the nearest rackable below (1 kg rack → 69). Got: '+dispSuggest(69.1,'barbell','flag'));
 assert(dispSuggest(24,'kb','increase')===24, 'F3: kb passes through — bells are fixed weights');
 // --- F3 seeded report: pre-fix stored 161.3 renders loadable in tail + summary chain ---
 S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();
@@ -2917,5 +2931,40 @@ assert(/startBtn\.style\.display=day\.sessionType==='rest'\?'none'/.test(html), 
 assert((html.match(/'Farmer Carry':\{/g)||[]).length===1, 'G2: Farmer Carry defined exactly once');
 assert(inferEquipmentClass('Farmer Carry')==='kb', 'G2: Farmer Carry regains the kb equipment class');
 assert(!/st==='swim'\|\|st==='run'\|\|st==='pilates'\|\|st==='mobility'/.test(html), 'G2: no stray hardcoded activity-type lists remain');
+
+// ===== G3: WORKING-SET PLATE SNAPPING (spec D, parametrized) =====
+console.log('\n--- G3: bar-aware working-set snapping ---');
+const P6=[25,20,15,10,5,2.5];               // spec's coarse test set
+const P7=[25,20,15,10,5,2.5,1.25];          // the confirmed Singapore rack
+assert(isMakeableTotal(121,36,P6)===true, 'G3: 121 makeable on 36 bar / coarse set (2x42.5)');
+assert(isMakeableTotal(122.5,36,P6)===false, 'G3: 122.5 impossible on 36 bar / coarse set');
+assert(nearestMakeableTotal(122.5,36,P6)===121, 'G3: 122.5 -> nearest 121 (down). Got: '+nearestMakeableTotal(122.5,36,P6));
+assert(nearestMakeableTotal(124.5,36,P6)===126, 'G3: 124.5 -> nearest 126 (up). Got: '+nearestMakeableTotal(124.5,36,P6));
+assert(nearestMakeableTotal(123.5,36,P6)===121, 'G3: exact midpoint ties round DOWN (121 not 126). Got: '+nearestMakeableTotal(123.5,36,P6));
+assert(isMakeableTotal(97.5,20,P7)===true, 'G3: 97.5 squat backoff loadable with 1.25s (2x38.75)');
+assert(isMakeableTotal(97.5,20,P6)===false, 'G3: 97.5 impossible without 1.25s');
+assert(isMakeableTotal(122.5,36,P7)===false, 'G3: 122.5 still impossible on the Singapore rack (no 1 kg)');
+assert(snapToMakeable(122.5,36,P6)===121, 'G3: DP floor agrees with greedy on the coarse set');
+// DP beats greedy on odd inventories: per-side 30 with [20,17.5] -> greedy
+// takes 20 then stalls (20); DP finds 17.5+... nothing = 20? craft: target 35/side with [20,17.5]: greedy 20+...=20; DP 17.5+17.5=35.
+assert(snapToMakeable(90,20,[20,17.5])===90, 'G3: DP floor finds 2x35 (17.5+17.5) where greedy stalls at 20. Got: '+snapToMakeable(90,20,[20,17.5]));
+assert(DEFAULT_PLATES.join(',')==='25,20,15,10,5,2.5,1.25', 'G3: default inventory has 1.25s, no 1 kg');
+assert(/_sgPlates1kgDroppedB6/.test(html), 'G3: one-shot drops the 1 kg pair from stored Singapore config');
+// genWarmups stays plate-exact under the new floor
+(()=>{
+  const rows=genWarmups(126,{name:'Deadlift',barKg:36});
+  assert(rows.length>=2 && rows.every(r=>isMakeableTotal(r.w,36,activePlates())), 'G3: generated DL warmups all rackable. Got: '+JSON.stringify(rows));
+})();
+// validator: authored unrackable barbell load warns (never blocks).
+// Gym-pinned: Singapore's rack (1.25s, no 1 kg) is where 122.5 is a lie.
+(()=>{
+  const _gymSave=S.settings.activeGymId;S.settings.activeGymId='gym-singapore';
+  const w=validateSession([{name:'Deadlift',cat:'hinge',sets:4,reps:'5',loadKg:122.5,unit:'kg',equipmentClass:'barbell',barKg:36}],{sessionType:'lifting',targetDur:60});
+  const pm=w.filter(x=>/not loadable/.test(x.msg));
+  assert(pm.length===1 && pm[0].level==='warn', 'G3: validator warns on authored 122.5 @ 36 bar. Got: '+JSON.stringify(pm));
+  const w2=validateSession([{name:'Deadlift',cat:'hinge',sets:4,reps:'5',loadKg:126,unit:'kg',equipmentClass:'barbell',barKg:36}],{sessionType:'lifting',targetDur:60});
+  assert(w2.filter(x=>/not loadable/.test(x.msg)).length===0, 'G3: 126 @ 36 bar is clean');
+  S.settings.activeGymId=_gymSave;
+})();
 
 console.log('\n=== All tests passed ===');
