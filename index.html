@@ -1124,7 +1124,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 
 <div class="overlay" id="skipSetModal">
   <div class="modal">
-    <div class="modal-t">Skip Set · Reason</div>
+    <div class="modal-t" data-t="skipset.title">Skip Set · Reason</div>
     <div id="skipSetList" style="display:flex;flex-direction:column;gap:6px;margin-top:8px"></div>
     <button class="btn btn-s btn-w" style="margin-top:12px" onclick="cancelSkipSet()">Cancel</button>
   </div>
@@ -1417,7 +1417,21 @@ gothic:{
  'goal.g1':'The Vow of One Thousand','goal.swim':'The Vow of Open Water','goal.mu':'The Vow of the Bar','goal.run':'The Vow of Miles','goal.paused':'Vows in Abeyance',
  'excl.title':'Interdicted Rites'
 }};
+STRINGS.plain['badge.flag']='\u26a0 Flagged';STRINGS.gothic['badge.flag']='\u26a0 Strategic Withdrawal';
+STRINGS.plain['skipset.title']='Skip Set \u00b7 Reason';STRINGS.gothic['skipset.title']='Reason for abstention';
+STRINGS.plain['excl.why']='why?';STRINGS.gothic['excl.why']='by order of the Apothecarion';
+STRINGS.plain['valid.clean']='validator clean';STRINGS.gothic['valid.clean']='The Machine Spirit is appeased.';
+// The four canonical protection sites — and ONLY these four (asserted).
+STRINGS.gothic['readout.top']='THE EMPEROR PROTECTS';
+STRINGS.gothic['pain.confirm']='Wound sustained. The Emperor protects.';
+STRINGS.gothic['summary.final']='Rite concluded. The Emperor protects.';
+STRINGS.gothic['prog.deload']='The Emperor protects. Recover. Return.';
 function t(k){if(imperiumOn()&&STRINGS.gothic[k]!==undefined)return STRINGS.gothic[k];return STRINGS.plain[k]!==undefined?STRINGS.plain[k]:k;}
+// Machine-cant: Mechanicus display voice for suggestions/validator lines.
+// Uppercases the LABEL only — payloads (loads, exercise names) pass through.
+function machineCant(label,payload){
+  return '++ '+String(label).toUpperCase()+((payload!==undefined&&payload!==null&&payload!=='')?(' '+payload):'')+' ++';
+}
 // Static-DOM sweep: [data-t] textContent + [data-t-ph] placeholder. STATIC
 // nodes only — rendered templates call t() inline; never mix the two.
 function applyStrings(){
@@ -3528,7 +3542,7 @@ function renderTrain(){
   let html='';
   // New-block banner (surfaces when the built-in default differs from the loaded block)
   if(DEF_PROGRAM.version>(S.program.version??0) && S.settings._dismissedProgramVersion!==DEF_PROGRAM.version){
-    html+=`<div class="block-banner"><div><div class="t-meta" style="color:var(--gold)">New block available</div><div style="font:600 14px var(--sans);margin-top:2px">${DEF_PROGRAM.name}</div></div><div style="display:flex;gap:6px"><button class="btn btn-sm btn-gold" onclick="event.stopPropagation();reviewNewBlock()">Review</button><button class="btn btn-sm btn-g" onclick="event.stopPropagation();dismissNewBlock()">Skip</button></div></div>`;
+    html+=`<div class="block-banner"><div><div class="t-meta" style="color:var(--gold)">${t('banner.newBlock')}</div><div style="font:600 14px var(--sans);margin-top:2px">${DEF_PROGRAM.name}</div></div><div style="display:flex;gap:6px"><button class="btn btn-sm btn-gold" onclick="event.stopPropagation();reviewNewBlock()">${t('banner.review')}</button><button class="btn btn-sm btn-g" onclick="event.stopPropagation();dismissNewBlock()">${t('banner.skip')}</button></div></div>`;
   }
   // Cross-session recovery conflicts (validateWeek) — warn banner if the
   // scheduled week double-trains a movement pattern within 24h.
@@ -3562,7 +3576,7 @@ function renderTrain(){
   if(startIdx>=0){
     const sDay=S.program.days[startIdx];
     const isTodayStart=startIdx===todayIdx;
-    const label=isTodayStart?`Start — ${sDay.label}`:`Start — ${sDay.label} (${sDay.defaultDay||sDay.dayOfWeek})`;
+    const label=isTodayStart?`${t('start.pre')}${sDay.label}`:`${t('start.pre')}${sDay.label} (${sDay.defaultDay||sDay.dayOfWeek})`;
     html+=`<button class="start-btn" onclick="showDayPreview(${startIdx})">${label}</button>`;
     // Train's second (and final) gradient surface: the top-set chip.
     try{
@@ -3575,12 +3589,12 @@ function renderTrain(){
   // "Up next" lists the sessions after the Start one. Only show the all-done
   // message when there's genuinely nothing left (no start session either).
   if(upcoming.length){
-    html+=`<div class="section-hdr" style="margin-top:4px">Up next</div>`+upcoming.map(u=>u.card).join('');
+    html+=`<div class="section-hdr" style="margin-top:4px">${t('train.upNext')}</div>`+upcoming.map(u=>u.card).join('');
   } else if(startIdx<0){
-    html+=`<div class="t-meta" style="padding:8px 2px">All sessions done — load a new block.</div>`;
+    html+=`<div class="t-meta" style="padding:8px 2px">${t('train.allDone')}</div>`;
   }
   if(completed.length){
-    html+=`<div class="comp-toggle" onclick="this.parentNode.querySelector('.comp-list').classList.toggle('open');this.classList.toggle('open')">Completed this block · ${completed.length}<span class="comp-arrow">›</span></div><div class="comp-list">${completed.join('')}</div>`;
+    html+=`<div class="comp-toggle" onclick="this.parentNode.querySelector('.comp-list').classList.toggle('open');this.classList.toggle('open')">${t('train.completed')} · ${completed.length}<span class="comp-arrow">›</span></div><div class="comp-list">${completed.join('')}</div>`;
   }
   container.innerHTML=html;
 }
@@ -4362,13 +4376,13 @@ function renderExList(){
               <span class="x">×</span>
               <input type="number" value="${rVal}" placeholder="${ru||'rps'}" id="r${i}_${si}" oninput="stashSetInput(${i},${si})" aria-label="reps">
             </div>
-            <button class="set-log ready" onclick="logSet(${i},${si})">Log</button>
+            <button class="set-log ready" onclick="logSet(${i},${si})">${t('log.one')}</button>
             <button class="set-skip" onclick="skipSet(${i},${si})">skip</button>
             ${wu||si>=ex.prescribed.sets?`<button class="set-del" onclick="delSet(${i},${si})">×</button>`:''}
           </div>`;
         }).join('');})()}
         <div class="ex-actions">
-          ${!allDone?`<button class="btn btn-sm btn-p" onclick="logAll(${i})">Log All</button>`:''}
+          ${!allDone?`<button class="btn btn-sm btn-p" onclick="logAll(${i})">${t('log.all')}</button>`:''}
           <button class="btn btn-sm btn-g" onclick="addSet(${i})">+ Set</button>
           <div class="ex-more-wrap" style="position:relative;margin-left:auto">
             <button class="btn btn-sm btn-g" onclick="toggleExMenu(${i})" aria-label="More">⋯</button>
@@ -4385,9 +4399,9 @@ function renderExList(){
         </div>
         ${ex.painEvent?`<div style="margin-top:8px;padding:8px 10px;border-radius:var(--rs);background:var(--red-dim);font-size:12px;color:var(--red)">⚠ ${ex.painEvent.severity} pain${ex.painEvent.action?' — '+ex.painEvent.action:''}</div>`:''}
         ${allDone&&ex.progression?`<div class="prog-badge prog-${ex.progression==='increase'?'up':ex.progression==='flag'?'flag':ex.progression==='stall'?'stall':ex.progression==='skipped'?'skip':'hold'}">
-          <span>${ex.progression==='increase'?'↑ Increase':ex.progression==='flag'?'⚠ Flagged':ex.progression==='stall'?'⏸ Stall':ex.progression==='skipped'?'⏭ Skipped':'→ Hold'}</span>
+          <span>${ex.progression==='increase'?'↑ Increase':ex.progression==='flag'?t('badge.flag'):ex.progression==='stall'?'⏸ Stall':ex.progression==='skipped'?'⏭ Skipped':'→ Hold'}</span>
           ${ex.nextLoad&&ex.progression==='increase'?`<span class="tm">${fmtW(ex.nextLoad,ex.prescribed.unit)}</span>`:ex.nextTarget&&ex.progression==='increase'?`<span class="tm">next ${ex.nextTarget}${/^\d+$/.test(ex.nextTarget)?' reps':''}</span>`:''}
-        </div>${(ex.progression==='flag'||ex.progression==='hold')&&ex.progressionReason?`<div style="margin-top:6px;padding:7px 10px;background:var(--s2);border-left:2px solid ${ex.progression==='flag'?'var(--warn)':'var(--line)'};border-radius:var(--rs);font:500 11px var(--mono);color:var(--tx2);line-height:1.4">${ex.progressionReason}</div>`:''}`:''}
+        </div>${(ex.progression==='flag'||ex.progression==='hold')&&ex.progressionReason?`<div style="margin-top:6px;padding:7px 10px;background:var(--s2);border-left:2px solid ${ex.progression==='flag'?'var(--warn)':'var(--line)'};border-radius:var(--rs);font:500 11px var(--mono);color:var(--tx2);line-height:1.4">${imperiumOn()?machineCant('MACHINE SPIRIT SPEAKS:',ex.progressionReason):ex.progressionReason}</div>`:''}`:''}
       </div>
     </div>`;
   }).join('');
@@ -4546,7 +4560,7 @@ function focusSetRowHTML(ex,ei,s,si,memberTag){
       <span class="x">\u00d7</span>
       <input type="number" value="${rVal}" placeholder="${ru||'rps'}" id="r${ei}_${si}" oninput="stashSetInput(${ei},${si})" aria-label="reps">
     </div>
-    <button class="set-log ready" onclick="logSet(${ei},${si})">Log</button>
+    <button class="set-log ready" onclick="logSet(${ei},${si})">${t('log.one')}</button>
     <button class="set-skip" onclick="skipSet(${ei},${si})">skip</button>
     ${wu||si>=ex.prescribed.sets?`<button class="set-del" onclick="delSet(${ei},${si})">\u00d7</button>`:''}
   </div>`;
@@ -4660,12 +4674,13 @@ function focusCardHTML(u,p,sess,curPos){
   const members=u.eis.map((ei,mi)=>focusMemberHeadHTML(sess.exercises[ei],ei,u.eis.length>1?String.fromCharCode(65+mi):null)).join('');
   const rows=seq.map(([ei,si])=>focusSetRowHTML(sess.exercises[ei],ei,sess.exercises[ei].performed[si],si,u.eis.length>1?String.fromCharCode(65+u.eis.indexOf(ei)):null)).join('');
   // C1: the Log button no longer duplicates the readout's numbers.
-  const logLbl=cur?('Log '+(sess.exercises[cur[0]].performed[cur[1]].type==='warmup'?'warm-up':'set '+(sess.exercises[cur[0]].performed.slice(0,cur[1]).filter(x=>x.type==='working').length+1))):null;
-  const prog=u.eis.map(ei=>sess.exercises[ei]).filter(ex=>done&&ex.progression).map(ex=>`<div class="prog-badge prog-${ex.progression==='increase'?'up':ex.progression==='flag'?'flag':ex.progression==='stall'?'stall':ex.progression==='skipped'?'skip':'hold'}"><span>${ex.progression==='increase'?'\u2191 Increase':ex.progression==='flag'?'\u26a0 Flagged':ex.progression==='stall'?'\u23f8 Stall':ex.progression==='skipped'?'\u23ed Skipped':'\u2192 Hold'}</span>${ex.nextLoad&&ex.progression==='increase'?`<span class="tm">${fmtW(ex.nextLoad,ex.prescribed.unit)}</span>`:''}</div>`).join('');
+  const logLbl=cur?(sess.exercises[cur[0]].performed[cur[1]].type==='warmup'?t('log.wu'):(t('log.set')+(sess.exercises[cur[0]].performed.slice(0,cur[1]).filter(x=>x.type==='working').length+1))):null;
+  const prog=u.eis.map(ei=>sess.exercises[ei]).filter(ex=>done&&ex.progression).map(ex=>`<div class="prog-badge prog-${ex.progression==='increase'?'up':ex.progression==='flag'?'flag':ex.progression==='stall'?'stall':ex.progression==='skipped'?'skip':'hold'}"><span>${ex.progression==='increase'?'\u2191 Increase':ex.progression==='flag'?t('badge.flag'):ex.progression==='stall'?'\u23f8 Stall':ex.progression==='skipped'?'\u23ed Skipped':'\u2192 Hold'}</span>${ex.nextLoad&&ex.progression==='increase'?`<span class="tm">${fmtW(ex.nextLoad,ex.prescribed.unit)}</span>`:''}</div>`).join('');
   const pains=u.eis.map(ei=>sess.exercises[ei]).filter(ex=>ex.painEvent).map(ex=>`<div style="margin-top:8px;padding:8px 12px;border-radius:var(--rs);background:var(--red-dim);font-size:12px;color:var(--red)">\u26a0 ${ex.painEvent.severity} pain${ex.painEvent.action?' \u2014 '+ex.painEvent.action:''}</div>`).join('');
   return `<div class="fcard${done?' done':''}${secCls}" id="fcard${u.eis[0]}">${secHdr}
     ${members}
     ${readout}
+    ${imperiumOn()&&cur&&sess.exercises[cur[0]].performed[cur[1]].tag==='top'?`<div class="t-meta" style="letter-spacing:.18em;margin:-2px 0 6px">${STRINGS.gothic['readout.top']}</div>`:''}
     ${rows}
     ${cur?`<button class="fc-log" onclick="focusLogCurrent(${p})">${logLbl}</button>`:''}
     ${prog}${pains}
@@ -4673,10 +4688,10 @@ function focusCardHTML(u,p,sess,curPos){
 }
 function focusWrapCardHTML(sess){
   return `<div class="fcard fc-wrap">
-    <div class="t-h1" style="margin:8px 0 12px">Wrap up</div>
+    <div class="t-h1" style="margin:8px 0 12px">${t('wrap.title')}</div>
     <button class="btn btn-g btn-w" style="margin-top:12px;min-height:48px" onclick="openExtras()">+ Add Exercise</button>
     <div class="field" style="margin-top:16px"><label>Session Notes</label><textarea id="fNotes" rows="4" placeholder="How did it feel? Anything to flag..." oninput="queueNotesSave(this.value)" style="font-size:13px">${esc(sess.notes||'')}</textarea></div>
-    <button class="btn btn-d btn-w" style="margin-top:16px;min-height:48px" onclick="endSession()">End Session</button>
+    <button class="btn btn-d btn-w" style="margin-top:16px;min-height:48px" onclick="endSession()">${t('wrap.end')}</button>
   </div>`;
 }
 // ===== FOCUS GESTURES + REST (S6) =====
@@ -5337,7 +5352,7 @@ function openSubstitute(ei){
   // Contraindicated exercises: hidden from the pool, listed with reasons.
   const avoided=getAvoided(ex.name);
   if(avoided.length){
-    body.innerHTML+=`<div class="avoid-wrap"><button class="btn btn-sm btn-g" style="width:100%" onclick="var x=document.getElementById('avoidList');if(x)x.style.display=x.style.display==='none'?'block':'none'">Excluded (${avoided.length}) — why?</button>
+    body.innerHTML+=`<div class="avoid-wrap"><button class="btn btn-sm btn-g" style="width:100%" onclick="var x=document.getElementById('avoidList');if(x)x.style.display=x.style.display==='none'?'block':'none'">${t('excl.title')} (${avoided.length}) \u2014 ${t('excl.why')}</button>
       <div id="avoidList" style="display:none;margin-top:6px">${avoided.map(a=>`<div style="padding:8px 10px;border-radius:var(--rs);background:var(--s2);margin-bottom:4px"><div style="font:600 13px var(--sans);color:var(--tx2)">${a.name}</div><div style="font:11px var(--sans);color:var(--tx3);margin-top:1px">${a.reason}</div></div>`).join('')}</div></div>`;
   }
   showModal('subModal');
@@ -5945,6 +5960,7 @@ function logPain(sev){
     }
   }
   save();hideModal('painModal');renderEx();
+  if(imperiumOn())toast(STRINGS.gothic['pain.confirm']);
 }
 
 // ===== END SESSION =====
@@ -5958,9 +5974,9 @@ function cancelSession(){
   // Confirm if ANY work happened — logged sets OR just being in a session for >60s.
   // Stops an accidental Cancel tap from wiping a live session.
   if(anyLogged){
-    if(!confirm('Discard this session? Logged sets will be lost.'))return;
+    if(!confirm(imperiumOn()?'The record forgives nothing. Abandon the rite?':'Discard this session? Logged sets will be lost.'))return;
   } else if(elapsedSec>60){
-    if(!confirm('Cancel this session? '+Math.floor(elapsedSec/60)+' min elapsed.'))return;
+    if(!confirm(imperiumOn()?'The record forgives nothing. Abandon the rite?':('Cancel this session? '+Math.floor(elapsedSec/60)+' min elapsed.')))return;
   }
   stopRest();if(sessionTimer)clearInterval(sessionTimer);sessionTimer=null;
   S.activeSession=null;save();
@@ -6064,9 +6080,9 @@ function renderSummary(rec){
         <div class="${pc}" style="font-weight:700;font-size:16px">${pi}</div>
       </div>
       ${ex.nextLoad&&ex.progression==='increase'?`<div style="font-size:11px;color:var(--grn);margin-top:3px">Next: ${fmtW(dispSuggest(ex.nextLoad,ex.equipmentClass||inferEquipmentClass(ex.name),'increase',ex),ex.prescribed?.unit)}</div>`:ex.nextTarget&&ex.progression==='increase'?`<div style="font-size:11px;color:var(--grn);margin-top:3px">Next: ${ex.nextTarget}${/^\d+$/.test(ex.nextTarget)?' reps':''}</div>`:''}
-      ${(ex.progression==='flag'||ex.progression==='hold')&&ex.progressionReason?`<div style="font-size:11px;color:${ex.progression==='flag'?'var(--warn)':'var(--tx2)'};margin-top:3px;line-height:1.4">${ex.progressionReason}</div>`:''}
+      ${(ex.progression==='flag'||ex.progression==='hold')&&ex.progressionReason?`<div style="font-size:11px;color:${ex.progression==='flag'?'var(--warn)':'var(--tx2)'};margin-top:3px;line-height:1.4">${ex.progressionReason}${imperiumOn()&&/deload/i.test(ex.progressionReason)?' \u2014 '+STRINGS.gothic['prog.deload']:''}</div>`:''}
     </div>`;
-  }).join('');
+  }).join('')+(imperiumOn()?`<div class="t-meta" style="text-align:center;margin-top:14px;letter-spacing:.08em">${STRINGS.gothic['summary.final']}</div>`:'');
 
 }
 
@@ -6571,7 +6587,7 @@ function renderGoalsDashboard(){
   const orb=[ringFor(78,'squat',cSquat),ringFor(63,'bench',cBench),ringFor(48,'dead',cDead)];
   const rings=orb.map(o=>o.ring).join('')+orb.map(o=>o.label).join('');
   const card1000=`<div class="goal-card lift tap" onclick="goToLiftDetail('squat')">
-    <div class="goal-head"><span class="t-h2">1000 lb Club</span><span class="pace2" style="color:var(--${pace})">${paceLabel}</span></div>
+    <div class="goal-head"><span class="t-h2">${t('goal.g1')}</span><span class="pace2" style="color:var(--${pace})">${paceLabel}</span></div>
     <div class="club2"><svg viewBox="0 0 190 190" width="190" height="190" aria-hidden="true">
       <defs><linearGradient id="sunGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--brand)"/><stop offset="1" style="stop-color:var(--brand2)"/></linearGradient></defs>
       <circle cx="${CTR}" cy="${CTR}" r="34" fill="url(#sunGrad)"/>${rings}</svg>
@@ -6600,13 +6616,13 @@ function renderGoalsDashboard(){
   else if(muDone===0)muLabel='Log a Strict Pull-Up set to start tracking';
   else muLabel=ms[muDone-1].label+' ✓ — Next: '+ms[muDone].label;
   const cardMU=`<div class="goal-card cali tap" onclick="openMuscleUpDetail()">
-    <div class="goal-head"><span class="t-h2">Bar Muscle-Up</span><span class="t-meta">${muDone}/5</span></div>
+    <div class="goal-head"><span class="t-h2">${t('goal.mu')}</span><span class="t-meta">${muDone}/5</span></div>
     <div class="mu-trail">${trail}</div>
     <div class="t-meta" style="margin-top:8px;color:var(--tx2)">${muLabel}</div></div>`;
   // Swim — manual best distance + 2-tap quick-log
   const sb=swimBest(S.sessions);
   const cardSwim=`<div class="goal-card swim">
-    <div class="goal-head"><span class="t-h2">1000 m Freestyle</span><span class="tagm">manual</span></div>
+    <div class="goal-head"><span class="t-h2">${t('goal.swim')}</span><span class="tagm">manual</span></div>
     <div class="bigrow"><span class="big" style="color:var(--m-swim)">${sb}</span><span class="bigu">/ 1000 m best</span><button class="qlog" onclick="quickLogActivity('swim')" aria-label="${sb?'Update swim best':'Log a swim'}">${sb?'Update':'+ Log swim'}</button></div>
     ${sb?'':'<div class="t-meta" style="margin-top:2px">No continuous swim logged yet — only one unbroken effort counts.</div>'}
     <div class="goal-bar"><div class="goal-bar-fill" style="width:${Math.min(100,sb/1000*100)}%;background:var(--m-swim)"></div></div></div>`;
@@ -6618,7 +6634,7 @@ function renderGoalsDashboard(){
   const spark=series.map((v,i)=>`${(i/(series.length-1||1)*100).toFixed(1)},${(28-v/mx*24).toFixed(1)}`).join(' ');
   const runEmpty=series.every(v=>v===0);
   const cardRun=`<div class="goal-card run">
-    <div class="goal-head"><span class="t-h2">Weekly Running</span><span class="tagm">manual</span></div>
+    <div class="goal-head"><span class="t-h2">${t('goal.run')}</span><span class="tagm">manual</span></div>
     <div class="bigrow"><span class="big" style="color:var(--m-run)">${thisWk.toFixed(1)}</span><span class="bigu">km this wk</span><button class="qlog" onclick="quickLogActivity('run')" aria-label="Log a run">+ Log run</button></div>
     <svg viewBox="0 0 100 28" width="100%" height="30" preserveAspectRatio="none" aria-hidden="true"><polyline points="${spark}" fill="none" stroke="${runEmpty?'color-mix(in srgb,var(--m-run) 45%,var(--bg))':'var(--m-run)'}" stroke-width="1.5" ${runEmpty?'stroke-dasharray="3 3"':''}/></svg>
     <div class="t-meta">${runEmpty?'No run logged this week':'4-wk avg '+avg.toFixed(1)+' km'}</div></div>`;
@@ -6628,7 +6644,7 @@ function renderGoalsDashboard(){
   const activeCards=[card1000, _pausedIds.has('g-mu')?null:cardMU, cardSwim, _pausedIds.has('g-run')?null:cardRun].filter(Boolean).join('');
   const pausedCards=[_pausedIds.has('g-mu')?cardMU:null, _pausedIds.has('g-run')?cardRun:null].filter(Boolean);
   const pausedBlock=pausedCards.length?`<div class="paused-wrap${_pausedOpen?' open':''}" id="pausedWrap">
-    <div class="paused-toggle" onclick="togglePausedGoals()">Paused <span class="sec-count">${pausedCards.length}</span><span class="sec-chev">${_pausedOpen?'\u2304':'\u203a'}</span></div>
+    <div class="paused-toggle" onclick="togglePausedGoals()">${t('goal.paused')} <span class="sec-count">${pausedCards.length}</span><span class="sec-chev">${_pausedOpen?'\u2304':'\u203a'}</span></div>
     <div class="paused-body">${pausedCards.map(c=>c.replace('class="goal-card','class="goal-card paused')).join('')}
       <div style="display:flex;gap:8px;margin-top:4px">${_pausedIds.has('g-mu')?'<button class="btn btn-sm btn-g" style="min-height:44px" onclick="resumeGoal(\'g-mu\')">Resume Muscle-Up</button>':''}${_pausedIds.has('g-run')?'<button class="btn btn-sm btn-g" style="min-height:44px" onclick="resumeGoal(\'g-run\')">Resume Running</button>':''}</div>
     </div></div>`:'';
@@ -6986,7 +7002,9 @@ function runValidatorAuto(prefix){
   try{
     const warns=validateProgram();
     const n=warns.reduce((a,r)=>a+(r.warnings||[]).filter(w=>w.level==='warn').length,0);
-    toast(prefix+(n?' — '+n+' validator warning'+(n===1?'':'s')+' (console)':' — validator clean'));
+    toast(n
+      ?(imperiumOn()?machineCant('DISCORD DETECTED:',n+' warning'+(n===1?'':'s')+' (console)'):(prefix+' — '+n+' validator warning'+(n===1?'':'s')+' (console)'))
+      :(imperiumOn()?t('valid.clean'):(prefix+' — validator clean')));
   }catch(e){}
 }
 // Brand hook lands in C9; safe no-op until then.

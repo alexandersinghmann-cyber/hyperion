@@ -61,6 +61,10 @@ const patched = js
   .replace(/\blet _veilT2\s*=/g, 'var _veilT2 =')
   .replace(/\bconst STRINGS\s*=/g, 'var STRINGS =');
 (0, eval)(patched);
+// H3: the boot one-shot defaults the Imperium theme ON; the suite tests the
+// PLAIN register by default (rendered-output pins are plain). H6 flips the
+// flag explicitly for gothic-register assertions and restores it.
+try{S.settings.imperium=false;}catch(e){}
 // Expose helpers globally (they were `function` declarations, already global when eval'd indirectly)
 
 
@@ -2156,7 +2160,10 @@ assert(/\.pain-flag\{min-width:44px;min-height:44px/.test(html), 'D5: flag meets
   assert(offenders.length===0, 'D6: chrome selectors still reference --acc: '+offenders.join(' | '));
 }
 // sentence-case labels + sans roles
-assert(/>New block available</.test(html)&&/>Recovery conflict</.test(html)&&/>Week wrapped</.test(html), 'D6: banner labels sentence-case');
+// H3: the new-block banner routes through t() — the plain copy lives in
+// STRINGS and the template references the key (sentence-case preserved).
+assert(/'banner\.newBlock':'New block available'/.test(html)&&/\$\{t\('banner\.newBlock'\)\}/.test(html), 'D6/H3: new-block banner plain copy + t() route');
+assert(/>Recovery conflict</.test(html)&&/>Week wrapped</.test(html), 'D6: banner labels sentence-case');
 assert(!/\.bar-btn\{[^}]*uppercase/.test(html)&&!/\.section-hdr\{[^}]*uppercase/.test(html), 'D6: nav + section labels no longer uppercase');
 assert(/#blockHdr\{text-transform:uppercase/.test(html), 'D6: block name keeps the single uppercase flourish');
 assert(/\.t-meta\{font:500 var\(--t-meta\) var\(--sans\)/.test(html), 'D6: t-meta utility is sans');
@@ -2293,7 +2300,7 @@ assert(getMeta('Machine Shoulder Press').avoid===true&&getMeta('DB Shoulder Pres
 assert(getMeta('V-Squat').avoid===true&&/pinal compression/.test(getMeta('V-Squat').avoidReason), '3b: V-Squat entry added with the spinal-compression reason');
 assert(getMeta('DB Incline Bench').avoid===true&&getMeta('Incline Bench Press').avoid===true, '3b: incline presses avoid-flagged');
 assert(!getEligibleVariantsForSlot('ohp').length||getEligibleVariantsForSlot('ohp').every(n=>!getMeta(n).avoid), '3b: rotation never auto-assigns an avoided lift');
-assert(/getAvoided\(ex\.name\)/.test(html)&&/Excluded \(\$\{avoided\.length\}\)/.test(html), '3b: excluded expander wired in the picker');
+assert(/getAvoided\(ex\.name\)/.test(html)&&/\$\{t\('excl\.title'\)\} \(\$\{avoided\.length\}\)/.test(html)&&/'excl\.title':'Excluded'/.test(html), '3b/H3: excluded expander wired through t() with plain copy intact');
 // 3c — permanent days survive adoption
 const f1old={name:'OldBlock',days:[{id:4,label:'Mobility',defaultDay:'Friday',dayOfWeek:'Friday',sessionType:'lifting',dur:70,permanent:true,exercises:[{id:'m1',name:'Wall Slide',cat:'rehab',sets:1,reps:'10',loadKg:0,unit:'bw',rest:30,tags:[],equipmentClass:'bw'}]}]};
 const f1new={name:'NewBlock',days:[{id:4,label:'Bench',defaultDay:'Monday',dayOfWeek:'Monday',sessionType:'lifting',dur:60,exercises:[]}]};
