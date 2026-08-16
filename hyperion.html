@@ -56,6 +56,16 @@
      Budget: max TWO gradient surfaces per screen — allocation lives with
      the screen, not the component. */
   --solar:linear-gradient(135deg,#FF6A3D,#F4B942);
+  /* ===== IMPERIUM THEME (H1): every theme hex lives HERE — the hex scan
+     strips only this first :root block. Registers below only var()-ref. */
+  --bg-min:#0A0908;--s1-min:#14120F;--tx-bone:#E8E2D0;--imp-gold:#C9A961;--imp-gold2:#A98B45;--crimson:#8C1C1C;
+  --line-brass:rgba(201,169,97,.14);
+  --bg-mech:#020402;--phos:#33FF66;--phos-dim:#1E9940;
+  --serif:'Copperplate','Bodoni 72 Smallcaps','Optima','Palatino','Georgia',serif;
+  --ch1a:#3B6BB5;--ch1b:#C9A961;--ch2a:#A31C1C;--ch2b:#E0A93E;--ch3a:#E3B505;--ch3b:#8C8C8C;--ch4a:#2E8B57;--ch4b:#FF7A3D;
+  --ch5a:#9BA3AB;--ch5b:#E8E2D0;--ch6a:#7A8288;--ch6b:#C0C6CC;--ch7a:#E8E2D0;--ch7b:#A31C1C;--ch8a:#1F5C3A;--ch8b:#C9A961;
+  --grain-imp:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAAAAAByaaZbAAACdklEQVR42m1ViXEDIQzcwlQc5W1XCvrFxc74YgPWs4/A4Tly9NjzvnDfFNg32Ir6lh2yHT9gH3wxfhG76r+wpwg8Ho5qRrQUfuCuM9b0xKf9Yjzg/0VWAolNdlCLgYnGrJC7Kn+pBbL6qJ3C6pzk0uet0vpyiwhM7p+3fHvihOYZACRrUvQOAGtWuvL7cJzP6ooZpVDyKKLRxW7COakVLzfpyCVl0iQRjFrHxTet+RtXYk0xPEx+h0cjtHRaWSwhP6mUFLKLbufiJMJz1j7YvEYsMlMyAUtdSMXi6QBc7wsoOrA6GbGhm4/A8YFO1gIpz2GHSDNfFIJJb7VIhpcCNsUjbYWyiqYLYKfknA0DRpZwSPApwx2jIbcra+wWiGJJt1ijnwfrYr/8UNWbQos9nrZe6FlvQa4lPMGWAHmaFOo45cxX9ZFR1F6Uw4fwzlg8aHgwinLNDjM1KjaPjjklV7kEyQD+GkjLRILz++VZgOBWUoDNeZThAitjsQpwG2V0KWlEEUzypczdRaMknoOSLc+fBTIonZwNPx8duzf4XTDdBFOIMEWaytadWplwJrCUEzA0o2MO14p0F/JOoke4ojUxEMQ6DzEJgaUethFf9wUr9maRIueDVroz9I2Yrf8iQeZXa1TKsnNN/x0Z5UsZdzgPPwTFktOano60GdZz0Qzs2CYVxhomfhka+MypsP537YMBqqk7Czn6QPsu8rjwWBfKSfE/E8XvgERHucfM4ONhFXFPDaJSUio/8L0mcilG2Gyo9tSYmz7IsXmFf73H/cBFs9/FfpQv+wsKyz1QtwvImBm68TS95lj0IeMDRbY0tQSJuq35B5VriQaintTJAAAAAElFTkSuQmCC);
+  --scan-imp:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAADCAAAAAB3tjpeAAAADklEQVR42mP4z8DBwAEABSEBECOuQgAAAAAASUVORK5CYII=);
 }
 /* v3 numeric headline utility */
 .tnum{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
@@ -670,6 +680,53 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .dc-move{background:var(--s2);border:1px solid var(--s3);color:var(--tx2);width:22px;height:18px;border-radius:4px;font-size:9px;line-height:1;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center}
 .dc-move:disabled{opacity:.25;cursor:not-allowed}
 .dc-move:active:not(:disabled){transform:scale(.92)}
+/* ===== IMPERIUM THEME LAYER (H1) =====
+   Registers rescope EXISTING tokens via var() only (all hexes in :root).
+   Plain mode = .imperium absent → byte-identical Solar skin. Appended at the
+   sheet END so first-occurrence scans keep reading the base rules. */
+.imperium{
+  --bg:var(--bg-min);--s1:var(--s1-min);
+  --s2:color-mix(in srgb,var(--s1-min) 90%,var(--tx-bone));
+  --s3:color-mix(in srgb,var(--s1-min) 82%,var(--tx-bone));
+  --s4:color-mix(in srgb,var(--s1-min) 74%,var(--tx-bone));
+  --tx:var(--tx-bone);
+  --tx2:color-mix(in srgb,var(--tx-bone) 62%,var(--s1-min));
+  --tx3:color-mix(in srgb,var(--tx-bone) 42%,var(--s1-min));
+  --line:var(--line-brass);
+  --gold:var(--imp-gold);--gold2:var(--imp-gold2);
+}
+.imperium #app::before{content:'';position:fixed;inset:0;background-image:var(--grain-imp);background-size:48px 48px;opacity:.03;pointer-events:none;z-index:1}
+.imperium .t-h1,.imperium .t-h2,.imperium .modal-t,.imperium .section-hdr{font-family:var(--serif);font-variant-caps:small-caps;letter-spacing:.05em}
+.imperium .section-hdr{border-bottom:1px solid var(--line-brass);padding-bottom:6px}
+.imperium .section-hdr::first-letter{color:var(--gold);font-size:1.6em;line-height:.9}
+.imperium .btn-d{background:color-mix(in srgb,var(--crimson) 26%,var(--s1));border-color:color-mix(in srgb,var(--crimson) 55%,transparent)}
+/* MECHANICUS register — the active session only (list AND focus). */
+.imperium #vSession.on{
+  background:var(--bg-mech);
+  --bg:var(--bg-mech);
+  --s1:color-mix(in srgb,var(--bg-mech) 93%,var(--phos));
+  --s2:color-mix(in srgb,var(--bg-mech) 88%,var(--phos));
+  --s3:color-mix(in srgb,var(--bg-mech) 82%,var(--phos));
+  --s4:color-mix(in srgb,var(--bg-mech) 76%,var(--phos));
+  --tx:var(--phos);--tx2:var(--phos-dim);
+  --tx3:color-mix(in srgb,var(--phos-dim) 72%,var(--bg-mech));
+  --line:color-mix(in srgb,var(--phos) 16%,transparent);
+  --brand:var(--phos);--brand2:var(--phos-dim);
+  --brand-dim:color-mix(in srgb,var(--phos) 12%,transparent);
+  --grn:var(--phos-dim);--acc:var(--phos);
+  --gold:var(--phos);--gold2:var(--phos-dim);
+}
+.imperium #vSession.on,.imperium #vSession.on button,.imperium #vSession.on .t-h2,.imperium #vSession.on .modal-t,.imperium #vSession.on textarea,.imperium #vSession.on input{font-family:var(--mono);font-variant-caps:normal;letter-spacing:0}
+.imperium #vSession.on .fc-readout-w{background:none;-webkit-background-clip:initial;background-clip:initial;color:var(--phos)}
+.imperium #vSession.on .fc-log{background:var(--phos);color:var(--bg-mech)}
+.imperium #vSession.on .set-row.current{border:1px solid var(--phos)}
+@media (prefers-reduced-motion: no-preference){
+  .imperium #vSession.on::before{content:'';position:fixed;inset:0;background-image:var(--scan-imp);background-size:1px 3px;opacity:.02;pointer-events:none;z-index:1}
+}
+/* Register-crossing veil: timer-driven (the reduced-motion blanket kills
+   transitions, so JS guards the instant path — never transitionend). */
+#registerVeil{position:fixed;inset:0;background:var(--bg-mech);opacity:0;pointer-events:none;z-index:420;transition:opacity 400ms cubic-bezier(.2,0,0,1)}
+#registerVeil.on{opacity:1}
 </style>
 </head>
 <body>
@@ -1168,6 +1225,9 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       <span>Session view</span>
       <button class="btn btn-sm btn-g" onclick="toggleSessionView();renderSettings()" id="sViewBtn">FOCUS</button>
     </div>
+    <div class="set-row"><label>Imperium theme</label>
+      <button class="btn btn-sm btn-g" onclick="toggleImperium()" id="sImpBtn">ON</button>
+    </div>
     <div style="padding:10px 0;border-bottom:1px solid var(--s2)">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <span>Force Refresh</span>
@@ -1266,6 +1326,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   <button class="btn btn-gold btn-w" style="max-width:240px;margin-top:24px" onclick="dismissOnboarding()">Show me</button>
 </div>
 
+<div id="registerVeil" aria-hidden="true"></div>
 <div id="milestoneOverlay" role="dialog" aria-label="Milestone unlocked">
   <div class="mile-ring"><svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12l4-4 4 4M12 8v8"/></svg></div>
   <div class="mile-t">Milestone unlocked</div>
@@ -1367,6 +1428,38 @@ const BRAND_CYCLE=[
   {name:'crimson',c:'#FF4D6D',c2:'#FF8A5C',dim:'rgba(255,77,109,.12)'},
   {name:'bone',c:'#E8E4D8',c2:'#9BA8B5',dim:'rgba(232,228,216,.12)'}
 ];
+// ===== IMPERIUM THEME (H1) — theme layer only; logic untouched =====
+function imperiumOn(){return !!(S.settings&&S.settings.imperium===true);}
+function applyImperiumTheme(){
+  if(typeof document==='undefined'||!document.documentElement||!document.documentElement.classList)return;
+  document.documentElement.classList.toggle('imperium',imperiumOn());
+}
+function toggleImperium(){
+  S.settings.imperium=!imperiumOn();save();
+  applyImperiumTheme();
+  try{applyBrand();}catch(e){}
+  try{if(typeof applyImperiumAccent==='function')applyImperiumAccent();}catch(e){}
+  try{if(typeof applyStrings==='function')applyStrings();}catch(e){}
+  try{renderSettings();}catch(e){}
+  try{renderTrain();}catch(e){}
+  try{if(S.activeSession)renderEx();}catch(e){}
+}
+let _veilT1=null,_veilT2=null;
+// Register crossing (400ms dip-to-black). Instant when the theme is off,
+// under reduced motion, or in any environment without rAF (test harness) —
+// fn always runs, synchronously on the instant path.
+function veilCross(fn){
+  const instant=!imperiumOn()
+    ||typeof document==='undefined'||!document.getElementById
+    ||typeof requestAnimationFrame!=='function'
+    ||(typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const el=instant?null:document.getElementById('registerVeil');
+  if(!el||!el.classList){fn();return;}
+  if(_veilT1)clearTimeout(_veilT1);if(_veilT2)clearTimeout(_veilT2);
+  el.classList.add('on');
+  _veilT1=setTimeout(()=>{_veilT1=null;fn();},200);
+  _veilT2=setTimeout(()=>{_veilT2=null;el.classList.remove('on');},400);
+}
 function applyBrand(){
   const e=BRAND_CYCLE[((S.settings&&S.settings.brandIdx)||0)%BRAND_CYCLE.length]||BRAND_CYCLE[0];
   // Mock-document guard: the harness has no documentElement.
@@ -2473,7 +2566,10 @@ function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse
   setTimeout(()=>{try{validateProgram();const vw=validateWeek();if(vw.length){console.group('[Hyperion] Cross-session week warnings');vw.forEach(r=>r.warnings.forEach(w=>console.warn(w.level.toUpperCase()+' '+r.date+': '+w.msg)));console.groupEnd();}}catch(e){}},1200);
   // Brand accent: advance if the block changed while we were away (restore/
   // cross-device), then paint the tokens. Mock-safe (guards inside).
+  // Imperium theme ships default-ON exactly once; the Settings switch owns it after.
+  try{if(!S.settings._imperiumShipped){S.settings._imperiumShipped=true;if(S.settings.imperium===undefined)S.settings.imperium=true;save();}}catch(e){}
   try{maybeAdvanceBrand();}catch(e){}
+  try{applyImperiumTheme();}catch(e){}
 }catch(e){}}
 
 // B2: Canonical name→category map. Idempotent: only rewrites if wrong.
@@ -2795,6 +2891,7 @@ function renderSettings(){
   document.getElementById('sUnitBtn').textContent=S.settings.unit.toUpperCase();
   const qB=document.getElementById('sQuoteBtn');if(qB)qB.textContent=(S.settings.showQuote!==false)?'ON':'OFF';
   const vB=document.getElementById('sViewBtn');if(vB)vB.textContent=(S.settings.sessionView==='list')?'LIST':'FOCUS';
+  const iB=document.getElementById('sImpBtn');if(iB)iB.textContent=imperiumOn()?'ON':'OFF';
   const barI=document.getElementById('sBarKg'),plI=document.getElementById('sPlates');
   if(barI)barI.value=activeGymBar();
   if(plI)plI.value=activePlates().join(', ');
@@ -3821,8 +3918,7 @@ function startDay(i){
     _userOpened=new Set();_userClosed=new Set();
   }
   save();sessionStart=Date.now();startTimer();
-  showView('vSession');renderEx();
-  showSessionHero(day);
+  veilCross(()=>{showView('vSession');renderEx();showSessionHero(day);});
 }
 
 // 1s brand-washed transition naming the session + today's main-lift target.
@@ -3893,7 +3989,7 @@ function finalizeActivity(){
   try{stopRest();}catch(e){}
   if(sessionTimer)clearInterval(sessionTimer);sessionTimer=null;
   renderSessionBar();
-  goTrain();
+  veilCross(()=>{goTrain();});
   toast(rec.sessionType.charAt(0).toUpperCase()+rec.sessionType.slice(1)+' logged');
 }
 function renderActivityLog(sess){
@@ -5809,7 +5905,7 @@ function cancelSession(){
   stopRest();if(sessionTimer)clearInterval(sessionTimer);sessionTimer=null;
   S.activeSession=null;save();
   renderSessionBar();
-  goTrain();
+  veilCross(()=>{goTrain();});
 }
 
 function endSession(){
@@ -5881,7 +5977,7 @@ function confirmRpe(){
   S.activeSession=null;save();
   // Phase C: increment rotation counter
   try{maybePromptRotation();}catch(e){}
-  renderSummary(rec);showView('vSummary');
+  renderSummary(rec);veilCross(()=>{showView('vSummary');});
   renderSessionBar();
   // (No per-session report copy — the coach report is a weekly artifact.)
 }

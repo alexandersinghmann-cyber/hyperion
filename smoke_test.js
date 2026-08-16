@@ -56,7 +56,9 @@ const patched = js
   .replace(/\bconst DEFAULT_PLATES\s*=/g, 'var DEFAULT_PLATES =')
   .replace(/\bconst ROLE_DEFAULTS\s*=/g, 'var ROLE_DEFAULTS =')
   .replace(/\bconst ROLE_LABELS\s*=/g, 'var ROLE_LABELS =')
-  .replace(/\blet _addSessionDate\s*=/g, 'var _addSessionDate =');
+  .replace(/\blet _addSessionDate\s*=/g, 'var _addSessionDate =')
+  .replace(/\blet _veilT1\s*=/g, 'var _veilT1 =')
+  .replace(/\blet _veilT2\s*=/g, 'var _veilT2 =');
 (0, eval)(patched);
 // Expose helpers globally (they were `function` declarations, already global when eval'd indirectly)
 
