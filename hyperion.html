@@ -730,6 +730,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .imp-only{display:none}
 .imperium div.imp-only{display:block}
 .imperium span.imp-only{display:inline-block;vertical-align:middle}
+.commem-card{display:flex;gap:10px;align-items:center;background:var(--s1);border:1px solid var(--line);border-radius:var(--rs);padding:10px 12px;margin-bottom:10px}
 </style>
 </head>
 <body>
@@ -2674,6 +2675,7 @@ function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse
   try{if(!S.settings._imperiumShipped){S.settings._imperiumShipped=true;if(S.settings.imperium===undefined)S.settings.imperium=true;save();}}catch(e){}
   try{maybeAdvanceBrand();}catch(e){}
   try{applyImperiumTheme();}catch(e){}
+  try{applyImperiumAccent();}catch(e){}
   try{applyStrings();}catch(e){}
   try{const aq=document.getElementById('wmAquila');if(aq)aq.innerHTML=icon('eagle',13);}catch(e){}
 }catch(e){}}
@@ -2922,7 +2924,63 @@ const MAXIMS=[
   ['Per aspera ad astra.','Seneca'],
   ['The more we value things outside our control, the less control we have.','Epictetus']
 ];
-function getMaxim(){const d=new Date();const idx=(d.getFullYear()*1000+d.getMonth()*31+d.getDate())%MAXIMS.length;return MAXIMS[idx]}
+// H5: litanies replace the stoics while the theme is ON — same daily hash,
+// no author line. Straight-faced; extend only in this voice.
+const LITANIES=[
+ 'Blessed is the spine that bends only under iron.',
+ 'Doubt is the first defeat.',
+ 'The weight is a prayer; lift it as one.',
+ 'Iron remembers what flesh forgets.',
+ 'He who abandons the rite abandons himself.',
+ 'Strength is duty rendered visible.',
+ 'The Emperor asks not for ease.',
+ 'A vow unkept is a wound self-given.',
+ 'Endure. The alternative is unworthy.',
+ 'What is recorded cannot be taken.'
+];
+function getMaxim(){
+  const d=new Date();const h=d.getFullYear()*1000+d.getMonth()*31+d.getDate();
+  if(typeof imperiumOn==='function'&&imperiumOn())return [LITANIES[h%LITANIES.length],''];
+  return MAXIMS[h%MAXIMS.length];
+}
+// H5: weekly commemoration — 8 Chapters on the ISO week, Monday-anchored.
+// Colours are :root var NAMES (never hex here); textSafe flags are DATA,
+// verified against recomputed WCAG contrast in the smoke suite. A pair that
+// fails as text falls back to gold; fills/borders always use the true pair.
+const CHAPTERS=[
+ {name:'Ultramarines',motto:'Discipline is the truest honour.',varA:'--ch1a',varB:'--ch1b',textSafe:false},
+ {name:'Blood Angels',motto:'Nobility, even in fury.',varA:'--ch2a',varB:'--ch2b',textSafe:false},
+ {name:'Imperial Fists',motto:'The wall does not yield.',varA:'--ch3a',varB:'--ch3b',textSafe:true},
+ {name:'Salamanders',motto:'Into the fire, for the people.',varA:'--ch4a',varB:'--ch4b',textSafe:true},
+ {name:'Raven Guard',motto:'Strike unseen; endure unbroken.',varA:'--ch5a',varB:'--ch5b',textSafe:true},
+ {name:'Iron Hands',motto:'The flesh is weak; the work is not.',varA:'--ch6a',varB:'--ch6b',textSafe:true},
+ {name:'White Scars',motto:'Swiftness is its own strength.',varA:'--ch7a',varB:'--ch7b',textSafe:true},
+ {name:'Dark Angels',motto:'Duty, kept in silence.',varA:'--ch8a',varB:'--ch8b',textSafe:false}
+];
+function isoWeekNum(ds){
+  const d=new Date(ds+'T12:00:00');
+  d.setDate(d.getDate()+3-((d.getDay()+6)%7)); // the Thursday decides the week-year
+  const week1=new Date(d.getFullYear(),0,4);
+  return 1+Math.round(((d-week1)/86400000-3+((week1.getDay()+6)%7))/7);
+}
+function chapterOfWeek(ds){return CHAPTERS[(isoWeekNum(ds||todayStr())-1)%CHAPTERS.length];}
+// H5: the Ascension Path — rank from the Big-3 e1RM total in lb (banked
+// bench counts while the barbell lift is interdicted).
+const RANKS=[[1000,'Veteran'],[900,'Battle-Brother'],[800,'Initiate'],[700,'Neophyte'],[0,'Aspirant']];
+function rankForTotal(lb){for(const r of RANKS)if(lb>=r[0])return r[1];return 'Aspirant';}
+// Weekly accent: the Chapter pair replaces the block accent while the theme
+// is ON. Runs AFTER applyBrand (which stays byte-identical); plain mode is
+// applyBrand alone. var() indirection keeps every hex in :root.
+function applyImperiumAccent(){
+  if(typeof document==='undefined'||!document.documentElement||!document.documentElement.style||!document.documentElement.style.setProperty)return;
+  if(!imperiumOn())return;
+  const ch=chapterOfWeek(todayStr());
+  const textA=ch.textSafe?('var('+ch.varA+')'):'var(--imp-gold)';
+  document.documentElement.style.setProperty('--brand',textA);
+  document.documentElement.style.setProperty('--brand2','var('+ch.varB+')');
+  document.documentElement.style.setProperty('--brand-dim','color-mix(in srgb,var('+ch.varA+') 12%,transparent)');
+  document.documentElement.style.setProperty('--solar','linear-gradient(135deg,var('+ch.varA+'),var('+ch.varB+'))');
+}
 
 function fmtW(kg,u){
   if(kg===0||u==='bw')return'BW';
@@ -3489,11 +3547,22 @@ function renderTrain(){
     const maxim=getMaxim();
     // Opening mark is the decorative brand .q-mark in the markup.
     document.getElementById('quoteText').textContent=maxim[0]+'”';
-    document.getElementById('quoteAuthor').textContent='— '+maxim[1];
+    document.getElementById('quoteAuthor').textContent=maxim[1]?('— '+maxim[1]):'';
   }
   document.getElementById('unitBtn').textContent=S.settings.unit.toUpperCase();
   document.getElementById('blockDateRange').textContent=blockDateRange();
   document.getElementById('blockHdr').textContent=S.program.name||'Training Block';
+  // H5: the Ascension Path line (theme only; plain mode leaves it empty).
+  try{
+    const rl=document.getElementById('rankLine');
+    if(rl){
+      if(imperiumOn()){
+        const b3=getBig3E1rm();
+        const lbT=Math.round(b3.squat*K2L)+Math.round(b3.bench*K2L)+Math.round(b3.dead*K2L);
+        rl.textContent=rankForTotal(lbT).toUpperCase()+' OF THE IMPERIUM \u00b7 '+lbT+' LB';
+      }else rl.textContent='';
+    }
+  }catch(e){}
 
   // Block days
   const todayIdx=getTodayDayIdx();
@@ -3572,6 +3641,11 @@ function renderTrain(){
   // full week is always visible.
   upcoming.sort((a,b)=>a.sort<b.sort?-1:a.sort>b.sort?1:a.idx-b.idx);
   let html='';
+  // H5: weekly commemoration — one line under the litany, shield + motto.
+  if(imperiumOn()){
+    const _ch=chapterOfWeek(todayStr());
+    html+=`<div class="commem-card">${shieldIcon(_ch.varA,_ch.varB,22)}<div style="min-width:0"><div class="t-meta" style="color:var(--tx2)">This week the record keeps vigil in honour of the ${_ch.name}.</div><div class="t-meta" style="color:var(--gold);margin-top:2px">\u201c${_ch.motto}\u201d</div></div></div>`;
+  }
   // New-block banner (surfaces when the built-in default differs from the loaded block)
   if(DEF_PROGRAM.version>(S.program.version??0) && S.settings._dismissedProgramVersion!==DEF_PROGRAM.version){
     html+=`<div class="block-banner"><div><div class="t-meta" style="color:var(--gold)">${t('banner.newBlock')}</div><div style="font:600 14px var(--sans);margin-top:2px">${DEF_PROGRAM.name}</div></div><div style="display:flex;gap:6px"><button class="btn btn-sm btn-gold" onclick="event.stopPropagation();reviewNewBlock()">${t('banner.review')}</button><button class="btn btn-sm btn-g" onclick="event.stopPropagation();dismissNewBlock()">${t('banner.skip')}</button></div></div>`;

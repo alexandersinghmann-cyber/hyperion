@@ -59,7 +59,10 @@ const patched = js
   .replace(/\blet _addSessionDate\s*=/g, 'var _addSessionDate =')
   .replace(/\blet _veilT1\s*=/g, 'var _veilT1 =')
   .replace(/\blet _veilT2\s*=/g, 'var _veilT2 =')
-  .replace(/\bconst STRINGS\s*=/g, 'var STRINGS =');
+  .replace(/\bconst STRINGS\s*=/g, 'var STRINGS =')
+  .replace(/\bconst LITANIES\s*=/g, 'var LITANIES =')
+  .replace(/\bconst CHAPTERS\s*=/g, 'var CHAPTERS =')
+  .replace(/\bconst RANKS\s*=/g, 'var RANKS =');
 (0, eval)(patched);
 // H3: the boot one-shot defaults the Imperium theme ON; the suite tests the
 // PLAIN register by default (rendered-output pins are plain). H6 flips the
