@@ -1198,6 +1198,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   <div class="modal">
     <div class="modal-t" id="qlTitle">Log activity</div>
     <div class="field"><label id="qlDistLbl" for="qlDist">Distance</label><input type="number" inputmode="decimal" id="qlDist" placeholder="0"></div>
+    <div class="field" id="qlContWrap" style="display:none"><label for="qlCont"><input type="checkbox" id="qlCont"> One unbroken effort (counts toward 1000 m)</label></div>
     <div class="field"><label for="qlDur">Duration (min)</label><input type="number" inputmode="numeric" id="qlDur" placeholder="0"></div>
     <button class="btn btn-p btn-w" onclick="saveQuickLog()">Save</button>
     <button class="btn btn-s btn-w" style="margin-top:8px" onclick="hideModal('quickLogModal')">Cancel</button>
@@ -2522,6 +2523,12 @@ function migrateV3(){
   //  isDayDone/skip lookups. Its purpose was spent once W2 users were renamed.)
   // --- Sessions: sessionType ---
   (S.sessions||[]).forEach(s=>{if(!s.sessionType)s.sessionType='lifting';});
+  // F4 backfill: pre-flag swims (Jul 26 700 m, Aug 14 900 m among them) were
+  // NOT continuous — stamp them false once so the goal card tells the truth.
+  if(!S.settings._swimContinuousBackfill){
+    S.settings._swimContinuousBackfill=true;
+    (S.sessions||[]).forEach(s=>{if(s.sessionType==='swim'&&s.activity&&s.activity.continuous===undefined)s.activity.continuous=false;});
+  }
   // --- Singapore gym: inject into existing profiles + activate once ---
   try{
     ensureGyms();
@@ -3730,6 +3737,7 @@ function startDay(i){
     // Activity-log session: one form, no exercise cards.
     S.activeSession.activity={durationMin:day.dur||0,distance:day.defaultDistance||0,effort:null,notes:''};
     if(st==='kb'){S.activeSession.activity.kbWeights='';S.activeSession.activity.result='';}
+    if(st==='swim')S.activeSession.activity.continuous=false;
   } else {
     // Lifting + calisthenics: exercise cards.
     S.activeSession.exercises=(day.exercises||[]).map(ex=>({
@@ -3826,7 +3834,7 @@ function makeActivitySession(sess){
   const a=sess.activity||{};
   return {id:'s_'+(sess.startTime||0),date:sess.date,dayLabel:sess.dayLabel,dayId:sess.dayId!=null?sess.dayId:null,blockName:sess.blockName||null,sessionType:sess.sessionType,
     duration:Math.round(+a.durationMin||0),
-    activity:{durationMin:+a.durationMin||0,distance:+a.distance||0,effort:a.effort!=null?+a.effort:null,notes:a.notes||'',...(sess.sessionType==='kb'?{kbWeights:a.kbWeights||'',result:a.result||''}:{})},
+    activity:{durationMin:+a.durationMin||0,distance:+a.distance||0,effort:a.effort!=null?+a.effort:null,notes:a.notes||'',...(sess.sessionType==='kb'?{kbWeights:a.kbWeights||'',result:a.result||''}:{}),...(sess.sessionType==='swim'?{continuous:a.continuous===true}:{})},
     exercises:[],painEvents:[],status:'complete'};
 }
 // B3: a day tagged 'unmeasured' (snorkel week) logs duration only.
@@ -3877,6 +3885,7 @@ function renderActivityLog(sess){
         <input type="range" min="0" max="120" step="1" value="${Math.round(a.durationMin||0)}" oninput="setActivityField('durationMin',+this.value);document.getElementById('actDur').textContent=this.value" aria-label="duration minutes" style="width:100%;margin-top:10px">
       </div>
       ${st==='kb'?`<div class="field"><label>KB weight(s)</label><input type="text" value="${esc(a.kbWeights||'')}" placeholder="e.g. 16 / 24 kg" onchange="setActivityField('kbWeights',this.value)" aria-label="kb weights"></div>`:''}
+      ${st==='swim'?`<div class="field"><label>Continuous?</label><button class="eff-chip${a.continuous?' sel':''}" style="width:auto;padding:0 14px" onclick="setActivityField('continuous',${a.continuous?'false':'true'});renderEx()" aria-pressed="${a.continuous?'true':'false'}" aria-label="continuous swim">${a.continuous?'\u2713 One unbroken effort':'Mark as one unbroken effort'}</button></div>`:''}
       ${showDist?`<div class="field"><label>Distance (${st==='swim'?'m':'km'})${distReq?' — required':(st==='swim'?' — optional (snorkel)':'')}</label><input type="number" step="${st==='swim'?'25':'0.1'}" value="${a.distance||''}" placeholder="${st==='swim'?'e.g. 500':'e.g. 5'}" oninput="setActivityField('distance',+this.value||0)" aria-label="distance"></div>`:''}
       <div class="field"><label>Perceived effort (1–10)</label><div class="eff-row">${effChips}</div></div>
       <div class="field"><label>${st==='kb'?'What you did':'Notes'}</label><textarea id="actNotes" rows="4" placeholder="${st==='kb'?'e.g. 25 min AMRAP: 10 swings / 8 goblet squats / 40m carry':'How did it feel?'}" oninput="queueNotesSave(this.value,'activity')" aria-label="notes">${esc(a.notes||'')}</textarea></div>
@@ -5957,8 +5966,11 @@ function refreshMuscleUpGoal(){
   });
   g.current=current;save();return current;
 }
+// F4: the 1000 m goal is one UNBROKEN effort — only swims explicitly marked
+// continuous count. Historic records were backfilled continuous:false.
 function swimBest(sessions){
-  return (sessions||[]).filter(s=>s.sessionType==='swim').reduce((m,s)=>Math.max(m,+(s.activity&&s.activity.distance)||0),0);
+  return (sessions||[]).filter(s=>s.sessionType==='swim'&&s.activity&&s.activity.continuous===true)
+    .reduce((m,s)=>Math.max(m,+(s.activity&&s.activity.distance)||0),0);
 }
 function runWeekly(sessions,weekDates){
   const set=new Set(weekDates);
@@ -6406,6 +6418,7 @@ function renderGoalsDashboard(){
   const cardSwim=`<div class="goal-card swim">
     <div class="goal-head"><span class="t-h2">1000 m Freestyle</span><span class="tagm">manual</span></div>
     <div class="bigrow"><span class="big" style="color:var(--m-swim)">${sb}</span><span class="bigu">/ 1000 m best</span><button class="qlog" onclick="quickLogActivity('swim')" aria-label="${sb?'Update swim best':'Log a swim'}">${sb?'Update':'+ Log swim'}</button></div>
+    ${sb?'':'<div class="t-meta" style="margin-top:2px">No continuous swim logged yet — only one unbroken effort counts.</div>'}
     <div class="goal-bar"><div class="goal-bar-fill" style="width:${Math.min(100,sb/1000*100)}%;background:var(--m-swim)"></div></div></div>`;
   // Run — manual weekly + sparkline + 2-tap quick-log
   const series=runWeeklySeries(S.sessions,today,8);
@@ -6439,13 +6452,15 @@ function quickLogActivity(type){
   document.getElementById('qlDist').value='';
   document.getElementById('qlDur').value='';
   document.getElementById('qlDistLbl').textContent='Distance ('+(type==='swim'?'m':'km')+')';
+  try{document.getElementById('qlContWrap').style.display=type==='swim'?'block':'none';const qc=document.getElementById('qlCont');if(qc)qc.checked=false;}catch(e){}
   showModal('quickLogModal');
 }
 function saveQuickLog(){
   if(!_qlType)return;
   const dist=parseFloat(document.getElementById('qlDist').value)||0;
   const dur=parseFloat(document.getElementById('qlDur').value)||0;
-  const rec=makeActivitySession({startTime:Date.now(),date:todayStr(),dayLabel:_qlType.charAt(0).toUpperCase()+_qlType.slice(1),sessionType:_qlType,activity:{durationMin:dur,distance:dist,effort:null,notes:''}});
+  const _qlCont=(()=>{try{return !!(document.getElementById('qlCont')&&document.getElementById('qlCont').checked);}catch(e){return false;}})();
+  const rec=makeActivitySession({startTime:Date.now(),date:todayStr(),dayLabel:_qlType.charAt(0).toUpperCase()+_qlType.slice(1),sessionType:_qlType,activity:{durationMin:dur,distance:dist,effort:null,notes:'',continuous:_qlCont}});
   S.sessions.push(rec);save();
   hideModal('quickLogModal');
   toast(_qlType.charAt(0).toUpperCase()+_qlType.slice(1)+' logged');

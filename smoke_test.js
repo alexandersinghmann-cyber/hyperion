@@ -1398,7 +1398,12 @@ const acts=[
   {sessionType:'run',date:'2026-06-22',activity:{distance:5}},
   {sessionType:'run',date:'2026-06-24',activity:{distance:3}}
 ];
-assert(swimBest(acts)===600, 'Track D: swimBest returns max distance. Got: '+swimBest(acts));
+// G9/F4: only continuous swims count now.
+acts[0].activity.continuous=true; // the 600
+assert(swimBest(acts)===600, 'Track D/G9: swimBest returns max CONTINUOUS distance. Got: '+swimBest(acts));
+acts[0].activity.continuous=false;
+assert(swimBest(acts)===0, 'G9: with no continuous swims the best is 0 (900-style history does not count)');
+acts[0].activity.continuous=true;
 assert(swimBest([])===0, 'Track D: swimBest 0 when no swims');
 const rw=runWeekly(acts,weekDatesFor('2026-06-22'));
 assert(rw===8, 'Track D: runWeekly sums run distance in week (5+3). Got: '+rw);
@@ -1607,8 +1612,8 @@ assert(/\['squat',cSquat,'SQUAT'\],\['bench',cBench,'BENCH'\],\['dead',cDead,'DE
 assert(typeof quickLogActivity==='function' && typeof saveQuickLog==='function', 'Dash v2: quick-log fns defined');
 assert(/id="quickLogModal"/.test(html), 'Dash v2: quick-log modal present');
 // a quick-log-shaped session is readable by the goal selectors
-S.sessions=[makeActivitySession({startTime:1,date:'2026-06-29',dayLabel:'Swim',sessionType:'swim',activity:{durationMin:30,distance:700}})];
-assert(swimBest(S.sessions)===700, 'Dash v2: a logged swim feeds swimBest');
+S.sessions=[makeActivitySession({startTime:1,date:'2026-06-29',dayLabel:'Swim',sessionType:'swim',activity:{durationMin:30,distance:700,continuous:true}})];
+assert(swimBest(S.sessions)===700, 'Dash v2/G9: a logged CONTINUOUS swim feeds swimBest');
 S.sessions=[makeActivitySession({startTime:2,date:'2026-06-29',dayLabel:'Run',sessionType:'run',activity:{durationMin:30,distance:6}})];
 assert(runWeekly(S.sessions,weekDatesFor('2026-06-29'))===6, 'Dash v2: a logged run feeds runWeekly');
 assert(/\.club2-mid|\.subs2|\.qlog/.test(html), 'Dash v2: dashboard CSS present');
@@ -3150,5 +3155,50 @@ console.log('\n--- G8: hex scan ---');
   assert(bodyHits.length===0, 'G8: body markup clean of hex. Offenders: '+bodyHits.join(','));
 })();
 assert(/--on-brand:#0A0B0E/.test(html)&&/--amber:#F59E0B/.test(html)&&/--orange:#F97316/.test(html), 'G8: new ink + warm-scale tokens live in :root');
+
+// ===== G9: SWIM CONTINUOUS FLAG (F4) + F5 VERIFICATION =====
+console.log('\n--- G9: swim continuous + F5 ---');
+// Spec test: 900 non-continuous + 400 continuous → the card shows 400.
+(()=>{
+  const swims=[
+    {sessionType:'swim',date:'2026-08-14',activity:{distance:900,continuous:false}},
+    {sessionType:'swim',date:'2026-08-18',activity:{distance:400,continuous:true}}
+  ];
+  assert(swimBest(swims)===400, 'G9: 900 non-continuous + 400 continuous → 400. Got: '+swimBest(swims));
+})();
+// Record shape: swims persist the flag (default false), non-swims never carry it.
+(()=>{
+  const r1=makeActivitySession({startTime:3,date:'2026-08-18',dayLabel:'Swim',sessionType:'swim',activity:{durationMin:40,distance:800}});
+  assert(r1.activity.continuous===false, 'G9: swim records default continuous:false');
+  const r2=makeActivitySession({startTime:4,date:'2026-08-18',dayLabel:'Swim',sessionType:'swim',activity:{durationMin:40,distance:800,continuous:true}});
+  assert(r2.activity.continuous===true, 'G9: the toggle persists');
+  const r3=makeActivitySession({startTime:5,date:'2026-08-18',dayLabel:'Run',sessionType:'run',activity:{durationMin:30,distance:5}});
+  assert(!('continuous' in r3.activity), 'G9: non-swim records carry no continuous field');
+})();
+// Backfill one-shot: stamps undefined → false, idempotent, respects a true.
+(()=>{
+  const saveS=S.sessions,saveF=S.settings._swimContinuousBackfill;
+  S.sessions=[
+    {sessionType:'swim',date:'2026-07-26',activity:{distance:700}},
+    {sessionType:'swim',date:'2026-08-14',activity:{distance:900}},
+    {sessionType:'swim',date:'2026-08-20',activity:{distance:400,continuous:true}},
+    {sessionType:'lifting',date:'2026-08-01',exercises:[]}
+  ];
+  S.settings._swimContinuousBackfill=false;
+  migrateV3();
+  assert(S.sessions[0].activity.continuous===false&&S.sessions[1].activity.continuous===false, 'G9: backfill stamps legacy swims false');
+  assert(S.sessions[2].activity.continuous===true, 'G9: backfill never clobbers an explicit true');
+  assert(swimBest(S.sessions)===400, 'G9: post-backfill best reads the 400 continuous, not the 900');
+  S.sessions[0].activity.continuous=true;
+  migrateV3(); // one-shot: a second run must not restamp
+  assert(S.sessions[0].activity.continuous===true, 'G9: backfill is a true one-shot');
+  S.sessions=saveS;S.settings._swimContinuousBackfill=saveF;
+})();
+assert(/setActivityField\('continuous'/.test(html), 'G9: activity form has the Continuous toggle');
+assert(/id="qlCont"/.test(html)&&/continuous:_qlCont/.test(html), 'G9: quick-log path carries the flag too');
+assert(/No continuous swim logged yet/.test(html), 'G9: goal-card empty state');
+// F5c extra: machine 165 → next 167.5 through the suggestion snap.
+assert(snapSuggestion(165*1.0125,'machine')===167.5, 'F5: leg press 165 +1.25% → 167.5. Got: '+snapSuggestion(165*1.0125,'machine'));
+assert(dispSuggest(166.9,'machine','increase')===167.5, 'F5: stored raw 166.9 machine renders 167.5');
 
 console.log('\n=== All tests passed ===');
