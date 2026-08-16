@@ -55,7 +55,8 @@ const patched = js
   .replace(/\blet _reachCache\s*=/g, 'var _reachCache =')
   .replace(/\bconst DEFAULT_PLATES\s*=/g, 'var DEFAULT_PLATES =')
   .replace(/\bconst ROLE_DEFAULTS\s*=/g, 'var ROLE_DEFAULTS =')
-  .replace(/\bconst ROLE_LABELS\s*=/g, 'var ROLE_LABELS =');
+  .replace(/\bconst ROLE_LABELS\s*=/g, 'var ROLE_LABELS =')
+  .replace(/\blet _addSessionDate\s*=/g, 'var _addSessionDate =');
 (0, eval)(patched);
 // Expose helpers globally (they were `function` declarations, already global when eval'd indirectly)
 
@@ -3065,5 +3066,29 @@ assert(/\.filter\(o=>!isDayDone\(o\.i\)&&!isDaySkipped\(o\.i\)&&isStartableDay\(
 assert(/S\.weekRemovals=S\.weekRemovals\.filter\(r=>r\.weekOf>=_wkMon\)/.test(html), 'G5: stale removals pruned on load');
 assert(/d\.oneOff&&\(!d\.scheduledDate\|\|weekOfDate\(d\.scheduledDate\)<_wkMon\)/.test(html), 'G5: stale one-offs pruned on load');
 assert(/if\(day\.oneOff\)return day\.scheduledDate\|\|anchor/.test(html), 'G5: one-offs never fall back to dow recurrence');
+
+// ===== G6: PLANNER UI — add picker, delete, drag polish =====
+console.log('\n--- G6: planner UI ---');
+(()=>{
+  const saveP=JSON.parse(JSON.stringify(S.program)),saveR=S.weekRemovals;
+  S.weekRemovals=[];
+  const wk=weekDatesFor(weekAnchor(todayStr()));
+  // picker creates a one-off of each plain type with exercises:[]
+  _addSessionDate=wk[4];
+  const kbDay=addWeekSession('type','kb');
+  assert(kbDay&&kbDay.oneOff===true&&kbDay.sessionType==='kb'&&Array.isArray(kbDay.exercises)&&kbDay.exercises.length===0&&typeof kbDay.id==='number', 'G6: picker KB day is a one-off with exercises:[]');
+  _addSessionDate=wk[5];
+  const restDay=addWeekSession('type','rest');
+  assert(restDay.sessionType==='rest'&&isStartableDay(restDay)===false, 'G6: picker rest day is unstartable');
+  // template add clones by label with a fresh numeric id
+  _addSessionDate=wk[3];
+  const tplDay=addWeekSession('tpl',0);
+  assert(tplDay.oneOff===true&&tplDay.label===S.program.days[0].label&&tplDay.id!==S.program.days[0].id, 'G6: template one-off clones label with fresh id');
+  S.program=JSON.parse(JSON.stringify(saveP));S.weekRemovals=saveR||[];
+})();
+assert(/openAddSession\('\$\{r\.date\}'\)/.test(html), 'G6: every week row carries a + button');
+assert(/confirmRemoveWeekDay\(\$\{dayIdx\}\)/.test(html)&&/Remove from this week/.test(html), 'G6: session sheet offers week-scoped delete with confirm');
+assert(/setPointerCapture\(e\.pointerId\)/.test(html), 'G6: drag captures the pointer');
+assert(/Math\.abs\(e\.clientY-startY\)>8/.test(html), 'G6: pre-arm scroll guard cancels the hold');
 
 console.log('\n=== All tests passed ===');

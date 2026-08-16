@@ -542,6 +542,8 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .wk-sessions{flex:1;display:flex;flex-direction:column;gap:6px}
 .wk-pill{display:flex;align-items:center;gap:7px;min-height:44px;padding:8px 12px;background:var(--s1);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx);font:500 14px var(--sans);cursor:pointer;text-align:left;width:100%}
 .wk-pill.done{border-color:var(--grn);color:var(--grn)}
+.wk-add{flex:none;width:34px;min-height:44px;border-radius:var(--rs);background:transparent;border:1px dashed var(--line);color:var(--tx3);font:500 16px var(--sans)}
+.sheet-btn.danger{color:var(--red)}
 .wk-pill.skipped{opacity:.5;text-decoration:line-through}
 .wk-pill-l{flex:1}
 .wk-ic{display:inline-flex;align-items:center;flex-shrink:0}
@@ -2985,6 +2987,7 @@ function renderWeek(){
     return `<div class="wk-row${r.isToday?' today':''}${isPast(r.date)?' past':''}" data-date="${r.date}">
       <div class="wk-day"><div class="t-h2">${r.dow.slice(0,3)}</div><div class="t-meta">${fmtDate(r.date).replace(/^[A-Za-z]+ /,'')}</div></div>
       <div class="wk-sessions">${pills||'<span class="t-meta" style="color:var(--tx3)">rest</span>'}</div>
+      <button class="wk-add tap" onclick="openAddSession('${r.date}')" aria-label="Add session on ${r.dow}">+</button>
     </div>`;
   }).join('');
   wireWeekDrag(el);
@@ -3015,12 +3018,15 @@ function wireWeekDrag(container){
       startY=e.clientY;
       holdT=setTimeout(()=>{
         dragging=true;pill.classList.add('dragging');
+        // Capture so a fast drag off the pill still delivers pointerup here.
+        try{if(pill.setPointerCapture)pill.setPointerCapture(e.pointerId);}catch(err){}
         rows().forEach(r=>r.classList.add('drag-dim'));
         if(navigator.vibrate)navigator.vibrate(10);
       },300);
     });
     pill.addEventListener('pointermove',e=>{
-      if(!dragging)return;
+      // A real scroll before the long-press arms should cancel the hold.
+      if(!dragging){if(holdT&&Math.abs(e.clientY-startY)>8){clearTimeout(holdT);holdT=null;}return;}
       e.preventDefault();
       rows().forEach(r=>r.classList.remove('drop-target'));
       const r=rowAt(e.clientY);if(r)r.classList.add('drop-target');
@@ -3037,6 +3043,49 @@ function wireWeekDrag(container){
     pill.addEventListener('pointercancel',()=>{if(holdT)clearTimeout(holdT);clearDrag();});
   });
 }
+// E1: "+" on a week row — program templates by label, or a plain type.
+// Everything it creates is a ONE-OFF day: logs like any other, never recurs.
+let _addSessionDate=null;
+function openAddSession(date){
+  _addSessionDate=date;
+  document.getElementById('sessionSheetTitle').textContent='Add to '+fmtDate(date);
+  const tpl=(S.program.days||[]).map((d,i)=>({d,i})).filter(o=>!o.d.oneOff)
+    .filter((o,ix,a)=>a.findIndex(x=>x.d.label===o.d.label)===ix);
+  document.getElementById('sessionSheetBody').innerHTML=
+    tpl.map(o=>`<button class="sheet-btn" onclick="addWeekSession('tpl',${o.i})">${esc(o.d.label)} <span class="t-meta">program day</span></button>`).join('')+
+    ['kb','swim','run','pilates','mobility','rest'].map(t=>`<button class="sheet-btn" onclick="addWeekSession('type','${t}')">${t==='kb'?'KB':t.charAt(0).toUpperCase()+t.slice(1)}</button>`).join('');
+  showModal('sessionSheet');
+}
+function addWeekSession(kind,arg){
+  hideModal('sessionSheet');
+  const date=_addSessionDate;if(!date)return;
+  const _ids=S.program.days.map(d2=>+d2.id||0);
+  const nid=(_ids.length?Math.max.apply(null,_ids):0)+1;
+  let day;
+  if(kind==='tpl'){
+    const src=S.program.days[arg];if(!src)return;
+    day=JSON.parse(JSON.stringify(src));
+    day.id=nid;day.oneOff=true;day.userAuthored=true;day.scheduledDate=date;
+    delete day.permanent;delete day.locked;
+  }else{
+    day={id:nid,label:arg==='kb'?'KB':arg.charAt(0).toUpperCase()+arg.slice(1),sessionType:arg,dur:arg==='rest'?0:(arg==='lifting'?70:45),exercises:[],bonus:[],angle:null,oneOff:true,userAuthored:true,scheduledDate:date};
+  }
+  S.program.days.push(day);
+  save();renderWeek();try{renderTrain();}catch(e){}
+  toast('Added '+day.label+' \u2014 '+fmtDate(date));
+  return day;
+}
+// E2: delete — one-offs vanish, template days hide for THIS week only.
+function confirmRemoveWeekDay(dayIdx){
+  const d=S.program.days[dayIdx];if(!d)return;
+  const msg=d.oneOff?('Delete "'+d.label+'"? This one-off session disappears.')
+                    :('Remove "'+d.label+'" from THIS week only? The program keeps it for future weeks.');
+  if(!confirm(msg))return;
+  const wasOneOff=d.oneOff;
+  removeDayForWeek(dayIdx);
+  renderWeek();try{renderTrain();}catch(e){}
+  toast(wasOneOff?'Deleted':'Removed for this week');
+}
 function openSessionSheet(dayIdx){
   _rescheduleDayIdx=dayIdx;
   const d=S.program.days[dayIdx];if(!d)return;
@@ -3049,6 +3098,7 @@ function openSessionSheet(dayIdx){
     ${d.scheduledDate?`<button class="sheet-btn" onclick="restoreDay(${dayIdx});hideModal('sessionSheet');renderWeek()">Restore to ${(d.defaultDay||d.dayOfWeek||'').slice(0,3)}</button>`:''}
     ${!done&&!skipped?`<button class="sheet-btn" onclick="hideModal('sessionSheet');openSkipDay(${dayIdx})">Skip</button>`:''}
     <button class="sheet-btn" onclick="hideModal('sessionSheet');showDayPreview(${dayIdx})">View details</button>
+    <button class="sheet-btn danger" onclick="confirmRemoveWeekDay(${dayIdx})">${d.oneOff?'Delete session':'Remove from this week'}</button>
   `;
   showModal('sessionSheet');
 }
