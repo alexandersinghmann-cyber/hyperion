@@ -4251,6 +4251,10 @@ function focusCardHTML(u,p,sess,curPos){
   } else {
     readout=`<div class="fc-readout done"><span class="fc-readout-x">all sets resolved</span></div>`;
   }
+  // Section decorations — declared BEFORE the circuit early-return below,
+  // which interpolates them (TDZ crash otherwise).
+  const secCls=u.sec==='warmup'?' fc-sec-warmup':u.sec==='finisher'?' fc-sec-finisher':'';
+  const secHdr=u.sec==='warmup'?`<div class="sec-hdr sec-hdr-wu" style="margin-top:4px">Warm-up</div>`:u.sec==='finisher'?`<div class="sec-hdr sec-hdr-fin" style="margin-top:4px">Finisher</div>`:'';
   // W4-B: a circuit unit renders its own body — clock readout, movements,
   // one result input. No set rows, no per-set Log.
   if(u.eis.length===1&&sess.exercises[u.eis[0]]&&sess.exercises[u.eis[0]].entryType==='circuit'){
@@ -4268,8 +4272,6 @@ function focusCardHTML(u,p,sess,curPos){
   const logLbl=cur?('Log '+(sess.exercises[cur[0]].performed[cur[1]].type==='warmup'?'warm-up':'set '+(sess.exercises[cur[0]].performed.slice(0,cur[1]).filter(x=>x.type==='working').length+1))):null;
   const prog=u.eis.map(ei=>sess.exercises[ei]).filter(ex=>done&&ex.progression).map(ex=>`<div class="prog-badge prog-${ex.progression==='increase'?'up':ex.progression==='flag'?'flag':ex.progression==='stall'?'stall':ex.progression==='skipped'?'skip':'hold'}"><span>${ex.progression==='increase'?'\u2191 Increase':ex.progression==='flag'?'\u26a0 Flagged':ex.progression==='stall'?'\u23f8 Stall':ex.progression==='skipped'?'\u23ed Skipped':'\u2192 Hold'}</span>${ex.nextLoad&&ex.progression==='increase'?`<span class="tm">${fmtW(ex.nextLoad,ex.prescribed.unit)}</span>`:''}</div>`).join('');
   const pains=u.eis.map(ei=>sess.exercises[ei]).filter(ex=>ex.painEvent).map(ex=>`<div style="margin-top:8px;padding:8px 12px;border-radius:var(--rs);background:var(--red-dim);font-size:12px;color:var(--red)">\u26a0 ${ex.painEvent.severity} pain${ex.painEvent.action?' \u2014 '+ex.painEvent.action:''}</div>`).join('');
-  const secCls=u.sec==='warmup'?' fc-sec-warmup':u.sec==='finisher'?' fc-sec-finisher':'';
-  const secHdr=u.sec==='warmup'?`<div class="sec-hdr sec-hdr-wu" style="margin-top:4px">Warm-up</div>`:u.sec==='finisher'?`<div class="sec-hdr sec-hdr-fin" style="margin-top:4px">Finisher</div>`:'';
   return `<div class="fcard${done?' done':''}${secCls}" id="fcard${u.eis[0]}">${secHdr}
     ${members}
     ${readout}

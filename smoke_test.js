@@ -2861,4 +2861,20 @@ assert(!/saveSessionNotes/.test(html), 'F2: per-keystroke saver removed');
 assert(/tagName==='TEXTAREA'\)flushNotesSave\(\); \/\/ F2/.test(html), 'F2: focusout flushes pending notes');
 assert(/function endSession\(\)\{\n  flushNotesSave\(\);/.test(html)&&/function cancelSession\(\)\{\n  flushNotesSave\(\);/.test(html)&&/function finalizeActivity\(\)\{\n  flushNotesSave\(\);/.test(html), 'F2: end/cancel/finalize flush before teardown');
 
+// ===== G1: focusCardHTML must not throw on a circuit unit (TDZ regression) =====
+console.log('\n--- G1: focus circuit TDZ hotfix ---');
+S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.activeSession=null;
+(()=>{
+  S.activeSession={dayIndex:0,dayId:99,blockName:S.program.name,date:todayStr(),dayLabel:'TDZ',sessionType:'lifting',startTime:1,notes:'',
+    exercises:[{name:'KB Finisher',entryType:'circuit',format:'EMOM',minutes:12,movements:'',result:null,loadKg:24,section:'finisher',performed:[],tags:[],prescribed:{sets:0,reps:'',loadKg:24,unit:'kg'},progression:null,nextLoad:null,painEvent:null,notes:''}],
+    order:[0]};
+  const units=focusUnits(S.activeSession);
+  let html2='',threw=null;
+  try{html2=focusCardHTML(units[0],0,S.activeSession,[0,0]);}catch(e){threw=e;}
+  assert(threw===null, 'G1: circuit unit focus card renders without throwing. Got: '+(threw&&threw.message));
+  assert(/circRes0|Log result/.test(html2), 'G1: circuit body present in focus card');
+  assert(/fc-sec-finisher/.test(html2)&&/sec-hdr-fin/.test(html2), 'G1: finisher section class + header render on the circuit card');
+  S.activeSession=null;
+})();
+
 console.log('\n=== All tests passed ===');
