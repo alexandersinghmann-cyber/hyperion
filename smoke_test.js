@@ -49,7 +49,9 @@ const patched = js
   .replace(/\blet _railDragged\s*=/g, 'var _railDragged =')
   .replace(/\blet _userOpened\s*=/g, 'var _userOpened =')
   .replace(/\blet _userClosed\s*=/g, 'var _userClosed =')
-  .replace(/\blet _notesT\s*=/g, 'var _notesT =');
+  .replace(/\blet _notesT\s*=/g, 'var _notesT =')
+  .replace(/\bconst ACTIVITY_TYPES\s*=/g, 'var ACTIVITY_TYPES =')
+  .replace(/\bconst MODALITY_TYPES\s*=/g, 'var MODALITY_TYPES =');
 (0, eval)(patched);
 // Expose helpers globally (they were `function` declarations, already global when eval'd indirectly)
 
@@ -2876,5 +2878,44 @@ S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.ac
   assert(/fc-sec-finisher/.test(html2)&&/sec-hdr-fin/.test(html2), 'G1: finisher section class + header render on the circuit card');
   S.activeSession=null;
 })();
+
+// ===== G2: kb + rest SESSION TYPES =====
+console.log('\n--- G2: kb + rest session types ---');
+assert(MODALITY_TYPES.includes('kb')&&MODALITY_TYPES.includes('rest'), 'G2: kb + rest registered in MODALITY_TYPES');
+assert(ACTIVITY_TYPES.includes('kb')&&!ACTIVITY_TYPES.includes('rest'), 'G2: kb logs via activity form, rest does not log');
+assert(!!ICONS.kb, 'G2: kettlebell icon registered');
+assert(/--m-kb:/.test(html), 'G2: --m-kb modality token present');
+assert(/kb:'Duration, bells/.test(html), 'G2: ACTIVITY_EMPTY has a kb line');
+assert(isStartableDay({sessionType:'kb'})===true&&isStartableDay({sessionType:'rest'})===false&&isStartableDay({})===true, 'G2: isStartableDay gates rest only');
+// kb round-trip: session -> record -> report
+(()=>{
+  const sess={dayIndex:-1,dayId:50,blockName:S.program.name,date:'2026-08-17',dayLabel:'KB',sessionType:'kb',startTime:7,
+    activity:{durationMin:40,kbWeights:'16 / 24 kg',notes:'25 min AMRAP swings + carries',result:'5 rounds + 12',effort:7,distance:0},exercises:[]};
+  const rec=makeActivitySession(sess);
+  assert(rec.activity.kbWeights==='16 / 24 kg'&&rec.activity.result==='5 rounds + 12'&&rec.duration===40&&rec.exercises.length===0, 'G2: kb record round-trips bells + result + duration');
+  const rpt=buildCoachReport([{...rec,date:'2026-08-17'}],S.program,weekDatesFor('2026-08-17'));
+  assert(/\(kb\).*bells 16 \/ 24 kg.*result: 5 rounds \+ 12/.test(rpt), 'G2: report prints the kb block with bells + result. Got: '+(rpt.split('\n').find(l=>/\(kb\)/.test(l))||'none'));
+})();
+// rest: never the next session, exempt from completeness, out of scheduled count
+(()=>{
+  const saveP=S.program,saveS=S.sessions,saveK=S.skips;
+  S.program={name:'RestTest',active:true,days:[
+    {id:1,label:'Lift',defaultDay:'Monday',dayOfWeek:'Monday',sessionType:'lifting',dur:60,exercises:[{name:'Back Squat',cat:'squat',sets:3,reps:'5',loadKg:100,unit:'kg'}]},
+    {id:2,label:'Rest',defaultDay:'Tuesday',dayOfWeek:'Tuesday',sessionType:'rest',dur:0,exercises:[]}
+  ]};
+  S.sessions=[];S.skips=[];
+  const next=getNextAvailableDayIdx();
+  assert(next===0, 'G2: rest day never wins the Start slot. Got: '+next);
+  S.sessions=[{date:weekDatesFor(todayStr())[0],dayLabel:'Lift',dayId:1,blockName:'RestTest',sessionType:'lifting',status:'complete',exercises:[]}];
+  assert(isWeekComplete(weekDatesFor(todayStr()))===true, 'G2: week completes with an unlogged rest day');
+  const sched=weeklyScheduled(weekDatesFor(todayStr()),todayStr());
+  assert(sched.prog===1, 'G2: rest excluded from the scheduled count. Got: '+sched.prog);
+  S.program=saveP;S.sessions=saveS;S.skips=saveK;
+})();
+assert(/isStartableDay\(d\)\?`<button class="sheet-btn"/.test(html), 'G2: week session sheet gates Start on startability');
+assert(/startBtn\.style\.display=day\.sessionType==='rest'\?'none'/.test(html), 'G2: preview hides Start for rest days');
+assert((html.match(/'Farmer Carry':\{/g)||[]).length===1, 'G2: Farmer Carry defined exactly once');
+assert(inferEquipmentClass('Farmer Carry')==='kb', 'G2: Farmer Carry regains the kb equipment class');
+assert(!/st==='swim'\|\|st==='run'\|\|st==='pilates'\|\|st==='mobility'/.test(html), 'G2: no stray hardcoded activity-type lists remain');
 
 console.log('\n=== All tests passed ===');

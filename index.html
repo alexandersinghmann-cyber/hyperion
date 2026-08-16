@@ -46,7 +46,7 @@
   /* modality accents — one muted signature per session type */
   /* per-lift ring hues — NEVER rotate (legibility over palette purity) */
   --lift-sq:#22D3EE;--lift-bp:#818CF8;--lift-dl:#C084FC;
-  --m-lifting:#22D3EE;--m-calisthenics:#C9A96E;--m-swim:#6AA6D8;--m-run:#5E9B7E;--m-pilates:#9D8BD0;--m-mobility:#3FB8AB;--m-rest:#4A5568;
+  --m-lifting:#22D3EE;--m-calisthenics:#C9A96E;--m-swim:#6AA6D8;--m-run:#5E9B7E;--m-pilates:#9D8BD0;--m-mobility:#3FB8AB;--m-rest:#4A5568;--m-kb:#C98A5B;
   /* block-rotating brand accent (JS advances per block adoption; semantic
      tokens — grn/warn/red, pace, gold-achievement — NEVER rotate) */
   --brand:#FF6A3D;--brand2:#F4B942;--brand-dim:rgba(255,106,61,.12);
@@ -1309,6 +1309,7 @@ const ICONS={
   pilates:'<rect x="3" y="14" width="18" height="4" rx="1.5"/><path d="M6 14V9a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v5"/>',
   mobility:'<circle cx="12" cy="12" r="3"/><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/>',
   rest:'<path d="M20 14a8 8 0 1 1-9.5-9.5A6 6 0 0 0 20 14z"/>',
+  kb:'<path d="M9 8V7a3 3 0 0 1 6 0v1"/><circle cx="12" cy="14" r="5.5"/>',
   // goal icons
   barbell:'<path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"/>',
   muscleup:'<circle cx="12" cy="12" r="9"/><path d="M8 12l4-4 4 4M12 8v8"/>',
@@ -1326,7 +1327,13 @@ function icon(name,size){
 }
 // Muted signature colour per session type (CSS var reference). One thread that
 // makes the week + history scannable at a glance.
-const MODALITY_TYPES=['lifting','calisthenics','swim','run','pilates','mobility','rest'];
+const MODALITY_TYPES=['lifting','calisthenics','swim','run','pilates','mobility','kb','rest'];
+// G2: the session types that log through the activity form (one card, no set
+// rows). 'kb' is freeform: duration + bells + what-you-did + optional result.
+const ACTIVITY_TYPES=['swim','run','pilates','mobility','kb'];
+function isActivityType(t){return ACTIVITY_TYPES.includes(t);}
+// 'rest' renders in the planner but is never startable.
+function isStartableDay(d){return (d&&(d.sessionType||'lifting'))!=='rest';}
 // B6: minimal HTML escape for user text interpolated into templates.
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function modalityColor(type){return 'var(--m-'+(MODALITY_TYPES.includes(type)?type:'lifting')+')';}
@@ -1510,7 +1517,6 @@ const EX_META={
   'KB Goblet Squat':{pat:'squat',prim:['quad','glute'],eq:['kb'],fat:'light',sh:'safe',slot:null},
   'KB Clean':{pat:'hinge',prim:['glute','hamstring','forearm'],eq:['kb'],fat:'light',sh:'safe',slot:null},
   'KB RDL':{pat:'hinge',prim:['hamstring','glute'],eq:['kb'],fat:'light',sh:'safe',slot:null},
-  'Farmer Carry':{pat:'carry',prim:['forearm','trap','core'],eq:['kb','db'],fat:'light',sh:'safe',slot:'carry'},
   'Front-Rack Carry':{pat:'carry',prim:['core','forearm'],eq:['kb'],fat:'light',sh:'safe',slot:'carry'},
   // W4 avoid adds — overhead KB work stays barred with the shoulder rule.
   'KB Press':{pat:'vpush',prim:['front-delt','tri'],eq:['kb'],fat:'light',sh:'activation-first',slot:'ohp',avoid:true,avoidReason:'Overhead pressing barred (shoulder rule)'},
@@ -1560,7 +1566,7 @@ const EX_META={
   'Plank':{pat:'iso-core',prim:['transverse','rectus-abdominis'],eq:['bodyweight'],fat:'core',sh:'safe',slot:'core-anti-ext'},
   'Side Plank':{pat:'iso-core',prim:['obliques'],eq:['bodyweight'],fat:'core',sh:'safe',slot:'core-lateral'},
   'Copenhagen Plank':{pat:'iso-core',prim:['adductor','obliques'],eq:['bench'],fat:'core',sh:'safe',slot:'core-lateral'},
-  'Farmer Carry':{pat:'carry',prim:['grip','trap','core'],eq:['db'],fat:'core',sh:'safe',slot:'carry'},
+  'Farmer Carry':{pat:'carry',prim:['grip','trap','core'],eq:['kb','db'],fat:'core',sh:'safe',slot:'carry'},
   'DB Carry':{pat:'carry',prim:['grip','trap','core'],eq:['db'],fat:'core',sh:'safe',slot:'carry'},
   'Suitcase Carry':{pat:'carry',prim:['grip','oblique','trap','core'],eq:['db'],fat:'core',sh:'safe',slot:'carry'},
   'Sled Push':{pat:'cardio',prim:['quad','glute','calf'],eq:['sled'],fat:'light-compound',sh:'safe',slot:'squat-secondary'},
@@ -2800,6 +2806,7 @@ function getNextAvailableDayIdx(){
   // Soonest not-done/not-skipped session by planning-week effective date.
   const days=S.program.days||[];let best=-1,bestDate=null;
   days.forEach((d,i)=>{
+    if(!isStartableDay(d))return; // rest days are never 'next'
     if(isDayDone(i)||isDaySkipped(i))return;
     const ed=dayEffectiveDate(d);
     if(bestDate===null||ed<bestDate){bestDate=ed;best=i;}
@@ -2949,7 +2956,7 @@ function openSessionSheet(dayIdx){
   const body=document.getElementById('sessionSheetBody');
   document.getElementById('sessionSheetTitle').textContent=d.label;
   body.innerHTML=`
-    ${!done&&!skipped?`<button class="sheet-btn" onclick="hideModal('sessionSheet');startDay(${dayIdx})">Start session</button>`:''}
+    ${!done&&!skipped&&isStartableDay(d)?`<button class="sheet-btn" onclick="hideModal('sessionSheet');startDay(${dayIdx})">Start session</button>`:''}
     <button class="sheet-btn" onclick="openReschedule(${dayIdx})" ${d.locked?'disabled':''}>${d.locked?'Reschedule (locked — class commitment)':'Reschedule'}</button>
     ${d.scheduledDate?`<button class="sheet-btn" onclick="restoreDay(${dayIdx});hideModal('sessionSheet');renderWeek()">Restore to ${(d.defaultDay||d.dayOfWeek||'').slice(0,3)}</button>`:''}
     ${!done&&!skipped?`<button class="sheet-btn" onclick="hideModal('sessionSheet');openSkipDay(${dayIdx})">Skip</button>`:''}
@@ -3128,7 +3135,7 @@ function renderTrain(){
 
     // (Reorder arrows removed — scheduling lives in the Week tab.)
     const dow=day.defaultDay||day.dayOfWeek;
-    const isActivity=['swim','run','pilates','mobility'].includes(day.sessionType);
+    const isActivity=isActivityType(day.sessionType);
     const meta=isActivity
       ?`${dow} · ${day.sessionType}${metaTail}`
       :`${dow} · ${day.exercises.length} exercises${metaTail}`;
@@ -3240,7 +3247,7 @@ function showDayPreview(i){
 
   document.getElementById('pvDayLbl').textContent='Day '+(i+1)+' · '+day.dayOfWeek;
   document.getElementById('pvTitle').textContent=day.label;
-  document.getElementById('pvMeta').textContent=day.exercises.length+' exercises · ~'+day.dur+' min';
+  document.getElementById('pvMeta').textContent=day.sessionType==='rest'?'Rest day — recovery':isActivityType(day.sessionType)?(day.sessionType==='kb'?'Kettlebell session':day.sessionType)+' · ~'+day.dur+' min':(day.exercises||[]).length+' exercises · ~'+day.dur+' min';
   try{const pn=document.getElementById('pvNote');if(pn){pn.textContent=day.note||'';pn.style.display=day.note?'block':'none';}}catch(e){}
 
   // Done info
@@ -3313,9 +3320,9 @@ function showDayPreview(i){
     startBtn.style.display='none';
   } else {
     skipInfo.style.display='none';
-    skipBtn.style.display=done?'none':'block';
+    skipBtn.style.display=(done||day.sessionType==='rest')?'none':'block';
     unskipBtn.style.display='none';
-    startBtn.style.display='block';
+    startBtn.style.display=day.sessionType==='rest'?'none':'block';
   }
 
   showView('vPreview');
@@ -3546,9 +3553,10 @@ function startDay(i){
   // dayId is the day's immutable identity — dayLabel alone is ambiguous when
   // two days share a label (the deload has two "Swim" days).
   S.activeSession={dayIndex:i,dayId:day.id,blockName:S.program.name,date:todayStr(),dayLabel:day.label,sessionType:st,startTime:Date.now(),exercises:[],notes:'',order:[],gymId:(S.settings&&S.settings.activeGymId)||null};
-  if(st==='swim'||st==='run'||st==='pilates'||st==='mobility'){
+  if(isActivityType(st)){
     // Activity-log session: one form, no exercise cards.
     S.activeSession.activity={durationMin:day.dur||0,distance:day.defaultDistance||0,effort:null,notes:''};
+    if(st==='kb'){S.activeSession.activity.kbWeights='';S.activeSession.activity.result='';}
   } else {
     // Lifting + calisthenics: exercise cards.
     S.activeSession.exercises=(day.exercises||[]).map(ex=>({
@@ -3633,7 +3641,7 @@ function startAdHocSession(type){
 }
 
 // ===== ACTIVITY LOG (swim / run / pilates / mobility) =====
-const ACTIVITY_EMPTY={swim:'Log your longest continuous freestyle.',run:'Set distance or duration to start',pilates:'Time it and take notes',mobility:'Time it and take notes'};
+const ACTIVITY_EMPTY={swim:'Log your longest continuous freestyle.',run:'Set distance or duration to start',pilates:'Time it and take notes',mobility:'Time it and take notes',kb:'Duration, bells, and what you did.'};
 function setActivityField(field,val){
   const s=S.activeSession;if(!s)return;
   s.activity=s.activity||{};
@@ -3644,7 +3652,7 @@ function makeActivitySession(sess){
   const a=sess.activity||{};
   return {id:'s_'+(sess.startTime||0),date:sess.date,dayLabel:sess.dayLabel,dayId:sess.dayId!=null?sess.dayId:null,blockName:sess.blockName||null,sessionType:sess.sessionType,
     duration:Math.round(+a.durationMin||0),
-    activity:{durationMin:+a.durationMin||0,distance:+a.distance||0,effort:a.effort!=null?+a.effort:null,notes:a.notes||''},
+    activity:{durationMin:+a.durationMin||0,distance:+a.distance||0,effort:a.effort!=null?+a.effort:null,notes:a.notes||'',...(sess.sessionType==='kb'?{kbWeights:a.kbWeights||'',result:a.result||''}:{})},
     exercises:[],painEvents:[],status:'complete'};
 }
 // B3: a day tagged 'unmeasured' (snorkel week) logs duration only.
@@ -3679,7 +3687,7 @@ function renderActivityLog(sess){
   sess.activity=sess.activity||{durationMin:0,distance:0,effort:null,notes:''};
   const a=sess.activity;
   const st=sess.sessionType;
-  const showDist=st!=='pilates'&&st!=='mobility';
+  const showDist=st==='swim'||st==='run';
   const distReq=st==='swim'&&!dayUnmeasured(sess);
   const empty=st==='swim'
     ?(b=>b>0?`Best continuous: ${b} m. Beat it.`:ACTIVITY_EMPTY.swim)(swimBest(S.sessions))
@@ -3694,9 +3702,11 @@ function renderActivityLog(sess){
         <div class="t-meta">minutes</div>
         <input type="range" min="0" max="120" step="1" value="${Math.round(a.durationMin||0)}" oninput="setActivityField('durationMin',+this.value);document.getElementById('actDur').textContent=this.value" aria-label="duration minutes" style="width:100%;margin-top:10px">
       </div>
+      ${st==='kb'?`<div class="field"><label>KB weight(s)</label><input type="text" value="${esc(a.kbWeights||'')}" placeholder="e.g. 16 / 24 kg" onchange="setActivityField('kbWeights',this.value)" aria-label="kb weights"></div>`:''}
       ${showDist?`<div class="field"><label>Distance (${st==='swim'?'m':'km'})${distReq?' — required':(st==='swim'?' — optional (snorkel)':'')}</label><input type="number" step="${st==='swim'?'25':'0.1'}" value="${a.distance||''}" placeholder="${st==='swim'?'e.g. 500':'e.g. 5'}" oninput="setActivityField('distance',+this.value||0)" aria-label="distance"></div>`:''}
       <div class="field"><label>Perceived effort (1–10)</label><div class="eff-row">${effChips}</div></div>
-      <div class="field"><label>Notes</label><textarea id="actNotes" rows="4" placeholder="How did it feel?" oninput="queueNotesSave(this.value,'activity')" aria-label="notes">${esc(a.notes||'')}</textarea></div>
+      <div class="field"><label>${st==='kb'?'What you did':'Notes'}</label><textarea id="actNotes" rows="4" placeholder="${st==='kb'?'e.g. 25 min AMRAP: 10 swings / 8 goblet squats / 40m carry':'How did it feel?'}" oninput="queueNotesSave(this.value,'activity')" aria-label="notes">${esc(a.notes||'')}</textarea></div>
+      ${st==='kb'?`<div class="field"><label>Result (optional)</label><input type="text" value="${esc(a.result||'')}" placeholder="e.g. 5 rounds + 12" onchange="setActivityField('result',this.value)" aria-label="kb result"></div>`:''}
       <button class="btn btn-gold btn-w act-save" onclick="finalizeActivity()">Save ${st} session</button>
     </div>`;
 }
@@ -3819,7 +3829,7 @@ function renderEx(){
 
   // Multi-modal dispatch: activity-log types render a single form, not cards.
   const st=sess.sessionType||'lifting';
-  if(st==='swim'||st==='run'||st==='pilates'||st==='mobility'){renderActivityLog(sess);return;}
+  if(isActivityType(st)){renderActivityLog(sess);return;}
   // Focus ⇄ List dispatch (S5). List = the untouched v3.5 card path; focus =
   // the full-screen card stack. Same mutation entry point either way.
   const focus=(S.settings.sessionView||'focus')!=='list';
@@ -5493,7 +5503,7 @@ function endSession(){
   try{const _ae=document.activeElement;if(_ae&&_ae.tagName==='TEXTAREA')_ae.blur();}catch(e){}
   // Activity-log sessions finalize directly (no per-exercise RPE modal).
   const st=S.activeSession&&S.activeSession.sessionType;
-  if(st==='swim'||st==='run'||st==='pilates'||st==='mobility'){finalizeActivity();return;}
+  if(isActivityType(st)){finalizeActivity();return;}
   // NOTE: do not stop the session timer yet — if the RPE modal is cancelled we
   // need the session to remain live and the timer to keep counting up.
   stopRest();
@@ -6516,7 +6526,7 @@ function weeklyScheduled(weekDates,today){
   let prog=0,rec=0,recTypes=[];
   try{
     buildWeek(weekDates,today||todayStr()).forEach(row=>(row.sessions||[]).forEach(s=>{
-      if(s.source==='program')prog++;
+      if(s.source==='program'&&s.type!=='rest')prog++;
       else if(s.source==='recurring'){rec++;recTypes.push(s.type);}
     }));
   }catch(e){}
@@ -6528,6 +6538,7 @@ function isWeekComplete(weekDates){
   // recMatchesDay so each of two same-labeled days (the deload's two Swims)
   // needs its OWN record — one swim must not complete both.
   return (S.program.days||[]).length>0&&(S.program.days||[]).every(d=>
+    (d.sessionType==='rest')|| // rest needs no record
     (S.skips||[]).some(sk=>recMatchesDay(sk,d)&&sk.blockName===bn)||
     (S.sessions||[]).some(s=>recMatchesDay(s,d)&&wd.includes(s.date))
   );
@@ -6544,9 +6555,9 @@ function buildCoachReport(sessions,program,weekDates){
   // Per-session summary — activities are one line; skipped sets render as
   // SKIPPED · reason and are excluded from volume.
   blockSessions.forEach(s=>{
-    if(s.activity||['swim','run','pilates','mobility'].includes(s.sessionType)){
+    if(s.activity||isActivityType(s.sessionType)){
       const a=s.activity||{};
-      const bits=[(a.durationMin?a.durationMin+' min':null),(a.distance?a.distance+(s.sessionType==='swim'?' m':' km'):null),(a.effort?'effort '+a.effort:null),(a.notes||null)].filter(Boolean).join(' · ');
+      const bits=[(a.durationMin?a.durationMin+' min':null),(a.kbWeights?'bells '+a.kbWeights:null),(a.result?'result: '+a.result:null),(a.distance?a.distance+(s.sessionType==='swim'?' m':' km'):null),(a.effort?'effort '+a.effort:null),(a.notes||null)].filter(Boolean).join(' · ');
       r+=`### ${s.dayLabel||s.sessionType} (${s.sessionType}) — ${fmtDate(s.date)}${bits?' — '+bits:''}\n\n`;
       return;
     }
