@@ -2306,7 +2306,7 @@ assert(!/feTurbulence/.test(html), 'SOLAR: no SVG-filter backgrounds anywhere (i
 // ===== S2: WORDMARK + PWA + TRAIN ALLOCATION =====
 assert(/<svg id="wordmark"[^>]*aria-label="HYPERION"/.test(html), 'S2: inline SVG wordmark present');
 assert(/<linearGradient id="wmSun"/.test(html) && /fill="url\(#wmSun\)"/.test(html), 'S2: gradient lives in the sun disc');
-assert(/<text[^>]*style="font:500 10\.5px var\(--display\)[^"]*"[^>]*fill="#EDEDED">HYPERION<\/text>/.test(html), 'S2: letterforms are solid #EDEDED in the display face');
+assert(/<text[^>]*style="font:500 10\.5px var\(--display\)[^"]*"[^>]*fill="var\(--tx\)">HYPERION<\/text>/.test(html), 'S2/G8: letterforms are solid text-token ink in the display face');
 assert(!/text-shadow[^}]*HYPERION|HYPERION[^<]*text-shadow/.test(html), 'S2: old glow span retired');
 assert(/<meta name="theme-color" content="#050505">/.test(html), 'S2: theme-color matches OLED base');
 assert(/rel="icon"[^>]*%23050505/.test(html) && /rel="icon"[^>]*linearGradient/.test(html), 'S2: favicon is the black-field gradient sun');
@@ -3125,5 +3125,30 @@ assert(!/DEF_PROGRAM\.name!==S\.program\.name && S\.settings\._dismissedBlock/.t
 })();
 assert(/_staleMobilityRemovedB6&&DEF_PROGRAM\.version>=10/.test(html), 'G7/F2: removal one-shot gated on the v10 ship');
 assert(/S\.skips=\(S\.skips\|\|\[\]\)\.filter\(sk=>!stale\.some\(d=>d\.id===sk\.dayId\)\)/.test(html), 'G7/F2: removed day sweeps its skips');
+
+// ===== G8: COLOUR AUDIT — no hardcoded hex outside the token map =====
+console.log('\n--- G8: hex scan ---');
+(()=>{
+  const hexRe=/(?<!&)#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})(?![0-9a-zA-Z-])/g; // (?<!&) skips &#9888;-style entities
+  // 1) STYLE: everything except the :root token map and mask alpha stops.
+  const styleContent=(html.match(/<style>([\s\S]*?)<\/style>/)||['',''])[1]
+    .replace(/:root\{[^}]*\}/,'')
+    .replace(/mask-image:linear-gradient\([^)]*\)/g,'')
+    .replace(/-webkit-mask-image:linear-gradient\([^)]*\)/g,'');
+  const styleHits=styleContent.match(hexRe)||[];
+  assert(styleHits.length===0, 'G8: style block clean of hex outside :root. Offenders: '+styleHits.join(','));
+  // 2) SCRIPT: everything except BRAND_CYCLE (the token source) and the
+  //    share-PNG canvas painter (canvas cannot read CSS custom properties).
+  const scriptContent=(html.match(/<script>([\s\S]*?)<\/script>/)||['',''])[1]
+    .replace(/const BRAND_CYCLE=\[[\s\S]*?\];/,'')
+    .replace(/function shareWrappedPNG[\s\S]*?\n}\n/,'');
+  const jsHits=scriptContent.match(hexRe)||[];
+  assert(jsHits.length===0, 'G8: script clean of hex outside whitelisted regions. Offenders: '+jsHits.join(','));
+  // 3) BODY markup between the style and script blocks (wordmark et al).
+  const bodyHtml=html.split('</style>')[1].split('<script>')[0];
+  const bodyHits=bodyHtml.match(hexRe)||[];
+  assert(bodyHits.length===0, 'G8: body markup clean of hex. Offenders: '+bodyHits.join(','));
+})();
+assert(/--on-brand:#0A0B0E/.test(html)&&/--amber:#F59E0B/.test(html)&&/--orange:#F97316/.test(html), 'G8: new ink + warm-scale tokens live in :root');
 
 console.log('\n=== All tests passed ===');
