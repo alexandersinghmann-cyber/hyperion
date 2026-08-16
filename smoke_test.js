@@ -53,7 +53,9 @@ const patched = js
   .replace(/\bconst ACTIVITY_TYPES\s*=/g, 'var ACTIVITY_TYPES =')
   .replace(/\bconst MODALITY_TYPES\s*=/g, 'var MODALITY_TYPES =')
   .replace(/\blet _reachCache\s*=/g, 'var _reachCache =')
-  .replace(/\bconst DEFAULT_PLATES\s*=/g, 'var DEFAULT_PLATES =');
+  .replace(/\bconst DEFAULT_PLATES\s*=/g, 'var DEFAULT_PLATES =')
+  .replace(/\bconst ROLE_DEFAULTS\s*=/g, 'var ROLE_DEFAULTS =')
+  .replace(/\bconst ROLE_LABELS\s*=/g, 'var ROLE_LABELS =');
 (0, eval)(patched);
 // Expose helpers globally (they were `function` declarations, already global when eval'd indirectly)
 
@@ -2966,5 +2968,53 @@ assert(/_sgPlates1kgDroppedB6/.test(html), 'G3: one-shot drops the 1 kg pair fro
   assert(w2.filter(x=>/not loadable/.test(x.msg)).length===0, 'G3: 126 @ 36 bar is clean');
   S.settings.activeGymId=_gymSave;
 })();
+
+// ===== G4: ROLE / TARGET / FROZEN =====
+console.log('\n--- G4: role/target/frozen ---');
+assert(exRole({name:'Face Pull'})==='rehab', 'G4: ROLE_DEFAULTS — Face Pull is rehab');
+assert(exRole({name:'Band External Rotation'})==='rehab', 'G4: rehab-shaped meta defaults to rehab');
+assert(exRole({name:'Back Squat'})===null, 'G4: main lifts carry no default role');
+assert(exRole({name:'Leg Press',role:'hypertrophy'})==='hypertrophy', 'G4: authored role wins');
+assert(targetLineHTML({name:'DB RDL',prescribed:{loadKg:35,reps:'8'},target:{type:'load',value:40,unit:'kg'}})==='35 → 40 kg', 'G4: thin progress line renders current → target. Got: '+targetLineHTML({name:'DB RDL',prescribed:{loadKg:35,reps:'8'},target:{type:'load',value:40,unit:'kg'}}));
+const mkExG4=(o)=>Object.assign({name:'Leg Press',cat:'squat',prescribed:{sets:3,reps:'10',loadKg:170,unit:'kg'},equipmentClass:'machine',performed:[{type:'working',weightKg:170,reps:10,rpe:7,logged:true}],tags:[],progression:null,nextLoad:null,painEvent:null},o);
+// rehab: no suggestion at all
+S.activeSession={dayIndex:-1,date:'2026-08-17',dayLabel:'T',sessionType:'lifting',startTime:1,exercises:[mkExG4({name:'Face Pull',cat:'pull',equipmentClass:'cable',prescribed:{sets:2,reps:'15',loadKg:13.75,unit:'kg'},performed:[{type:'working',weightKg:13.75,reps:15,rpe:7,logged:true}]})]};
+evalProg(0);
+assert(S.activeSession.exercises[0].progression===null&&S.activeSession.exercises[0].nextLoad===null, 'G4: rehab role → no progression suggestion. Got: '+S.activeSession.exercises[0].progression);
+// frozen: hold + cue reason
+S.activeSession.exercises=[mkExG4({name:'Back Extension',cat:'hinge',equipmentClass:'bw',prescribed:{sets:3,reps:'12',loadKg:10,unit:'kg'},frozen:true,cue:'Depth + contraction first',performed:[{type:'working',weightKg:10,reps:12,rpe:7,logged:true}]})];
+evalProg(0);
+assert(S.activeSession.exercises[0].progression==='hold'&&/Frozen — Depth \+ contraction first/.test(S.activeSession.exercises[0].progressionReason), 'G4: frozen → hold + cue reason. Got: '+S.activeSession.exercises[0].progressionReason);
+// at-target: load/kg
+S.activeSession.exercises=[mkExG4({target:{type:'load',value:170,unit:'kg'}})];
+evalProg(0);
+assert(S.activeSession.exercises[0].progression==='hold'&&S.activeSession.exercises[0].progressionReason==='At target — maintain', 'G4: at-target (kg) → maintain. Got: '+S.activeSession.exercises[0].progression+' / '+S.activeSession.exercises[0].progressionReason);
+// at-target: e1RM (145×5 → 169.2 ≥ 166)
+S.activeSession.exercises=[mkExG4({name:'Back Squat',equipmentClass:'barbell',prescribed:{sets:4,reps:'5',loadKg:145,unit:'kg'},performed:[{type:'working',weightKg:145,reps:5,rpe:8,logged:true}],target:{type:'load',value:166,unit:'e1rm'}})];
+evalProg(0);
+assert(S.activeSession.exercises[0].progression==='hold'&&S.activeSession.exercises[0].progressionReason==='At target — maintain', 'G4: at-target (e1RM) → maintain');
+// below target: normal path unaffected
+S.activeSession.exercises=[mkExG4({target:{type:'load',value:180,unit:'kg'}})];
+evalProg(0);
+assert(S.activeSession.exercises[0].progression==='increase', 'G4: below target → normal progression. Got: '+S.activeSession.exercises[0].progression);
+// pain BEATS frozen
+S.activeSession.exercises=[mkExG4({frozen:true,painEvent:{severity:'moderate'},performed:[{type:'working',weightKg:170,reps:10,rpe:7,logged:true}]})];
+evalProg(0);
+assert(S.activeSession.exercises[0].progression==='flag'&&/Pain event/.test(S.activeSession.exercises[0].progressionReason), 'G4: pain wins over frozen. Got: '+S.activeSession.exercises[0].progression);
+// role/target/frozen + progressionReason survive into the stored record
+S.activeSession={dayIndex:-1,dayId:60,blockName:S.program.name,date:'2026-08-17',dayLabel:'G4T',sessionType:'lifting',startTime:11,notes:'',
+  exercises:[mkExG4({role:'hypertrophy',frozen:true,cue:'test cue',target:{type:'load',value:180,unit:'kg'}})]};
+evalProg(0);
+confirmRpe(7);
+(()=>{
+  const rec=S.sessions[S.sessions.length-1];
+  const rx=rec.exercises[0];
+  assert(rx.role==='hypertrophy'&&rx.frozen===true&&rx.target&&rx.target.value===180&&/Frozen/.test(rx.progressionReason||''), 'G4: role/target/frozen/reason persist to the record. Got: '+JSON.stringify({role:rx.role,frozen:rx.frozen,reason:rx.progressionReason}));
+  S.sessions.pop();
+})();
+S.activeSession=null;
+assert((html.match(/toggleFreeze\(\$\{i\}\);closeExMenus\(\)/g)||[]).length===1&&(html.match(/toggleFreeze\(\$\{ei\}\);closeExMenus\(\)/g)||[]).length===1, 'G4: freeze toggle in both overflow menus');
+assert(/\.role-chip\{/.test(html), 'G4: role chip styled');
+assert(/roleTag\}\$\{stateTag\}/.test(html), 'G4: report prints role + state tags');
 
 console.log('\n=== All tests passed ===');

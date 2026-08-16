@@ -347,6 +347,8 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .ex-sub .main-target{font-family:var(--sans)}
 /* Coach-standard chip (e.g. full-depth-standard) — prominent, warn-tinted */
 .std-chip{display:inline-block;background:var(--warn-dim);color:var(--warn);font:600 10px var(--sans);padding:1px 6px;border-radius:4px;vertical-align:middle}
+.role-chip{display:inline-block;background:var(--s3);color:var(--tx2);font:600 9px var(--sans);padding:1px 6px;border-radius:4px;vertical-align:middle;letter-spacing:.3px}
+.role-chip.role-rehab{color:var(--m-mobility)}
 .top-chip{display:block;font:700 7px var(--sans);color:var(--brand);letter-spacing:.4px;margin-top:1px}
 .pain-flag{min-width:44px;min-height:44px;background:none;border:none;color:var(--tx3);font-size:15px;cursor:pointer;flex-shrink:0;padding:0}
 .pain-flag.has{color:var(--red)}
@@ -3628,6 +3630,7 @@ function startDay(i){
       warmup:Array.isArray(ex.warmup)?JSON.parse(JSON.stringify(ex.warmup)):null,
       barKg:(typeof ex.barKg==='number')?ex.barKg:undefined,
       section:ex.section||'main',
+      role:ex.role||undefined,target:ex.target?JSON.parse(JSON.stringify(ex.target)):undefined,frozen:ex.frozen||undefined,
       entryType:ex.entryType||undefined,format:ex.format||undefined,minutes:ex.minutes||undefined,movements:ex.movements||undefined,result:null,
       // equipmentClass drives suggestion snapping; variant keys the history track.
       equipmentClass:ex.equipmentClass||inferEquipmentClass(ex.name),
@@ -3995,6 +3998,8 @@ function renderExList(){
             const bits=[];
             if((ex.equipmentClass==='barbell'||getMeta(ex.name).eq&&getMeta(ex.name).eq.includes('barbell'))&&ex.prescribed.loadKg)bits.push(plateLabel(ex));
             const mt=mainTargetLine(ex);if(mt)bits.push(mt);
+            const tl=targetLineHTML(ex);if(tl)bits.push(tl);
+            const rc=roleChipHTML(ex);if(rc)bits.unshift(rc);
             return bits.length?`<div class="ex-sub">${bits.join('<span class="ex-sub-dot"> · </span>')}</div>`:'';
           })()}
           ${!allDone&&st==='calisthenics'&&ex.cue?`<div style="font-size:12px;color:var(--brand);margin-top:3px;line-height:1.4">${ex.cue}</div>`:''}
@@ -4066,6 +4071,7 @@ function renderExList(){
               ${!allDone?`<button onclick="openSwap(${i});closeExMenus()">Swap</button>`:''}
               ${i<sess.exercises.length-1?`<button onclick="pairSuperset(${i});closeExMenus()">${ex.supersetNext?'Unpair superset':'Superset with next'}</button>`:''}
               ${!allDone?`<button onclick="skipExercise(${i});closeExMenus()">Skip exercise</button>`:''}
+              <button onclick="toggleFreeze(${i});closeExMenus()">${ex.frozen?'Unfreeze':'Freeze at current load'}</button>
               <button onclick="closeExMenus();openPainModal(${i})" class="danger">⚠ Pain</button>
             </div>
           </div>
@@ -4074,7 +4080,7 @@ function renderExList(){
         ${allDone&&ex.progression?`<div class="prog-badge prog-${ex.progression==='increase'?'up':ex.progression==='flag'?'flag':ex.progression==='stall'?'stall':ex.progression==='skipped'?'skip':'hold'}">
           <span>${ex.progression==='increase'?'↑ Increase':ex.progression==='flag'?'⚠ Flagged':ex.progression==='stall'?'⏸ Stall':ex.progression==='skipped'?'⏭ Skipped':'→ Hold'}</span>
           ${ex.nextLoad&&ex.progression==='increase'?`<span class="tm">${fmtW(ex.nextLoad,ex.prescribed.unit)}</span>`:ex.nextTarget&&ex.progression==='increase'?`<span class="tm">next ${ex.nextTarget}${/^\d+$/.test(ex.nextTarget)?' reps':''}</span>`:''}
-        </div>${ex.progression==='flag'&&ex.progressionReason?`<div style="margin-top:6px;padding:7px 10px;background:var(--s2);border-left:2px solid var(--warn);border-radius:var(--rs);font:500 11px var(--mono);color:var(--tx2);line-height:1.4">${ex.progressionReason}</div>`:''}`:''}
+        </div>${(ex.progression==='flag'||ex.progression==='hold')&&ex.progressionReason?`<div style="margin-top:6px;padding:7px 10px;background:var(--s2);border-left:2px solid ${ex.progression==='flag'?'var(--warn)':'var(--line)'};border-radius:var(--rs);font:500 11px var(--mono);color:var(--tx2);line-height:1.4">${ex.progressionReason}</div>`:''}`:''}
       </div>
     </div>`;
   }).join('');
@@ -4244,6 +4250,8 @@ function focusMemberHeadHTML(ex,ei,tag){
   const bits=[];
   if((ex.equipmentClass==='barbell'||getMeta(ex.name).eq&&getMeta(ex.name).eq.includes('barbell'))&&ex.prescribed.loadKg)bits.push(plateLabel(ex));
   const mt=mainTargetLine(ex);if(mt)bits.push(mt);
+  const tl=targetLineHTML(ex);if(tl)bits.push(tl);
+  const rc=roleChipHTML(ex);if(rc)bits.unshift(rc);
   return `<div class="fc-member-block" id="ex${ei}">
     <div class="fc-head">
       ${tag?`<span class="fc-member-tag big">${tag}</span>`:''}
@@ -4263,6 +4271,7 @@ function focusMemberHeadHTML(ex,ei,tag){
           ${ei<S.activeSession.exercises.length-1?`<button onclick="pairSuperset(${ei});closeExMenus()">${ex.supersetNext?'Unpair superset':'Superset with next'}</button>`:''}
           <button onclick="logAll(${ei});closeExMenus()">Log all sets</button>
           <button onclick="skipExercise(${ei});closeExMenus()">Skip exercise</button>
+          <button onclick="toggleFreeze(${ei});closeExMenus()">${ex.frozen?'Unfreeze':'Freeze at current load'}</button>
           <button onclick="closeExMenus();openPainModal(${ei})" class="danger">\u26a0 Pain</button>
         </div>
       </div>
@@ -4281,6 +4290,8 @@ function openFcDetail(ei){
     const bits=[];
     if((ex.equipmentClass==='barbell'||getMeta(ex.name).eq&&getMeta(ex.name).eq.includes('barbell'))&&ex.prescribed.loadKg)bits.push(plateLabel(ex));
     const mt=mainTargetLine(ex);if(mt)bits.push(mt);
+    const tl=targetLineHTML(ex);if(tl)bits.push(tl);
+    const rc=roleChipHTML(ex);if(rc)bits.unshift(rc);
     body.innerHTML=`<div class="t-h2" style="margin-bottom:8px">${ex.name}</div>
       <div class="fc-detail-row"><span class="t-meta">Prescription</span><div class="tm">${rx}</div></div>
       ${bits.map(b=>`<div class="fc-detail-row"><div class="tm">${b}</div></div>`).join('')}
@@ -5394,6 +5405,80 @@ function startTimer(){if(sessionTimer)clearInterval(sessionTimer);sessionTimer=s
 // B1: base decisions on achieved top working set, not prescribed load.
 // RPE-driven: ≤7 → +inc; 8 → +half; 9 → hold; 10/missed → -5%.
 // Fallback when RPE missing: reps-only rules (allMax → up, bigMiss → flag).
+// ===== A: ACCESSORY ROLE / TARGET / FROZEN (Block 6) =====
+// role lives on the program-day exercise (per-instance intent, not global
+// EX_META); ROLE_DEFAULTS covers ad-hoc adds by name; rehab-shaped meta
+// (fat/pat 'rehab', mobility pats) defaults to 'rehab'.
+const ROLE_DEFAULTS={'Face Pull':'rehab','Band External Rotation':'rehab','Band Pull-Apart':'rehab','External Rotation':'rehab'};
+const ROLE_LABELS={'strength-driver':'Strength','hypertrophy':'Hypertrophy','conditioning':'Conditioning','maintenance':'Maintain','rehab':'Rehab','skill':'Skill'};
+function exRole(ex){
+  if(!ex)return null;
+  if(ex.role)return ex.role;
+  const nm=canonName(ex.name);
+  if(ROLE_DEFAULTS[nm])return ROLE_DEFAULTS[nm];
+  if(ex.cat==='rehab')return 'rehab';
+  const m=getMeta(ex.name);
+  if(m.fat==='rehab'||m.pat==='rehab'||/-mob$/.test(m.pat||''))return 'rehab';
+  return null;
+}
+// Achieved value for a target from THIS session's logged working sets.
+function exAchievedForTarget(ex){
+  const t=ex&&ex.target;if(!t||!t.type||t.type==='none')return null;
+  const w=(ex.performed||[]).filter(s2=>s2.logged&&!s2.skipped&&s2.type==='working');
+  if(!w.length)return null;
+  if(t.type==='load'){
+    if(t.unit==='e1rm')return Math.max.apply(null,w.map(s2=>e1rm(+s2.weightKg||0,+s2.reps||0)));
+    return Math.max.apply(null,w.map(s2=>+s2.weightKg||0));
+  }
+  if(t.type==='reps'||t.type==='hold')return Math.max.apply(null,w.map(s2=>parseFloat(s2.reps)||0));
+  return null;
+}
+function exAtTarget(ex){
+  const t=ex&&ex.target;if(!t||!t.type||t.type==='none'||!(+t.value>0))return false;
+  const cur=exAchievedForTarget(ex);
+  return cur!=null&&cur>=+t.value-1e-9;
+}
+// History/prescription-based "current" for the card's thin progress line.
+function targetCurrentVal(ex){
+  try{
+    const t=ex.target;if(!t)return null;
+    if(t.type==='load'&&t.unit==='e1rm'){const v=bestHistoricalE1rm(ex.name);return v>0?Math.round(v*10)/10:null;}
+    if(t.type==='load')return +((ex.prescribed&&ex.prescribed.loadKg)||ex.loadKg)||null;
+    if(t.type==='reps'||t.type==='hold')return parseFloat((ex.prescribed&&ex.prescribed.reps)||ex.reps)||null;
+  }catch(e){}
+  return null;
+}
+function roleChipHTML(ex){
+  const r=exRole(ex);if(!r)return'';
+  return '<span class="role-chip role-'+r+'">'+(ROLE_LABELS[r]||r)+'</span>';
+}
+// Thin "35 → 40 kg" progress line + at-target/frozen state for the card meta.
+function targetLineHTML(ex){
+  const t=ex&&ex.target;
+  const parts=[];
+  if(t&&t.type&&t.type!=='none'&&+t.value>0){
+    const cur=targetCurrentVal(ex);
+    const u=t.unit==='e1rm'?' e1RM':(t.type==='reps'?' reps':t.type==='hold'?' s':' kg');
+    const atT=cur!=null&&cur>=+t.value-1e-9;
+    parts.push((cur!=null?cur+' → ':'→ ')+t.value+u+(atT?' ✓':''));
+    if(atT&&!ex.frozen)parts.push('At target — maintain');
+  }
+  if(t&&t.note)parts.push(t.note);
+  if(ex&&ex.frozen)parts.push('Frozen — '+(ex.cue||'technique focus'));
+  return parts.join(' · ');
+}
+function toggleFreeze(i){
+  const sess=S.activeSession;if(!sess)return;const ex=sess.exercises[i];if(!ex)return;
+  ex.frozen=!ex.frozen;
+  // Intent persists on the program day (name-matched — order can differ live).
+  try{
+    const d=sess.dayIndex>=0?S.program.days[sess.dayIndex]:null;
+    const dEx=d&&(d.exercises||[]).find(e2=>e2.name===ex.name);
+    if(dEx)dEx.frozen=ex.frozen;
+  }catch(e){}
+  save();renderEx();
+  toast(ex.frozen?'Frozen — suggestions off until you unfreeze':'Unfrozen — progression back on');
+}
 function evalProg(ei){
   const ex=S.activeSession.exercises[ei];
   if(ex.progression==='skipped')return;
@@ -5432,6 +5517,20 @@ function evalProg(ei){
       ex.progressionReason='Calibrating — logging a baseline on this machine ('+(_n+1)+'/2 sessions)';
       save();return;
     }
+  }
+
+  // A (Block 6) gate order: calibrate (above) → rehab → frozen/at-target.
+  // Pain deliberately WINS over frozen/at-target — a safety flag must surface,
+  // so the frozen gate steps aside when a pain event is present.
+  if(exRole(ex)==='rehab'){
+    // Rehab dose is a coaching call — no progression suggestions, ever.
+    ex.progression=null;ex.nextLoad=null;ex.nextTarget=null;ex.progressionReason=null;
+    save();return;
+  }
+  if((ex.frozen||exAtTarget(ex))&&!(ex.painEvent&&ex.painEvent.severity!=='none')){
+    ex.progression='hold';ex.nextLoad=isBW?null:(topW||ex.prescribed.loadKg);ex.nextTarget=null;
+    ex.progressionReason=ex.frozen?('Frozen — '+(ex.cue||'technique focus, load stays')):'At target — maintain';
+    save();return;
   }
 
   if(ex.painEvent&&ex.painEvent.severity!=='none'){
@@ -5594,7 +5693,7 @@ function confirmRpe(){
 
   const rec={id:'s_'+Date.now(),date:sess.date,retro:sess.retro||undefined,dayLabel:sess.dayLabel,dayId:sess.dayId!=null?sess.dayId:null,gymId:sess.gymId||(S.settings&&S.settings.activeGymId)||null,blockName:S.program.name,duration:dur,rpe:selRpe,status:'complete',
     sessionNotes:sess.notes||'',
-    exercises:sess.exercises.map(ex=>({name:ex.name,cat:ex.cat,section:ex.section||'main',...(ex.entryType==='circuit'?{entryType:'circuit',format:ex.format,minutes:ex.minutes,movements:ex.movements||'',result:ex.result||null,loadKg:ex.prescribed&&ex.prescribed.loadKg||ex.loadKg||null}:{}),prescribed:ex.prescribed,performed:ex.performed.filter(s=>s.logged),notes:ex.notes,progression:ex.progression,nextLoad:ex.nextLoad,nextTarget:ex.nextTarget||null,variant:ex.variant||null,painEvent:ex.painEvent,tags:ex.tags})),
+    exercises:sess.exercises.map(ex=>({name:ex.name,cat:ex.cat,section:ex.section||'main',...(ex.entryType==='circuit'?{entryType:'circuit',format:ex.format,minutes:ex.minutes,movements:ex.movements||'',result:ex.result||null,loadKg:ex.prescribed&&ex.prescribed.loadKg||ex.loadKg||null}:{}),prescribed:ex.prescribed,performed:ex.performed.filter(s=>s.logged),notes:ex.notes,progression:ex.progression,progressionReason:ex.progressionReason||null,role:ex.role||null,target:ex.target||null,frozen:ex.frozen||undefined,nextLoad:ex.nextLoad,nextTarget:ex.nextTarget||null,variant:ex.variant||null,painEvent:ex.painEvent,tags:ex.tags})),
     painEvents:sess.exercises.filter(e=>e.painEvent&&e.painEvent.severity!=='none').map(e=>({exercise:e.name,...e.painEvent}))
   };
   S.sessions.push(rec);
@@ -5658,7 +5757,7 @@ function renderSummary(rec){
         <div class="${pc}" style="font-weight:700;font-size:16px">${pi}</div>
       </div>
       ${ex.nextLoad&&ex.progression==='increase'?`<div style="font-size:11px;color:var(--grn);margin-top:3px">Next: ${fmtW(dispSuggest(ex.nextLoad,ex.equipmentClass||inferEquipmentClass(ex.name),'increase',ex),ex.prescribed?.unit)}</div>`:ex.nextTarget&&ex.progression==='increase'?`<div style="font-size:11px;color:var(--grn);margin-top:3px">Next: ${ex.nextTarget}${/^\d+$/.test(ex.nextTarget)?' reps':''}</div>`:''}
-      ${ex.progression==='flag'&&ex.progressionReason?`<div style="font-size:11px;color:var(--warn);margin-top:3px;line-height:1.4">${ex.progressionReason}</div>`:''}
+      ${(ex.progression==='flag'||ex.progression==='hold')&&ex.progressionReason?`<div style="font-size:11px;color:${ex.progression==='flag'?'var(--warn)':'var(--tx2)'};margin-top:3px;line-height:1.4">${ex.progressionReason}</div>`:''}
     </div>`;
   }).join('');
 
@@ -6646,10 +6745,12 @@ function buildCoachReport(sessions,program,weekDates){
       const wu=(ex.performed||[]).filter(p=>p.type==='warmup');
       const pi=ex.progression==='increase'?'↑':ex.progression==='flag'?'⚠':ex.progression==='stall'?'⏸':'→';
       const bonus=(ex.tags||[]).includes('bonus')?' [BONUS]':'';
+      const _rl=exRole(ex);const roleTag=_rl?' ['+_rl+']':'';
+      const stateTag=ex.frozen?' [FROZEN]':(ex.progressionReason==='At target — maintain'?' [AT TARGET — MAINTAIN]':'');
       const setStr=w.map(s=>s.skipped?('SKIPPED'+(s.skipReason?' · '+s.skipReason:'')):(fmtW(s.weightKg,ex.prescribed?.unit)+'×'+s.reps+(s.rpe?' @ RPE '+s.rpe:''))).join(' / ');
       const vl=variantLabel(ex.variant);
       const rxStr=ex.prescribed&&ex.prescribed.setScheme?` [${schemeString(ex.prescribed.setScheme,ex.prescribed.unit)}]`:'';
-      r+=`  ${pi} ${ex.name}${vl?' ('+vl+')':''}${bonus}${rxStr}: ${setStr}`;
+      r+=`  ${pi} ${ex.name}${vl?' ('+vl+')':''}${bonus}${roleTag}${stateTag}${rxStr}: ${setStr}`;
       // 4b: a suggestion equal to the load just performed is a HOLD, never a
       // "deload" (pain/bigMiss flags set nextLoad=topW; the report was
       // advertising "deload to 16.5" after a 16.5 session).
