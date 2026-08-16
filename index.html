@@ -1370,7 +1370,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 
 
 const K2L=2.20462,L2K=0.453592,STORE='hyperion_v2';
-const APP_VERSION='v5';
+const APP_VERSION='v6'; // Imperium theme ship
 const COMPOUNDS=['squat','hinge','push'];
 
 // ===== ICON LIBRARY (inline SVG, stroke-based, 20px default) =====
@@ -4506,7 +4506,7 @@ function renderExList(){
         ${ex.painEvent?`<div style="margin-top:8px;padding:8px 10px;border-radius:var(--rs);background:var(--red-dim);font-size:12px;color:var(--red)">⚠ ${ex.painEvent.severity} pain${ex.painEvent.action?' — '+ex.painEvent.action:''}</div>`:''}
         ${allDone&&ex.progression?`<div class="prog-badge prog-${ex.progression==='increase'?'up':ex.progression==='flag'?'flag':ex.progression==='stall'?'stall':ex.progression==='skipped'?'skip':'hold'}">
           <span>${ex.progression==='increase'?'↑ Increase':ex.progression==='flag'?t('badge.flag'):ex.progression==='stall'?'⏸ Stall':ex.progression==='skipped'?'⏭ Skipped':'→ Hold'}</span>
-          ${ex.nextLoad&&ex.progression==='increase'?`<span class="tm">${fmtW(ex.nextLoad,ex.prescribed.unit)}</span>`:ex.nextTarget&&ex.progression==='increase'?`<span class="tm">next ${ex.nextTarget}${/^\d+$/.test(ex.nextTarget)?' reps':''}</span>`:''}
+          ${ex.nextLoad&&ex.progression==='increase'?`<span class="tm">${imperiumOn()?machineCant('MACHINE SPIRIT COUNSELS:',fmtW(ex.nextLoad,ex.prescribed.unit)):fmtW(ex.nextLoad,ex.prescribed.unit)}</span>`:ex.nextTarget&&ex.progression==='increase'?`<span class="tm">next ${ex.nextTarget}${/^\d+$/.test(ex.nextTarget)?' reps':''}</span>`:''}
         </div>${(ex.progression==='flag'||ex.progression==='hold')&&ex.progressionReason?`<div style="margin-top:6px;padding:7px 10px;background:var(--s2);border-left:2px solid ${ex.progression==='flag'?'var(--warn)':'var(--line)'};border-radius:var(--rs);font:500 11px var(--mono);color:var(--tx2);line-height:1.4">${imperiumOn()?machineCant('MACHINE SPIRIT SPEAKS:',ex.progressionReason):ex.progressionReason}</div>`:''}`:''}
       </div>
     </div>`;
@@ -4781,7 +4781,7 @@ function focusCardHTML(u,p,sess,curPos){
   const rows=seq.map(([ei,si])=>focusSetRowHTML(sess.exercises[ei],ei,sess.exercises[ei].performed[si],si,u.eis.length>1?String.fromCharCode(65+u.eis.indexOf(ei)):null)).join('');
   // C1: the Log button no longer duplicates the readout's numbers.
   const logLbl=cur?(sess.exercises[cur[0]].performed[cur[1]].type==='warmup'?t('log.wu'):(t('log.set')+(sess.exercises[cur[0]].performed.slice(0,cur[1]).filter(x=>x.type==='working').length+1))):null;
-  const prog=u.eis.map(ei=>sess.exercises[ei]).filter(ex=>done&&ex.progression).map(ex=>`<div class="prog-badge prog-${ex.progression==='increase'?'up':ex.progression==='flag'?'flag':ex.progression==='stall'?'stall':ex.progression==='skipped'?'skip':'hold'}"><span>${ex.progression==='increase'?'\u2191 Increase':ex.progression==='flag'?t('badge.flag'):ex.progression==='stall'?'\u23f8 Stall':ex.progression==='skipped'?'\u23ed Skipped':'\u2192 Hold'}</span>${ex.nextLoad&&ex.progression==='increase'?`<span class="tm">${fmtW(ex.nextLoad,ex.prescribed.unit)}</span>`:''}</div>`).join('');
+  const prog=u.eis.map(ei=>sess.exercises[ei]).filter(ex=>done&&ex.progression).map(ex=>`<div class="prog-badge prog-${ex.progression==='increase'?'up':ex.progression==='flag'?'flag':ex.progression==='stall'?'stall':ex.progression==='skipped'?'skip':'hold'}"><span>${ex.progression==='increase'?'\u2191 Increase':ex.progression==='flag'?t('badge.flag'):ex.progression==='stall'?'\u23f8 Stall':ex.progression==='skipped'?'\u23ed Skipped':'\u2192 Hold'}</span>${ex.nextLoad&&ex.progression==='increase'?`<span class="tm">${imperiumOn()?machineCant('MACHINE SPIRIT COUNSELS:',fmtW(ex.nextLoad,ex.prescribed.unit)):fmtW(ex.nextLoad,ex.prescribed.unit)}</span>`:''}</div>`).join('');
   const pains=u.eis.map(ei=>sess.exercises[ei]).filter(ex=>ex.painEvent).map(ex=>`<div style="margin-top:8px;padding:8px 12px;border-radius:var(--rs);background:var(--red-dim);font-size:12px;color:var(--red)">\u26a0 ${ex.painEvent.severity} pain${ex.painEvent.action?' \u2014 '+ex.painEvent.action:''}</div>`).join('');
   return `<div class="fcard${done?' done':''}${secCls}" id="fcard${u.eis[0]}">${secHdr}
     ${members}

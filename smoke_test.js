@@ -1193,7 +1193,7 @@ assert(typeof ICONS === 'object' && ICONS, 'v3 icons: ICONS map defined');
 assert(typeof icon === 'function', 'v3 icons: icon() helper defined');
 assert(/^<svg /.test(icon('check')) && /viewBox/.test(icon('check')), 'v3 icons: icon() returns an <svg> string');
 assert(/width="28"/.test(icon('swim',28)), 'v3 icons: icon() honors size arg');
-assert(typeof APP_VERSION === 'string' && APP_VERSION === 'v5', 'v5: APP_VERSION bumped for the SOLAR build cache-bust');
+assert(typeof APP_VERSION === 'string' && APP_VERSION === 'v6', 'v6: APP_VERSION bumped for the Imperium theme ship');
 
 // ===== TRACK A: SCHEMA MIGRATION + LOAD SNAPPING (Commit 2) =====
 // snapLoadToEquipment
