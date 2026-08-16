@@ -2359,6 +2359,17 @@ function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse
   if(S.activeSession&&Array.isArray(S.activeSession.exercises)&&!Array.isArray(S.activeSession.order))S.activeSession.order=S.activeSession.exercises.map((_,i)=>i);
   // Backfill skips array
   if(!Array.isArray(S.skips))S.skips=[];
+  if(!Array.isArray(S.weekRemovals))S.weekRemovals=[];
+  // E: prune expired week-scoped state — one-offs + removals from past weeks.
+  try{
+    const _wkMon=weekOfDate(weekAnchor(todayStr()));
+    const _stale=(S.program.days||[]).filter(d=>d.oneOff&&(!d.scheduledDate||weekOfDate(d.scheduledDate)<_wkMon));
+    if(_stale.length){
+      S.program.days=S.program.days.filter(d=>!_stale.includes(d));
+      S.skips=(S.skips||[]).filter(sk=>!_stale.some(d=>d.id===sk.dayId));
+    }
+    S.weekRemovals=S.weekRemovals.filter(r=>r.weekOf>=_wkMon);
+  }catch(e){}
   // v1→v2 migration
   if(!S.version||S.version<2){S.version=2;S.sessions.forEach(s=>{if(!s.blockName)s.blockName='Apr 11–16 Block'});save()}
   // Apply name aliases to historical sessions + active session for trend continuity
@@ -2530,6 +2541,16 @@ function syncProgram(){
   const _oldProg=S.program;
   S.program=JSON.parse(JSON.stringify(DEF_PROGRAM)); // name auto-updates to DEF_PROGRAM.name
   carryPermanentDays(_oldProg,S.program);
+  // E: one-offs scheduled this week (or later) survive a mid-week adopt.
+  try{
+    const _wkMon=weekOfDate(weekAnchor(todayStr()));
+    (_oldProg.days||[]).filter(d=>d.oneOff&&d.scheduledDate&&weekOfDate(d.scheduledDate)>=_wkMon).forEach(d=>{
+      const copy=JSON.parse(JSON.stringify(d));
+      const ids2=S.program.days.map(nd=>+nd.id||0);
+      if(ids2.includes(+copy.id))copy.id=Math.max.apply(null,ids2)+1;
+      S.program.days.push(copy);
+    });
+  }catch(e){}
   delete S.settings._dismissedBlock; // a fresh adoption clears any prior skip
   maybeAdvanceBrandSafe();
   save();
@@ -2871,6 +2892,7 @@ function getNextAvailableDayIdx(){
     if(!isStartableDay(d))return; // rest days are never 'next'
     if(isDayDone(i)||isDaySkipped(i))return;
     const ed=dayEffectiveDate(d);
+    if(dayRemovedForWeek(d,weekOfDate(ed)))return; // E2: removed this week
     if(bestDate===null||ed<bestDate){bestDate=ed;best=i;}
   });
   return best;
@@ -2888,18 +2910,38 @@ function weekDatesFor(dateStr){
   return Array.from({length:7},(_,i)=>dateAddDays(monday,i));
 }
 // Map program days + recurring activities onto a Mon-Sun week.
+// ===== E: WEEK OVERRIDES (Block 6) =====
+// One-off ADDS live in S.program.days as {oneOff:true,userAuthored:true,
+// scheduledDate} — they render/log like any day and never recur. REMOVES
+// hide a template day for one week: S.weekRemovals=[{dayId,weekOf}].
+function weekOfDate(d){return weekDatesFor(d)[0];}
+function dayRemovedForWeek(day,weekMon){
+  return (S.weekRemovals||[]).some(r=>r.dayId===day.id&&r.weekOf===weekMon);
+}
+function removeDayForWeek(dayIdx){
+  const d=S.program.days[dayIdx];if(!d)return false;
+  if(d.oneOff){S.program.days.splice(dayIdx,1);save();return true;}
+  const wk=weekOfDate(dayEffectiveDate(d));
+  S.weekRemovals=S.weekRemovals||[];
+  if(!dayRemovedForWeek(d,wk))S.weekRemovals.push({dayId:d.id,weekOf:wk});
+  save();return true;
+}
 function buildWeek(weekDates,todayDate){
   const rows=weekDates.map(date=>({date,dow:dowOf(date),isToday:date===todayDate,sessions:[]}));
   const byDate={},byDow={};rows.forEach(r=>{byDate[r.date]=r;byDow[r.dow]=r;});
+  // E3: placement = dayEffectiveDate, the SAME rule the Start picker uses —
+  // Train home and Week can no longer disagree, and an out-of-week
+  // scheduledDate falls back to the dow recurrence instead of vanishing.
   (S.program.days||[]).forEach((d,idx)=>{
-    let row=null,movedFrom=null;
-    if(d.scheduledDate&&byDate[d.scheduledDate]){
-      row=byDate[d.scheduledDate];
-      if(d.defaultDay&&dowOf(d.scheduledDate)!==d.defaultDay)movedFrom=d.defaultDay;
-    } else if((d.defaultDay||d.dayOfWeek)&&byDow[d.defaultDay||d.dayOfWeek]){
-      row=byDow[d.defaultDay||d.dayOfWeek];
-    }
-    if(row)row.sessions.push({label:d.label,type:d.sessionType||'lifting',locked:!!d.locked,source:'program',dayIndex:idx,movedFrom,done:isDayDone(idx),skipped:isDaySkipped(idx)});
+    if(dayRemovedForWeek(d,weekDates[0]))return;
+    // Anchor placement to the week BEING RENDERED (its Monday), not today's
+    // rolling anchor — on Sundays those differ and days would vanish from
+    // the calendar-week report counts.
+    const ed=dayEffectiveDate(d,weekDates[0]);
+    const row=byDate[ed];if(!row)return; // genuinely not this week
+    const dow=d.defaultDay||d.dayOfWeek;
+    const movedFrom=(!d.oneOff&&dow&&dowOf(ed)!==dow)?dow:null;
+    row.sessions.push({label:d.label,type:d.sessionType||'lifting',locked:!!d.locked,source:'program',dayIndex:idx,movedFrom,oneOff:!!d.oneOff,done:isDayDone(idx),skipped:isDaySkipped(idx)});
   });
   (S.recurringActivities||[]).forEach(ra=>{
     if(!ra.defaultDay)return;const row=byDow[ra.defaultDay];if(!row)return;
@@ -2919,22 +2961,6 @@ function restoreDay(dayIdx){const d=S.program.days[dayIdx];if(!d)return;delete d
 //  1. scheduledDate === today & not done
 //  2. defaultDay === today's dow & not moved & not done
 //  3. forward scan today+1..+7 in CALENDAR order; first not-done-not-skipped
-function pickTodayDayIdx(todayDate,todayDowVal){
-  const days=S.program.days||[];
-  const avail=(idx)=>!isDayDone(idx)&&!isDaySkipped(idx);
-  let i=days.findIndex((d,idx)=>d.scheduledDate===todayDate&&avail(idx));
-  if(i>=0)return i;
-  i=days.findIndex((d,idx)=>(d.defaultDay||d.dayOfWeek)===todayDowVal&&!d.scheduledDate&&avail(idx));
-  if(i>=0)return i;
-  for(let off=1;off<=7;off++){
-    const date=dateAddDays(todayDate,off), dow=dowOf(date);
-    i=days.findIndex((d,idx)=>d.scheduledDate===date&&avail(idx));
-    if(i>=0)return i;
-    i=days.findIndex((d,idx)=>(d.defaultDay||d.dayOfWeek)===dow&&!d.scheduledDate&&avail(idx));
-    if(i>=0)return i;
-  }
-  return -1;
-}
 // ===== WEEK VIEW RENDER =====
 let _rescheduleDayIdx=null;
 function renderWeek(){
@@ -3066,7 +3092,9 @@ function openComposer(){
 }
 function composerAddSession(dow,type,makeRecurring){
   const label=type.charAt(0).toUpperCase()+type.slice(1);
-  const day={id:'d_'+(S.program.days.length+1)+'_'+type,label:label,defaultDay:dow,dayOfWeek:dow,sessionType:type,dur:type==='lifting'?70:45,exercises:[],bonus:[],angle:null};
+  // Numeric id (max+1): string ids broke carryPermanentDays' +nd.id math.
+  const _ids=S.program.days.map(d2=>+d2.id||0);
+  const day={id:(_ids.length?Math.max.apply(null,_ids):0)+1,label:label,defaultDay:dow,dayOfWeek:dow,sessionType:type,dur:type==='lifting'?70:45,exercises:[],bonus:[],angle:null,userAuthored:true};
   S.program.days.push(day);
   if(makeRecurring&&!(S.recurringActivities||[]).some(r=>r.type===type&&r.defaultDay===dow)){
     (S.recurringActivities=S.recurringActivities||[]).push({type,defaultDay:dow,defaultDuration:day.dur,defaultDistance:0,label});
@@ -3152,12 +3180,15 @@ function renderTrain(){
   const startIdx=getNextAvailableDayIdx();
   const container=document.getElementById('blockDays');
   const upcoming=[],completed=[];
-  // Stable week-rank: chronological position of each day in the planning week
-  // (Upper=Mon=1, Squat=Wed=2, Deadlift=Sun=3). Independent of stored order.
+  // E5: number ONLY the surviving queue — filter done/skipped/rest/removed
+  // FIRST, then rank by effective date, so Up next always reads 1..n.
   const rankMap={};
-  S.program.days.map((d,i)=>({i,ed:dayEffectiveDate(d)})).sort((a,b)=>a.ed<b.ed?-1:a.ed>b.ed?1:a.i-b.i).forEach((o,n)=>{rankMap[o.i]=n+1;});
+  S.program.days.map((d,i)=>({i,d,ed:dayEffectiveDate(d)}))
+    .filter(o=>!isDayDone(o.i)&&!isDaySkipped(o.i)&&isStartableDay(o.d)&&!dayRemovedForWeek(o.d,weekOfDate(o.ed)))
+    .sort((a,b)=>a.ed<b.ed?-1:a.ed>b.ed?1:a.i-b.i).forEach((o,n)=>{rankMap[o.i]=n+1;});
 
   S.program.days.forEach((day,i)=>{
+    if(dayRemovedForWeek(day,weekOfDate(dayEffectiveDate(day))))return; // E2
     const done=isDayDone(i);
     const skipped=!done&&isDaySkipped(i);
     const isToday=i===todayIdx&&!done&&!skipped;
@@ -3291,6 +3322,7 @@ function weekAnchor(todayD){
 // Sunday session resolves to NEXT Sunday, not today.
 function dayEffectiveDate(day,todayD){
   const anchor=weekAnchor(todayD);
+  if(day.oneOff)return day.scheduledDate||anchor; // one-offs pin to their date
   if(day.scheduledDate&&day.scheduledDate>=anchor)return day.scheduledDate;
   const dow=day.defaultDay||day.dayOfWeek;
   for(let off=0;off<=13;off++){const dt=dateAddDays(anchor,off);if(dowOf(dt)===dow)return dt;}
@@ -6702,6 +6734,7 @@ function isWeekComplete(weekDates){
   // needs its OWN record — one swim must not complete both.
   return (S.program.days||[]).length>0&&(S.program.days||[]).every(d=>
     (d.sessionType==='rest')|| // rest needs no record
+    dayRemovedForWeek(d,wd[0])|| // removed this week — off the hook
     (S.skips||[]).some(sk=>recMatchesDay(sk,d)&&sk.blockName===bn)||
     (S.sessions||[]).some(s=>recMatchesDay(s,d)&&wd.includes(s.date))
   );

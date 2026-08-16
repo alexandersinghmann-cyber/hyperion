@@ -1338,11 +1338,8 @@ assert(buildWeek(weekDatesFor('2026-06-22'),'2026-06-22').find(r=>r.dow==='Monda
 S.program.days[1].locked=true;
 assert(rescheduleDay(1,'2026-06-23')===false, 'Track C: locked day resists reschedule');
 S.program.days[1].locked=false;
-// today pick precedence
-S.program.days[0].scheduledDate='2026-06-23';
-assert(pickTodayDayIdx('2026-06-23','Tuesday')===0, 'Track C: pickToday prefers scheduledDate==today (idx 0)');
-delete S.program.days[0].scheduledDate;
-assert(pickTodayDayIdx('2026-06-26','Friday')===1, 'Track C: pickToday falls to defaultDay==today (Friday→Squat idx 1)');
+// G5: pickTodayDayIdx was dead code (superseded by getNextAvailableDayIdx) — gone.
+assert(typeof pickTodayDayIdx==='undefined', 'G5: dead pickTodayDayIdx removed');
 // composer add-session
 const beforeDays=S.program.days.length;
 composerAddSession('Wednesday','pilates',true);
@@ -1459,8 +1456,8 @@ S.program={name:'B3',active:true,days:[
 ]};
 S.sessions=[{date:'2026-06-21',dayLabel:'Sun Dead',blockName:'B3',sessionType:'lifting',exercises:[]}]; // Sunday done
 S.skips=[];
-const todayPick=pickTodayDayIdx('2026-06-21','Sunday'); // today = Sun, Sunday done
-assert(S.program.days[todayPick] && S.program.days[todayPick].label==='Mon Upper', 'BUG3: Sunday done → next is Mon Upper (calendar order), not Thu Swim. Got: '+(S.program.days[todayPick]&&S.program.days[todayPick].label));
+const todayPick=getNextAvailableDayIdx(); // Sunday done → earliest by effective date
+assert(S.program.days[todayPick] && S.program.days[todayPick].label==='Mon Upper', 'BUG3/G5: Sunday done → next is Mon Upper (effective-date order). Got: '+(S.program.days[todayPick]&&S.program.days[todayPick].label));
 
 // BUG 4: blockDateRange spans the full Mon..Sun of the PLANNING week (anchored;
 // rolls to next week on Sunday), regardless of which days have sessions.
@@ -3016,5 +3013,57 @@ S.activeSession=null;
 assert((html.match(/toggleFreeze\(\$\{i\}\);closeExMenus\(\)/g)||[]).length===1&&(html.match(/toggleFreeze\(\$\{ei\}\);closeExMenus\(\)/g)||[]).length===1, 'G4: freeze toggle in both overflow menus');
 assert(/\.role-chip\{/.test(html), 'G4: role chip styled');
 assert(/roleTag\}\$\{stateTag\}/.test(html), 'G4: report prints role + state tags');
+
+// ===== G5: PLANNER CORE — unification, numbering, week overrides =====
+console.log('\n--- G5: planner core ---');
+assert(/\.filter\(o=>!isDayDone\(o\.i\)&&!isDaySkipped\(o\.i\)&&isStartableDay\(o\.d\)&&!dayRemovedForWeek/.test(html), 'G5: up-next ranks are filtered BEFORE numbering (contiguous 1..n)');
+(()=>{
+  const saveP=JSON.parse(JSON.stringify(S.program)),saveS=S.sessions,saveK=S.skips,saveR=S.weekRemovals;
+  S.sessions=[];S.skips=[];S.weekRemovals=[];
+  S.program={name:'G5Test',active:true,days:[
+    {id:1,label:'Mon Lift',defaultDay:'Monday',dayOfWeek:'Monday',sessionType:'lifting',dur:60,exercises:[{name:'Back Squat',cat:'squat',sets:3,reps:'5',loadKg:100,unit:'kg'}]},
+    {id:2,label:'Wed Lift',defaultDay:'Wednesday',dayOfWeek:'Wednesday',sessionType:'lifting',dur:60,exercises:[{name:'Deadlift',cat:'hinge',sets:3,reps:'5',loadKg:120,unit:'kg'}]}
+  ]};
+  const wk=weekDatesFor(weekAnchor(todayStr()));
+  // E3: move Mon → Fri; the Start picker and the Week grid agree instantly.
+  assert(rescheduleDay(0,wk[4])===true, 'G5: reschedule writes');
+  assert(dayEffectiveDate(S.program.days[0])===wk[4], 'G5: effective date follows the move');
+  const rows=buildWeek(wk,todayStr());
+  assert(rows[4].sessions.some(x=>x.dayIndex===0)&&!rows[0].sessions.some(x=>x.dayIndex===0), 'G5: Week grid places the moved day on Friday (same rule as Start)');
+  assert(getNextAvailableDayIdx()===1, 'G5: Start picker now leads with Wednesday. Got: '+getNextAvailableDayIdx());
+  // out-of-week scheduledDate no longer vanishes — it falls back to the dow slot
+  S.program.days[0].scheduledDate='2020-01-01';
+  const rows2=buildWeek(wk,todayStr());
+  assert(rows2[0].sessions.some(x=>x.dayIndex===0), 'G5: stale out-of-week scheduledDate falls back to Monday instead of vanishing');
+  delete S.program.days[0].scheduledDate;
+  // E1 model: a one-off pins to its date, renders, and never recurs
+  S.program.days.push({id:99,label:'Extra Swim',sessionType:'swim',dur:40,exercises:[],oneOff:true,userAuthored:true,scheduledDate:wk[5]});
+  assert(dayEffectiveDate(S.program.days[2])===wk[5], 'G5: one-off pins to its scheduled date');
+  assert(buildWeek(wk,todayStr())[5].sessions.some(x=>x.dayIndex===2&&x.oneOff), 'G5: one-off renders in its week slot');
+  assert(removeDayForWeek(2)===true&&S.program.days.length===2, 'G5: deleting a one-off removes it outright');
+  // E2 model: removing a TEMPLATE day hides it for the week, program intact
+  assert(removeDayForWeek(0)===true&&S.program.days.length===2, 'G5: template delete keeps the program day');
+  assert(S.weekRemovals.length===1&&S.weekRemovals[0].dayId===1, 'G5: removal recorded as {dayId,weekOf}');
+  const rows3=buildWeek(wk,todayStr());
+  assert(!rows3.some(r=>r.sessions.some(x=>x.dayIndex===0)), 'G5: removed day gone from the Week grid');
+  assert(getNextAvailableDayIdx()===1, 'G5: removed day never wins the Start slot');
+  // completeness + scheduled count respect a removal keyed to the CALENDAR week
+  const cwk=weekDatesFor(todayStr());
+  S.weekRemovals=[{dayId:1,weekOf:cwk[0]}];
+  S.sessions=[{date:cwk[2],dayLabel:'Wed Lift',dayId:2,blockName:'G5Test',sessionType:'lifting',status:'complete',exercises:[]}];
+  assert(isWeekComplete(cwk)===true, 'G5: removed day exempt from week completeness');
+  assert(weeklyScheduled(cwk,todayStr()).prog===1, 'G5: removed day out of the scheduled count. Got: '+weeklyScheduled(cwk,todayStr()).prog);
+  S.program=saveP;S.sessions=saveS;S.skips=saveK;S.weekRemovals=saveR||[];
+})();
+// composer ids are numeric now (string ids broke carryPermanentDays)
+(()=>{
+  const saveP=JSON.parse(JSON.stringify(S.program));
+  const d=composerAddSession('Wednesday','swim',false);
+  assert(typeof d.id==='number'&&d.userAuthored===true, 'G5: composer day gets numeric id + userAuthored. Got: '+typeof d.id);
+  S.program=JSON.parse(JSON.stringify(saveP));
+})();
+assert(/S\.weekRemovals=S\.weekRemovals\.filter\(r=>r\.weekOf>=_wkMon\)/.test(html), 'G5: stale removals pruned on load');
+assert(/d\.oneOff&&\(!d\.scheduledDate\|\|weekOfDate\(d\.scheduledDate\)<_wkMon\)/.test(html), 'G5: stale one-offs pruned on load');
+assert(/if\(day\.oneOff\)return day\.scheduledDate\|\|anchor/.test(html), 'G5: one-offs never fall back to dow recurrence');
 
 console.log('\n=== All tests passed ===');
