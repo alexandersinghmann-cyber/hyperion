@@ -748,8 +748,8 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
         <div class="ex-more-wrap" style="position:relative">
           <button class="btn btn-sm btn-g" onclick="toggleTrainMenu()" title="More" aria-label="More actions" style="padding:6px 10px;border-radius:2px">⋯</button>
           <div class="ex-menu" id="trainMenu">
-            <button onclick="closeTrainMenu();copyWeeklyReport()">Copy coach report</button>
-            <button onclick="closeTrainMenu();openRetroLog()">Log a past session</button>
+            <button onclick="closeTrainMenu();copyWeeklyReport()" data-t="menu.report">Copy coach report</button>
+            <button onclick="closeTrainMenu();openRetroLog()" data-t="menu.retro">Log a past session</button>
           </div>
         </div>
         <button class="btn btn-sm btn-g" onclick="toggleUnit()" id="unitBtn" style="font-family:var(--mono);padding:6px 10px;font-size:10px;letter-spacing:1px;border-radius:2px">KG</button>
@@ -801,8 +801,8 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       <div style="display:flex;align-items:center;gap:10px">
         <div class="sess-timer" id="sDur">0:00</div>
         <button class="btn btn-sm btn-g" id="sViewToggle" onclick="toggleSessionView()" aria-label="Toggle focus or list session view">List</button>
-        <button class="btn btn-sm btn-s" onclick="cancelSession()">Cancel</button>
-        <button class="btn btn-sm btn-d" onclick="endSession()">End</button>
+        <button class="btn btn-sm btn-s" onclick="cancelSession()" data-t="sess.cancel">Cancel</button>
+        <button class="btn btn-sm btn-d" onclick="endSession()" data-t="sess.end">End</button>
       </div>
     </div>
     <div class="sess-progress" id="sessProgress">
@@ -817,15 +817,15 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       <div id="focusTrackWrap">
         <div id="focusTrack"></div>
         <div id="focusRestOverlay" aria-hidden="true">
-          <div class="fr-label">Rest</div>
+          <div class="fr-label" data-t="rest.label">Rest</div>
           <div class="fr-count tnum" id="focusRestDisp">0:00</div>
-          <div class="fr-actions"><button class="fr-ghost" onclick="addRest(30)">+30s</button><button class="fr-skip" onclick="skipRest()">Skip</button></div>
+          <div class="fr-actions"><button class="fr-ghost" onclick="addRest(30)" data-t="rest.plus30">+30s</button><button class="fr-skip" onclick="skipRest()" data-t="rest.skip">Skip</button></div>
         </div>
       </div>
       <div id="focusRail"></div>
     </div>
     <div style="margin-top:12px" id="sessNotesWrap">
-      <div class="field"><label>Session Notes</label><textarea id="sessNotes" rows="4" placeholder="How did it feel? Anything to flag..." oninput="queueNotesSave(this.value);this.style.height='auto';this.style.height=this.scrollHeight+'px'" style="font-size:13px"></textarea></div>
+      <div class="field"><label data-t="notes.label">Session Notes</label><textarea id="sessNotes" rows="4" data-t-ph="notes.ph" placeholder="How did it feel? Anything to flag..." oninput="queueNotesSave(this.value);this.style.height='auto';this.style.height=this.scrollHeight+'px'" style="font-size:13px"></textarea></div>
     </div>
   </div>
 
@@ -851,7 +851,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <div id="goalsHdrWrap" style="position:relative;margin-bottom:8px">
       <div id="goalsMountain" aria-hidden="true" style="position:absolute;inset:-20px -16px -8px;pointer-events:none;overflow:hidden"></div>
       <div style="position:relative;display:flex;justify-content:space-between;align-items:baseline">
-        <div class="t-h1">Goals</div>
+        <div class="t-h1" data-t="goals.h1">Goals</div>
         <div class="t-meta" id="goalsCountdown"></div>
       </div>
     </div>
@@ -871,7 +871,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 
     <!-- Goals — Add lives behind the overflow (rarely used; keeps the header quiet) -->
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--s2)">
-      <div style="font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:1.5px">Goals</div>
+      <div style="font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:1.5px" data-t="goals.small">Goals</div>
       <div class="ex-more-wrap" style="position:relative">
         <button class="btn btn-sm btn-g" onclick="toggleGoalsMenu()" aria-label="Goals menu" style="padding:4px 10px;font-size:11px">⋯</button>
         <div class="ex-menu" id="goalsMenu" style="right:0">
@@ -898,11 +898,11 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 
     <!-- Coach Report -->
     <div class="sync-bar" style="margin-top:16px">
-      <span>Coach Report</span>
-      <button class="btn btn-sm btn-gold" onclick="generateCoachReport()">Generate</button>
+      <span data-t="report.title">Coach Report</span>
+      <button class="btn btn-sm btn-gold" onclick="generateCoachReport()" data-t="report.generate">Generate</button>
     </div>
     <div id="coachReportBox" style="display:none;margin-top:8px;background:var(--s1);border:1px solid var(--s3);border-radius:var(--rs);padding:12px;font:12px var(--mono);color:var(--tx2);white-space:pre-wrap;max-height:300px;overflow-y:auto"></div>
-    <div id="coachReportMsg" style="display:none;text-align:center;padding:6px;font-size:12px;color:var(--grn)">Copied to clipboard</div>
+    <div id="coachReportMsg" style="display:none;text-align:center;padding:6px;font-size:12px;color:var(--grn)" data-t="report.copied">Copied to clipboard</div>
 
     <!-- Sync -->
     <div class="sync-bar">
@@ -915,8 +915,8 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   <!-- ===== WEEK VIEW ===== -->
   <div class="view pad" id="vWeek">
     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
-      <div class="t-h1">This Week</div>
-      <button class="btn btn-sm btn-gold" onclick="openComposer()">Compose week</button>
+      <div class="t-h1" data-t="week.title">This Week</div>
+      <button class="btn btn-sm btn-gold" onclick="openComposer()" data-t="week.compose">Compose week</button>
     </div>
     <div class="t-meta" id="weekRange" style="margin-bottom:14px"></div>
     <div id="weekList"></div>
@@ -948,12 +948,12 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   <div id="sessBar">
     <div class="rest-bar" id="restBar">
       <div style="display:flex;align-items:center;gap:10px">
-        <span style="font:600 12px var(--sans);color:var(--tx3);opacity:.7">Rest</span>
+        <span style="font:600 12px var(--sans);color:var(--tx3);opacity:.7" data-t="rest.label">Rest</span>
         <span class="rest-t" id="restDisp">2:30</span>
       </div>
       <div style="display:flex;gap:6px">
-        <button class="btn btn-sm btn-s" onclick="addRest(30)">+30s</button>
-        <button class="btn btn-sm btn-p" onclick="skipRest()">Skip</button>
+        <button class="btn btn-sm btn-s" onclick="addRest(30)" data-t="rest.plus30">+30s</button>
+        <button class="btn btn-sm btn-p" onclick="skipRest()" data-t="rest.skip">Skip</button>
       </div>
       <div class="rest-prog" id="restProg"></div>
     </div>
@@ -968,15 +968,15 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   <nav class="bar" id="navBar">
     <button class="bar-btn on" data-v="Train" onclick="go('Train')" aria-label="Train">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-      Train
+      <span data-t="tab.train">Train</span>
     </button>
     <button class="bar-btn" data-v="Week" onclick="go('Week')" aria-label="Week">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
-      Week
+      <span data-t="tab.week">Week</span>
     </button>
     <button class="bar-btn" data-v="Progress" onclick="go('Progress')" aria-label="Progress">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-      Progress
+      <span data-t="tab.progress">Progress</span>
     </button>
   </nav>
 </div>
@@ -984,13 +984,13 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 <!-- ===== MODALS ===== -->
 <div class="overlay" id="painModal">
   <div class="modal">
-    <div class="modal-t">Pain check — <span id="painExName"></span></div>
+    <div class="modal-t"><span data-t="pain.title">Pain check —</span> <span id="painExName"></span></div>
     <div style="font:600 12px var(--sans);color:var(--tx2);margin:6px 0 4px">Where?</div>
     <div id="painAreaChips" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px"></div>
     <div style="font:600 12px var(--sans);color:var(--tx2);margin:2px 0 4px">How bad?</div>
-    <div class="pain-opt pain-clear" onclick="logPain(1)"><div style="font-weight:700;color:var(--grn)">1 · Twinge</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">Noted for the coach — keep going if it stays quiet.</div></div>
-    <div class="pain-opt pain-mild" onclick="logPain(2)"><div style="font-weight:700;color:var(--warn)">2 · Painful</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">Drop load 10–20%.</div></div>
-    <div class="pain-opt pain-sharp" onclick="logPain(3)"><div style="font-weight:700;color:var(--red)">3 · Sharp — stop</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">Remaining sets cleared. Switch to alternative.</div></div>
+    <div class="pain-opt pain-clear" onclick="logPain(1)"><div style="font-weight:700;color:var(--grn)" data-t="pain.s1">1 · Twinge</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">Noted for the coach — keep going if it stays quiet.</div></div>
+    <div class="pain-opt pain-mild" onclick="logPain(2)"><div style="font-weight:700;color:var(--warn)" data-t="pain.s2">2 · Painful</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">Drop load 10–20%.</div></div>
+    <div class="pain-opt pain-sharp" onclick="logPain(3)"><div style="font-weight:700;color:var(--red)" data-t="pain.s3">3 · Sharp — stop</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">Remaining sets cleared. Switch to alternative.</div></div>
     <button class="btn btn-s btn-w" style="margin-top:8px" onclick="hideModal('painModal')">Cancel</button>
   </div>
 </div>
@@ -1153,9 +1153,9 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 
 <div class="overlay" id="settingsModal">
   <div class="modal">
-    <div class="modal-t">Settings</div>
+    <div class="modal-t" data-t="set.title">Settings</div>
 
-    <div class="set-grp">Training</div>
+    <div data-t="set.grpTraining" class="set-grp">Training</div>
     <div style="padding:10px 0;border-bottom:1px solid var(--s2)">
       <div style="margin-bottom:6px">Big 3 Targets <span style="font:10px var(--mono);color:var(--tx3);margin-left:4px">values in <span id="sTgtUnit">kg</span></span></div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:4px">
@@ -1199,7 +1199,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       <button class="btn btn-sm btn-g" onclick="syncProgram()">Sync</button>
     </div>
 
-    <div class="set-grp">Data</div>
+    <div data-t="set.grpData" class="set-grp">Data</div>
     <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
       <span>Export (JSON backup)</span>
       <button class="btn btn-sm btn-g" onclick="syncData()">Export</button>
@@ -1212,7 +1212,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       <div style="font:10px var(--mono);color:var(--tx3);margin-top:4px">Auto-detects a coach program vs a full backup. Restoring a backup overwrites everything (it warns first).</div>
     </div>
 
-    <div class="set-grp">App</div>
+    <div data-t="set.grpApp" class="set-grp">App</div>
     <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
       <span>Display Unit</span>
       <button class="btn btn-sm btn-g tm" onclick="toggleUnit();renderSettings()" id="sUnitBtn">KG</button>
@@ -1236,7 +1236,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       <div style="font:10px var(--mono);color:var(--tx3);margin-top:4px">Bypass browser cache. Use after a deploy if the page looks stale.</div>
     </div>
 
-    <div class="set-grp">Advanced</div>
+    <div data-t="set.grpAdvanced" class="set-grp">Advanced</div>
     <div style="padding:10px 0;border-bottom:1px solid var(--s2)">
       <div style="margin-bottom:4px">Calibrate 1RM</div>
       <div style="font:10px var(--mono);color:var(--tx3);margin-bottom:6px">Top-single ramp. Use in Block 2 wk 2 — Epley off 5-rep sets under-predicts trained lifters.</div>
@@ -1276,7 +1276,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 
 <div class="overlay" id="retroSheet">
   <div class="modal">
-    <div class="modal-t">Log a past session</div>
+    <div class="modal-t" data-t="retro.title">Log a past session</div>
     <div id="retroBody"></div>
     <button class="btn btn-s btn-w" style="margin-top:12px;min-height:48px" onclick="hideModal('retroSheet')">Cancel</button>
   </div>
@@ -1368,6 +1368,65 @@ const COMPOUNDS=['squat','hinge','push'];
 
 // ===== ICON LIBRARY (inline SVG, stroke-based, 20px default) =====
 // SVG only — no Unicode emoji in v3 UI. icon(name,size) returns an <svg> string.
+// ===== IMPERIUM STRINGS (H2) — chrome register map. plain = today's copy,
+// byte-identical (many are pinned in smoke); gothic = High Gothic, played
+// straight. Data strings (exercise names, numbers, stored reasons, the coach
+// report) NEVER route through here.
+const STRINGS={
+plain:{
+ 'tab.train':'Train','tab.week':'Week','tab.progress':'Progress',
+ 'sess.list':'List','sess.focus':'Focus','sess.cancel':'Cancel','sess.end':'End',
+ 'rest.label':'Rest','rest.plus30':'+30s','rest.skip':'Skip',
+ 'notes.label':'Session Notes','notes.ph':'How did it feel? Anything to flag...',
+ 'set.title':'Settings','set.grpTraining':'Training','set.grpData':'Data','set.grpApp':'App','set.grpAdvanced':'Advanced',
+ 'set.export':'Export','set.import':'Import',
+ 'pain.title':'Pain check —','pain.s1':'1 · Twinge','pain.s2':'2 · Painful','pain.s3':'3 · Sharp — stop',
+ 'week.title':'This Week','week.compose':'Compose week',
+ 'goals.h1':'Goals','goals.small':'Goals',
+ 'report.title':'Coach Report','report.generate':'Generate','report.copied':'Copied to clipboard',
+ 'menu.report':'Copy coach report','menu.retro':'Log a past session','retro.title':'Log a past session',
+ 'import.title':'Import',
+ 'start.pre':'Start — ','start.resume':'Resume','banner.newBlock':'New block available','banner.review':'Review','banner.skip':'Skip',
+ 'train.upNext':'Up next','train.completed':'Completed this block','train.allDone':'All sessions done — load a new block.',
+ 'day.rest':'Rest day — recovery','summary.title':'Done',
+ 'log.one':'Log','log.all':'Log All','log.set':'Log set ','log.wu':'Log warm-up','set.add':'+ Set','skip.set':'skip',
+ 'ex.add':'+ Add Exercise','wrap.title':'Wrap up','wrap.end':'End Session',
+ 'badge.frozen':'Frozen','badge.atTarget':'At target — maintain',
+ 'goal.g1':'1000 lb Club','goal.swim':'1000 m Freestyle','goal.mu':'Bar Muscle-Up','goal.run':'Weekly Running','goal.paused':'Paused',
+ 'excl.title':'Excluded'
+},
+gothic:{
+ 'tab.train':'Crusade','tab.week':'Campaign','tab.progress':'Reliquary',
+ 'sess.list':'List','sess.focus':'Focus','sess.cancel':'Abandon','sess.end':'Conclude',
+ 'rest.label':'Vigil','rest.plus30':'+30','rest.skip':'End Vigil',
+ 'notes.label':'The Record','notes.ph':'Let the record show\u2026',
+ 'set.title':'Administratum','set.grpTraining':'Armoury','set.grpData':'Archivum','set.grpApp':'Rites of the Machine','set.grpAdvanced':'Inner Sanctum',
+ 'set.export':'Commit to Archive','set.import':'Receive Records',
+ 'pain.title':'Wounds —','pain.s1':'Graze','pain.s2':'Wound','pain.s3':'Grievous wound',
+ 'week.title':'Campaign Ledger','week.compose':'Muster',
+ 'goals.h1':'Great Vows','goals.small':'Great Vows',
+ 'report.title':'Dispatch','report.generate':'Scribe the Dispatch','report.copied':'Committed to the vox',
+ 'menu.report':'Scribe the Dispatch','menu.retro':'Record a past rite','retro.title':'Record a past rite',
+ 'import.title':'Receive Records',
+ 'start.pre':'Commence the Rite — ','start.resume':'Return to the Rite','banner.newBlock':'A new Crusade is proclaimed','banner.review':'Heed','banner.skip':'Defer',
+ 'train.upNext':'Appointed Rites','train.completed':'Rites Concluded','train.allDone':'No rites stand appointed. The Emperor\u2019s work awaits.',
+ 'day.rest':'Day of Vigil — recovery is duty','summary.title':'Rite Concluded',
+ 'log.one':'Record','log.all':'Record All','log.set':'Record set ','log.wu':'Record warm-up','set.add':'+ Set','skip.set':'abstain',
+ 'ex.add':'+ Add Exercise','wrap.title':'Let the record close','wrap.end':'Conclude the Rite',
+ 'badge.frozen':'Stasis-Locked','badge.atTarget':'Honour Held',
+ 'goal.g1':'The Vow of One Thousand','goal.swim':'The Vow of Open Water','goal.mu':'The Vow of the Bar','goal.run':'The Vow of Miles','goal.paused':'Vows in Abeyance',
+ 'excl.title':'Interdicted Rites'
+}};
+function t(k){if(imperiumOn()&&STRINGS.gothic[k]!==undefined)return STRINGS.gothic[k];return STRINGS.plain[k]!==undefined?STRINGS.plain[k]:k;}
+// Static-DOM sweep: [data-t] textContent + [data-t-ph] placeholder. STATIC
+// nodes only — rendered templates call t() inline; never mix the two.
+function applyStrings(){
+  if(typeof document==='undefined'||!document.querySelectorAll)return;
+  try{
+    document.querySelectorAll('[data-t]').forEach(el=>{el.textContent=t(el.getAttribute('data-t'));});
+    document.querySelectorAll('[data-t-ph]').forEach(el=>{el.setAttribute('placeholder',t(el.getAttribute('data-t-ph')));});
+  }catch(e){}
+}
 const ICONS={
   // session types
   lifting:'<path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"/>',
@@ -2570,6 +2629,7 @@ function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse
   try{if(!S.settings._imperiumShipped){S.settings._imperiumShipped=true;if(S.settings.imperium===undefined)S.settings.imperium=true;save();}}catch(e){}
   try{maybeAdvanceBrand();}catch(e){}
   try{applyImperiumTheme();}catch(e){}
+  try{applyStrings();}catch(e){}
 }catch(e){}}
 
 // B2: Canonical name→category map. Idempotent: only rewrites if wrong.
@@ -4147,7 +4207,7 @@ function renderEx(){
   // the full-screen card stack. Same mutation entry point either way.
   const focus=(S.settings.sessionView||'focus')!=='list';
   try{const v=document.getElementById('vSession');if(v&&v.classList)v.classList.toggle('focus-on',focus);}catch(e){}
-  try{const tb=document.getElementById('sViewToggle');if(tb)tb.textContent=focus?'List':'Focus';}catch(e){}
+  try{const tb=document.getElementById('sViewToggle');if(tb)tb.textContent=focus?t('sess.list'):t('sess.focus');}catch(e){}
   if(focus){renderFocus();return;}
   try{const ft=document.getElementById('focusTrack');if(ft)ft.innerHTML='';const rl=document.getElementById('focusRail');if(rl)rl.innerHTML='';}catch(e){}
   renderExList();
