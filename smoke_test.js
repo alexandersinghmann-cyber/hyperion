@@ -3232,4 +3232,99 @@ assert(/No continuous swim logged yet/.test(html), 'G9: goal-card empty state');
 assert(snapSuggestion(165*1.0125,'machine')===167.5, 'F5: leg press 165 +1.25% → 167.5. Got: '+snapSuggestion(165*1.0125,'machine'));
 assert(dispSuggest(166.9,'machine','increase')===167.5, 'F5: stored raw 166.9 machine renders 167.5');
 
+// ===== H6: IMPERIUM THEME SUITE =====
+console.log('\n--- H6: Imperium theme ---');
+// --- WCAG contrast, pure math on the :root source hexes ---
+const _lum=(hex)=>{const c=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255).map(v=>v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4));return 0.2126*c[0]+0.7152*c[1]+0.0722*c[2];};
+const _ratio=(f,b)=>{const L1=Math.max(_lum(f),_lum(b)),L2=Math.min(_lum(f),_lum(b));return (L1+0.05)/(L2+0.05);};
+const _rootBlk=(html.match(/:root\{[^}]*\}/)||[''])[0];
+const _tok=(name)=>{const m=_rootBlk.match(new RegExp(name.replace(/[-]/g,'\\-')+':(#[0-9A-Fa-f]{6})'));return m&&m[1];};
+assert(_tok('--bg-min')==='#0A0908'&&_tok('--phos')==='#33FF66', 'H6: theme tokens live in :root');
+assert(_ratio(_tok('--tx-bone'),_tok('--bg-min'))>=4.5, 'H6: bone on parchment bg >=4.5. Got '+_ratio(_tok('--tx-bone'),_tok('--bg-min')).toFixed(2));
+assert(_ratio(_tok('--tx-bone'),_tok('--s1-min'))>=4.5, 'H6: bone on surface >=4.5');
+(()=>{ // bone @62% composited over the surface — the secondary text colour
+  const mix=(a,b,w)=>{const ah=[1,3,5].map(i=>parseInt(a.slice(i,i+2),16)),bh=[1,3,5].map(i=>parseInt(b.slice(i,i+2),16));return '#'+ah.map((v,i)=>Math.round(v*w+bh[i]*(1-w)).toString(16).padStart(2,'0')).join('');};
+  const sec=mix(_tok('--tx-bone'),_tok('--s1-min'),0.62);
+  assert(_ratio(sec,_tok('--s1-min'))>=4.5, 'H6: 62% secondary bone still >=4.5 on surface. Got '+_ratio(sec,_tok('--s1-min')).toFixed(2));
+})();
+assert(_ratio(_tok('--imp-gold'),_tok('--bg-min'))>=4.5, 'H6: gold on parchment >=4.5');
+assert(_ratio(_tok('--phos'),_tok('--bg-mech'))>=4.5, 'H6: phosphor on mech black >=4.5. Got '+_ratio(_tok('--phos'),_tok('--bg-mech')).toFixed(2));
+assert(_ratio(_tok('--phos-dim'),_tok('--bg-mech'))>=4.5, 'H6: dim phosphor >=4.5 (measured ~5.57). Got '+_ratio(_tok('--phos-dim'),_tok('--bg-mech')).toFixed(2));
+assert(_ratio('#E2A52E',_tok('--bg-mech'))>=4.5&&_ratio('#F87171',_tok('--bg-mech'))>=4.5, 'H6: semantic warn/red pass on mech black (not rescoped)');
+// crimson is fills-only: the appended theme CSS never uses it as text colour
+(()=>{const themeCss=html.split('IMPERIUM THEME LAYER')[1].split('</style>')[0];
+  assert(!/color:var\(--crimson\)/.test(themeCss), 'H6: crimson never used as text (2.18:1)');})();
+// chapter textSafe flags match recomputed contrast (threshold 4.5 on --bg-min)
+(()=>{
+  const pairs=[['--ch1a',false],['--ch2a',false],['--ch3a',true],['--ch4a',true],['--ch5a',true],['--ch6a',true],['--ch7a',true],['--ch8a',false]];
+  pairs.forEach(([v,expectSafe],i)=>{
+    const r=_ratio(_tok(v),_tok('--bg-min'));
+    assert((r>=4.5)===expectSafe, 'H6: chapter '+(i+1)+' textSafe flag matches math ('+r.toFixed(2)+')');
+    assert(CHAPTERS[i].textSafe===expectSafe, 'H6: CHAPTERS['+i+'].textSafe authored correctly');
+  });
+})();
+// --- The protection phrase appears at EXACTLY four source sites ---
+assert((html.match(/The Emperor protects/gi)||[]).length===4, 'H6: protection phrase count === 4. Got '+(html.match(/The Emperor protects/gi)||[]).length);
+// --- ISO week determinism: 16 consecutive Mondays from 2025-12-29 (w1..w16) ---
+(()=>{
+  let mon='2025-12-29';
+  for(let w=1;w<=16;w++){
+    assert(isoWeekNum(mon)===w, 'H6: '+mon+' is ISO week '+w+'. Got '+isoWeekNum(mon));
+    assert(CHAPTERS[(isoWeekNum(mon)-1)%8]===chapterOfWeek(mon), 'H6: chapter idx deterministic for week '+w);
+    mon=dateAddDays(mon,7);
+  }
+  assert(isoWeekNum('2026-01-01')===1, 'H6: Jan 1 2026 is week 1');
+  assert(isoWeekNum('2026-12-31')===53&&isoWeekNum('2027-01-01')===53, 'H6: year-edge weeks land in w53');
+  assert(chapterOfWeek('2026-08-17').name==='Blood Angels', 'H6: ship week (ISO 34) commemorates the Blood Angels');
+})();
+// --- rank boundaries ---
+assert(rankForTotal(699)==='Aspirant'&&rankForTotal(700)==='Neophyte'&&rankForTotal(844)==='Initiate'&&rankForTotal(900)==='Battle-Brother'&&rankForTotal(1000)==='Veteran', 'H6: Ascension Path thresholds 699/700/844/900/1000');
+// --- toggle + registers ---
+(()=>{
+  const saveImp=S.settings.imperium;
+  S.settings.imperium=true;
+  assert(imperiumOn()===true&&t('tab.train')==='Crusade'&&t('sess.end')==='Conclude', 'H6: gothic register resolves');
+  S.settings.imperium=false;
+  assert(imperiumOn()===false&&t('tab.train')==='Train'&&t('sess.end')==='End', 'H6: plain register byte-identical');
+  let thr=false;try{toggleImperium();toggleImperium();applyImperiumTheme();applyImperiumAccent();}catch(e){thr=true;}
+  assert(thr===false, 'H6: toggle + theme/accent apply no-throw under the mock document');
+  S.settings.imperium=saveImp===undefined?false:saveImp;
+})();
+// --- machine-cant unit: label uppercased, payload untouched ---
+assert(machineCant('Machine Spirit counsels:','126')==='++ MACHINE SPIRIT COUNSELS: 126 ++', 'H6: cant wraps and uppercases the label');
+assert(machineCant('discord detected:','Back Squat <36h')==='++ DISCORD DETECTED: Back Squat <36h ++', 'H6: payload (exercise names) passes through as-is');
+// --- gothic render spot-check: the top-set line in the focus card ---
+(()=>{
+  const mkS=()=>({dayIndex:0,dayLabel:'X',sessionType:'lifting',startTime:1,notes:'',order:[0],exercises:[
+    {name:'Back Squat',cat:'squat',prescribed:{sets:1,reps:'5',loadKg:115,unit:'kg'},equipmentClass:'barbell',tags:[],variant:null,painEvent:null,progression:null,nextLoad:null,
+     performed:[{type:'working',weightKg:115,reps:5,tag:'top',logged:false}]}]});
+  const saveImp=S.settings.imperium;
+  S.settings.imperium=true;S.activeSession=mkS();_lastReadoutKey=null;
+  const goth=focusCardHTML({eis:[0]},0,S.activeSession,0);
+  assert(/THE EMPEROR PROTECTS/.test(goth), 'H6: top-set readout carries the protection line (gothic)');
+  assert(/Record set 1/.test(goth), 'H6: gothic Record label');
+  S.settings.imperium=false;S.activeSession=mkS();_lastReadoutKey=null;
+  const plain=focusCardHTML({eis:[0]},0,S.activeSession,0);
+  assert(!/THE EMPEROR PROTECTS/.test(plain)&&/Log set 1/.test(plain), 'H6: plain mode carries no protection line');
+  S.activeSession=null;S.settings.imperium=saveImp===undefined?false:saveImp;
+})();
+// --- no audio added: baseline is the single rest-beep feature detect ---
+assert((html.match(/AudioContext/g)||[]).length===2&&!/new Audio\(/.test(html), 'H6: no audio APIs added — baseline is the single rest-beep feature-detect line (2 substring hits)');
+// --- reduced-motion guards ---
+assert(/matchMedia\('\(prefers-reduced-motion: reduce\)'\)\.matches/.test((html.match(/function veilCross[\s\S]{0,700}/)||[''])[0]), 'H6: veil crossing guards reduced motion');
+assert(/@media \(prefers-reduced-motion: no-preference\)\{\s*\n?\s*\.imperium #vSession\.on::before/.test(html), 'H6: scanlines gated behind no-preference');
+// --- STRINGS hygiene + coverage ---
+(()=>{
+  const all=Object.assign({},STRINGS.plain,STRINGS.gothic);
+  Object.keys(all).forEach(k=>{
+    assert(/^[^<>"&]*$/.test(all[k]), 'H6: STRINGS value html-safe: '+k);
+  });
+  ['tab.train','tab.week','tab.progress','sess.end','sess.cancel','rest.label','rest.skip','set.title','set.grpTraining','set.grpData','set.grpApp','set.grpAdvanced','banner.newBlock','banner.review','banner.skip','start.pre','train.upNext','train.completed','goal.g1','goal.swim','goal.paused','report.title','report.generate','report.copied','pain.s1','pain.s2','pain.s3','badge.flag','valid.clean','wrap.end','log.one','log.all','week.title','goals.h1','menu.report','menu.retro','excl.title','notes.ph','skipset.title','summary.title']
+    .forEach(k=>assert(STRINGS.plain[k]!==undefined&&STRINGS.gothic[k]!==undefined, 'H6: canonical key covered in both registers: '+k));
+})();
+assert(!/`[^`]*data-t=/.test(html.match(/<script>([\s\S]*?)<\/script>/)[1]), 'H6: no data-t inside JS template literals (static-only rule)');
+['>Train<','>Week<','>Progress<','>Cancel<','>End<','>Rest<','>+30s<','>Session Notes<','>Settings<','>Training<','>Data<','>App<','>Advanced<'].forEach(l=>{
+  assert(html.includes(l), 'H6/R1: plain literal survives in source: '+l);
+});
+
 console.log('\n=== All tests passed ===');
