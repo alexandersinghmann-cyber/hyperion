@@ -727,6 +727,9 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
    transitions, so JS guards the instant path — never transitionend). */
 #registerVeil{position:fixed;inset:0;background:var(--bg-mech);opacity:0;pointer-events:none;z-index:420;transition:opacity 400ms cubic-bezier(.2,0,0,1)}
 #registerVeil.on{opacity:1}
+.imp-only{display:none}
+.imperium div.imp-only{display:block}
+.imperium span.imp-only{display:inline-block;vertical-align:middle}
 </style>
 </head>
 <body>
@@ -741,7 +744,10 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
         <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px">
           <svg id="wordmark" width="104" height="14" viewBox="0 0 104 14" aria-label="HYPERION" role="img"><defs><linearGradient id="wmSun" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--brand)"/><stop offset="1" style="stop-color:var(--brand2)"/></linearGradient><clipPath id="wmHz"><rect x="0" y="0" width="14" height="9.5"/></clipPath></defs><circle cx="7" cy="7.5" r="5" fill="url(#wmSun)" clip-path="url(#wmHz)"/><rect x="1.5" y="10.5" width="11" height="1.2" rx=".6" fill="var(--tx)"/><text x="20" y="11" style="font:500 10.5px var(--display);letter-spacing:3.5px" fill="var(--tx)">HYPERION</text></svg>
           <span style="font:500 10px var(--mono);color:var(--tx3);letter-spacing:.5px" id="blockDateRange"></span>
+          <span class="imp-only" id="wmAquila" aria-hidden="true"></span>
         </div>
+        <div class="imp-only" id="wmSubtitle" style="font:500 var(--t-meta) var(--sans);color:var(--tx3);margin:2px 0 2px">A battle-record kept for the Imperium of Man</div>
+        <div class="imp-only" id="rankLine" style="font-family:var(--serif);font-variant-caps:small-caps;letter-spacing:.12em;font-size:12px;color:var(--gold);margin:2px 0 4px"></div>
         <div id="greeting" style="margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span class="q-mark" aria-hidden="true">&ldquo;</span><span style="font-style:italic;font:400 var(--t-meta) var(--sans);color:var(--tx2)" id="quoteText"></span><span style="font:500 10px var(--sans);color:var(--tx3);margin-left:6px;font-style:normal" id="quoteAuthor"></span></div>
       </div>
       <div style="display:flex;gap:6px;align-items:center;flex:none">
@@ -1451,6 +1457,16 @@ const ICONS={
   mobility:'<circle cx="12" cy="12" r="3"/><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/>',
   rest:'<path d="M20 14a8 8 0 1 1-9.5-9.5A6 6 0 0 0 20 14z"/>',
   kb:'<path d="M9 8V7a3 3 0 0 1 6 0v1"/><circle cx="12" cy="14" r="5.5"/>',
+  // ===== Imperium set (H4) — original geometric drawings, stroke-consistent,
+  // flat colour only (the SVG gradient census is assertion-locked at 3).
+  eagle:'<path d="M12 4v10M12 6l-3-2M12 6l3-2M9 4l-1.6 1.6M15 4l1.6 1.6M12 9L4 6.5M12 9l8-2.5M4 6.5L2.8 9M21.2 9L20 6.5M12 12l-6-1.6M12 12l6-1.6M12 14l-3.6 4.4M12 14l3.6 4.4M8.4 18.4h7.2"/>',
+  cogskull:'<circle cx="12" cy="12" r="6.4"/><path d="M12 2.8v2M12 19.2v2M2.8 12h2M19.2 12h2M5.5 5.5l1.4 1.4M17.1 17.1l1.4 1.4M18.5 5.5l-1.4 1.4M6.9 17.1l-1.4 1.4"/><circle cx="9.6" cy="11" r="1"/><circle cx="14.4" cy="11" r="1"/><path d="M10.4 15h3.2M12 13.2v1.8"/>',
+  purityseal:'<circle cx="12" cy="8" r="4.2"/><circle cx="12" cy="8" r="1.6"/><path d="M9.5 11.5L8 21l1.8-1.4L11 21M14.5 11.5L16 21l-1.8-1.4L13 21"/>',
+  laurel:'<path d="M7 20c-3-3.4-3.6-8.6-1.6-13M17 20c3-3.4 3.6-8.6 1.6-13M6.4 16.6l-2.4.6M7 13l-2.6-.2M8 9.6L5.8 8.2M17.6 16.6l2.4.6M17 13l2.6-.2M16 9.6l2.2-1.4"/>',
+  servoskull:'<circle cx="12" cy="10" r="5.4"/><circle cx="10" cy="9.4" r="1"/><circle cx="14" cy="9.4" r="1"/><path d="M10.6 13h2.8M12 15.4v3M10 20h4M12 4.6V2.4M17 6l1.8-1.8"/>',
+  candle:'<path d="M10 10.5h4V20h-4zM8 20h8M12 8.2c1.4-1.2 1.4-2.6 0-4.2-1.4 1.6-1.4 3 0 4.2z"/>',
+  campaignbadge:'<path d="M12 3l7 2.4v6.2c0 4.6-3 7.6-7 9.4-4-1.8-7-4.8-7-9.4V5.4z"/><path d="M8.5 10.5l3.5 3 3.5-3M8.5 13.5l3.5 3 3.5-3"/>',
+  aquilawing:'<path d="M12 12H3M12 12h9M5 9.6l-2 2.4 2 2.4M19 9.6l2 2.4-2 2.4M7.5 10.4L6 12l1.5 1.6M16.5 10.4L18 12l-1.5 1.6"/><circle cx="12" cy="12" r="1.2"/>',
   // goal icons
   barbell:'<path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"/>',
   muscleup:'<circle cx="12" cy="12" r="9"/><path d="M8 12l4-4 4 4M12 8v8"/>',
@@ -1463,8 +1479,23 @@ const ICONS={
   move:'<path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/>'
 };
 function icon(name,size){
+  // Imperium alias hop: chrome icons re-dress while the theme is ON; the base
+  // map is untouched so plain mode renders today's exact skin.
+  if(typeof imperiumOn==='function'&&imperiumOn()){
+    if(name==='rest')name='candle';
+    if(name==='report')name='servoskull';
+  }
   const s=size||20;const body=ICONS[name]||'';
   return `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+}
+// Chapter shield: one shared silhouette, two flat fills (field + chevron) —
+// colours arrive as CSS var NAMES so no hex ever appears outside :root.
+function shieldIcon(varA,varB,size){
+  const s=size||20;
+  return `<svg viewBox="0 0 24 24" width="${s}" height="${s}" aria-hidden="true">`+
+    `<path fill="var(${varA})" stroke="none" d="M12 2.6l7.4 2.5v6.3c0 4.9-3.2 8-7.4 9.9-4.2-1.9-7.4-5-7.4-9.9V5.1z"/>`+
+    `<path fill="var(${varB})" stroke="none" d="M12 8l4.6 3.9-1.2 1.5L12 10.9l-3.4 2.5-1.2-1.5z"/>`+
+  `</svg>`;
 }
 // Muted signature colour per session type (CSS var reference). One thread that
 // makes the week + history scannable at a glance.
@@ -2644,6 +2675,7 @@ function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse
   try{maybeAdvanceBrand();}catch(e){}
   try{applyImperiumTheme();}catch(e){}
   try{applyStrings();}catch(e){}
+  try{const aq=document.getElementById('wmAquila');if(aq)aq.innerHTML=icon('eagle',13);}catch(e){}
 }catch(e){}}
 
 // B2: Canonical name→category map. Idempotent: only rewrites if wrong.
