@@ -3922,9 +3922,9 @@ function renderActivityLog(sess){
       ${st==='swim'?`<div class="field"><label>Continuous?</label><button class="eff-chip${a.continuous?' sel':''}" style="width:auto;padding:0 14px" onclick="setActivityField('continuous',${a.continuous?'false':'true'});renderEx()" aria-pressed="${a.continuous?'true':'false'}" aria-label="continuous swim">${a.continuous?'\u2713 One unbroken effort':'Mark as one unbroken effort'}</button></div>`:''}
       ${showDist?`<div class="field"><label>Distance (${st==='swim'?'m':'km'})${distReq?' — required':(st==='swim'?' — optional (snorkel)':'')}</label><input type="number" step="${st==='swim'?'25':'0.1'}" value="${a.distance||''}" placeholder="${st==='swim'?'e.g. 500':'e.g. 5'}" oninput="setActivityField('distance',+this.value||0)" aria-label="distance"></div>`:''}
       <div class="field"><label>Perceived effort (1–10)</label><div class="eff-row">${effChips}</div></div>
-      <div class="field"><label>${st==='kb'?'What you did':'Notes'}</label><textarea id="actNotes" rows="4" placeholder="${st==='kb'?'e.g. 25 min AMRAP: 10 swings / 8 goblet squats / 40m carry':'How did it feel?'}" oninput="queueNotesSave(this.value,'activity')" aria-label="notes">${esc(a.notes||'')}</textarea></div>
       ${st==='kb'?`<div class="field"><label>Result (optional)</label><input type="text" value="${esc(a.result||'')}" placeholder="e.g. 5 rounds + 12" onchange="setActivityField('result',this.value)" aria-label="kb result"></div>`:''}
-      <button class="btn btn-gold btn-w act-save" onclick="finalizeActivity()">Save ${st} session</button>
+      <div class="field"><label>${st==='kb'?'What you did':'Notes'}</label><textarea id="actNotes" rows="4" placeholder="${st==='kb'?'e.g. 25 min AMRAP: 10 swings / 8 goblet squats / 40m carry':'How did it feel?'}" oninput="queueNotesSave(this.value,'activity')" aria-label="notes">${esc(a.notes||'')}</textarea></div>
+      <button class="btn btn-gold btn-w act-save" onclick="finalizeActivity()">Save ${st==='kb'?'KB':st} session</button>
     </div>`;
 }
 
