@@ -690,15 +690,22 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   --s3:color-mix(in srgb,var(--s1-min) 82%,var(--tx-bone));
   --s4:color-mix(in srgb,var(--s1-min) 74%,var(--tx-bone));
   --tx:var(--tx-bone);
-  --tx2:color-mix(in srgb,var(--tx-bone) 62%,var(--s1-min));
-  --tx3:color-mix(in srgb,var(--tx-bone) 42%,var(--s1-min));
+  --tx2:color-mix(in srgb,var(--tx-bone) 66%,var(--s1-min));
+  --tx3:color-mix(in srgb,var(--tx-bone) 50%,var(--s1-min));
   --line:var(--line-brass);
   --gold:var(--imp-gold);--gold2:var(--imp-gold2);
 }
 .imperium #app::before{content:'';position:fixed;inset:0;background-image:var(--grain-imp);background-size:48px 48px;opacity:.03;pointer-events:none;z-index:1}
-.imperium .t-h1,.imperium .t-h2,.imperium .modal-t,.imperium .section-hdr{font-family:var(--serif);font-variant-caps:small-caps;letter-spacing:.05em}
+.imperium .t1,.imperium .t-h1,.imperium .t-h2,.imperium .modal-t,.imperium .section-hdr{font-family:var(--serif);font-variant-caps:small-caps;letter-spacing:.05em}
 .imperium .section-hdr{border-bottom:1px solid var(--line-brass);padding-bottom:6px}
 .imperium .section-hdr::first-letter{color:var(--gold);font-size:1.6em;line-height:.9}
+.imperium #blockHdr{font-family:var(--mono);font-variant-caps:normal;letter-spacing:1.5px;border-bottom:none;padding-bottom:0}
+.imperium #blockHdr::first-letter{color:inherit;font-size:inherit}
+/* Litanies get room to breathe — two calm lines instead of a hard ellipsis. */
+.imperium #rankLine{flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;letter-spacing:.08em}
+.imperium #wmSubtitle{flex:none}
+.imperium #greeting{white-space:normal !important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.45}
+.imperium .commem-card .ch-name{font-family:var(--serif);font-variant-caps:small-caps;color:var(--gold);letter-spacing:.04em}
 .imperium .btn-d{background:color-mix(in srgb,var(--crimson) 26%,var(--s1));border-color:color-mix(in srgb,var(--crimson) 55%,transparent)}
 /* MECHANICUS register — the active session only (list AND focus). */
 .imperium #vSession.on{
@@ -716,15 +723,65 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   --grn:var(--phos-dim);--acc:var(--phos);
   --gold:var(--phos);--gold2:var(--phos-dim);
 }
-.imperium #vSession.on,.imperium #vSession.on button,.imperium #vSession.on .t-h2,.imperium #vSession.on .modal-t,.imperium #vSession.on textarea,.imperium #vSession.on input{font-family:var(--mono);font-variant-caps:normal;letter-spacing:0}
-.imperium #vSession.on .fc-readout-w{background:none;-webkit-background-clip:initial;background-clip:initial;color:var(--phos)}
-.imperium #vSession.on .fc-log{background:var(--phos);color:var(--bg-mech)}
-.imperium #vSession.on .set-row.current{border:1px solid var(--phos)}
+/* — Mechanicus type discipline: mono is the ONLY session voice, on a fixed
+   scale. Hierarchy comes from phosphor intensity, not family changes. — */
+.imperium #vSession.on,.imperium #vSession.on button,.imperium #vSession.on input,.imperium #vSession.on textarea,.imperium #vSession.on .t-h1,.imperium #vSession.on .t-h2{font-family:var(--mono);font-variant-caps:normal;letter-spacing:0}
+.imperium #vSession.on .sess-head{gap:8px;align-items:center;padding:10px 0 12px}
+.imperium #vSession.on .sess-head>div:first-child{min-width:0;flex:1 1 auto}
+.imperium #vSession.on #sDayLbl{font:500 9px var(--mono);letter-spacing:.08em;color:var(--tx3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
+.imperium #vSession.on #sTitle{font:700 16px var(--mono);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.imperium #vSession.on .sess-timer{font:600 12px var(--mono);text-shadow:none;color:var(--phos-dim)}
+/* one ghost-terminal button family; Conclude alone carries the wound tint */
+.imperium #vSession.on .btn{background:transparent;border:1px solid color-mix(in srgb,var(--phos) 30%,transparent);color:var(--phos);font:600 12px var(--mono)}
+.imperium #vSession.on .sess-head .btn-sm{padding:7px 9px}
+.imperium #vSession.on .btn-d{background:transparent;border-color:color-mix(in srgb,var(--red) 55%,transparent);color:var(--red)}
+.imperium #vSession.on .sess-progress{background:color-mix(in srgb,var(--phos) 7%,transparent)}
+/* focus card: names bright, meta dim, tags quiet */
+.imperium #vSession.on .fc-name{font:700 15px var(--mono);letter-spacing:0;color:var(--phos)}
+.imperium #vSession.on .fcard.fc-sec-warmup .fc-name{font-size:13px;color:var(--tx2)}
+.imperium #vSession.on .fc-meta{font:500 10px var(--mono);color:var(--tx3)}
+.imperium #vSession.on .fc-member-tag{font:700 9px var(--mono);padding:0 3px;border-radius:3px}
+.imperium #vSession.on .fc-readout-w{background:none;-webkit-background-clip:initial;background-clip:initial;color:var(--phos);font-size:56px}
+.imperium #vSession.on .fc-readout-u{font:500 13px var(--mono);color:var(--tx3);letter-spacing:.1em}
+.imperium #vSession.on .fc-readout-x{font:500 18px var(--mono);color:var(--phos-dim)}
+.imperium #vSession.on .fc-log{background:var(--phos);color:var(--bg-mech);font:700 15px var(--mono);border-radius:var(--rs)}
+/* set rows: dim until current; the current row is the bright thing on screen */
+.imperium #vSession.on .set-row{border:1px solid transparent}
+.imperium #vSession.on .set-row.current{border:1px solid var(--phos);background:color-mix(in srgb,var(--phos) 6%,transparent)}
+.imperium #vSession.on .set-row input{background:color-mix(in srgb,var(--phos) 7%,var(--bg-mech));border:1px solid color-mix(in srgb,var(--phos) 16%,transparent);color:var(--phos)}
+.imperium #vSession.on .set-log{font-family:var(--mono);font-size:12px}
+.imperium #vSession.on .set-skip{font:600 10px var(--mono);letter-spacing:0;padding:0 6px}
+.imperium #vSession.on .set-log.ready{background:var(--phos);color:var(--bg-mech)}
+/* rail: what is coming must be READABLE — mid phosphor, current bright */
+.imperium #vSession.on .rail-chip{font:600 11px var(--mono);background:transparent;border-color:color-mix(in srgb,var(--phos) 22%,transparent);color:color-mix(in srgb,var(--phos) 66%,var(--bg-mech));max-width:14ch;min-height:44px;padding:0 12px}
+.imperium #vSession.on .rail-chip.current{color:var(--phos);border-color:var(--phos);background:color-mix(in srgb,var(--phos) 10%,transparent)}
+/* rest = Vigil: label whispers, count speaks */
+.imperium #vSession.on .fr-label{font:600 10px var(--mono);letter-spacing:.3em;color:var(--tx3)}
+.imperium #vSession.on .fr-count{font-size:64px}
+.imperium #vSession.on .fr-ghost,.imperium #vSession.on .fr-skip{font-family:var(--mono)}
+/* notes + hints */
+.imperium #vSession.on textarea{background:color-mix(in srgb,var(--phos) 5%,var(--bg-mech));border:1px solid color-mix(in srgb,var(--phos) 14%,transparent);color:var(--phos)}
+.imperium #vSession.on #supersetHints{font-family:var(--mono);color:var(--tx3)}
+.imperium #vSession.on .sec-hdr{font:600 10px var(--mono);letter-spacing:.2em;color:var(--tx3)}
+.imperium #vSession.on .emperor-line,{}
+.imperium #vSession.on .set-row.current{border-width:1px}
 @media (prefers-reduced-motion: no-preference){
   .imperium #vSession.on::before{content:'';position:fixed;inset:0;background-image:var(--scan-imp);background-size:1px 3px;opacity:.02;pointer-events:none;z-index:1}
 }
 /* Register-crossing veil: timer-driven (the reduced-motion blanket kills
    transitions, so JS guards the instant path — never transitionend). */
+/* Session-owned modals (pain, RPE, skip-set, detail, reorder) follow the
+   Mechanicus register while a rite is live — no parchment mid-session. */
+.imperium.mech-live :is(#painModal,#rpeModal,#skipSetModal,#fcDetailSheet,#reorderSheet){
+  --s1:color-mix(in srgb,var(--bg-mech) 93%,var(--phos));
+  --s2:color-mix(in srgb,var(--bg-mech) 88%,var(--phos));
+  --s3:color-mix(in srgb,var(--bg-mech) 82%,var(--phos));
+  --tx:var(--phos);--tx2:var(--phos-dim);
+  --tx3:color-mix(in srgb,var(--phos-dim) 72%,var(--bg-mech));
+  --line:color-mix(in srgb,var(--phos) 16%,transparent);
+  --brand:var(--phos);--brand-dim:color-mix(in srgb,var(--phos) 12%,transparent);
+}
+.imperium.mech-live :is(#painModal,#rpeModal,#skipSetModal,#fcDetailSheet,#reorderSheet) .modal-t{font-family:var(--mono);font-variant-caps:normal;letter-spacing:.02em}
 #registerVeil{position:fixed;inset:0;background:var(--bg-mech);opacity:0;pointer-events:none;z-index:420;transition:opacity 400ms cubic-bezier(.2,0,0,1)}
 #registerVeil.on{opacity:1}
 .imp-only{display:none}
@@ -747,8 +804,6 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
           <span style="font:500 10px var(--mono);color:var(--tx3);letter-spacing:.5px" id="blockDateRange"></span>
           <span class="imp-only" id="wmAquila" aria-hidden="true"></span>
         </div>
-        <div class="imp-only" id="wmSubtitle" style="font:500 var(--t-meta) var(--sans);color:var(--tx3);margin:2px 0 2px">A battle-record kept for the Imperium of Man</div>
-        <div class="imp-only" id="rankLine" style="font-family:var(--serif);font-variant-caps:small-caps;letter-spacing:.12em;font-size:12px;color:var(--gold);margin:2px 0 4px"></div>
         <div id="greeting" style="margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span class="q-mark" aria-hidden="true">&ldquo;</span><span style="font-style:italic;font:400 var(--t-meta) var(--sans);color:var(--tx2)" id="quoteText"></span><span style="font:500 10px var(--sans);color:var(--tx3);margin-left:6px;font-style:normal" id="quoteAuthor"></span></div>
       </div>
       <div style="display:flex;gap:6px;align-items:center;flex:none">
@@ -770,6 +825,8 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <!-- Big 3 hero/tiles/stats removed (BUG 7) — all goal/stat tracking lives in Progress. -->
 
     <!-- Block days -->
+    <div class="imp-only" id="wmSubtitle" style="font:500 var(--t-meta) var(--sans);color:var(--tx3);margin:-10px 0 2px">A battle-record kept for the Imperium of Man</div>
+    <div class="imp-only" id="rankLine" style="font-family:var(--serif);font-variant-caps:small-caps;letter-spacing:.1em;font-size:11.5px;color:var(--gold);margin:0 0 10px"></div>
     <div class="section-hdr" id="blockHdr">Training Block</div>
     <div id="blockDays"></div>
     <!-- Import lives in Settings → DATA now. -->
@@ -2991,7 +3048,8 @@ function fmtW(kg,u){
 
 // ===== NAV =====
 function go(v){
-  hideSessionHero(); // iOS timer throttling can strand the z-300 hero (5a scroll-lock)
+  hideSessionHero();
+  document.documentElement&&document.documentElement.classList&&document.documentElement.classList.remove('mech-live'); // iOS timer throttling can strand the z-300 hero (5a scroll-lock)
   document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));
   document.querySelectorAll('.bar-btn').forEach(b=>b.classList.remove('on'));
   const el=document.getElementById('v'+v);if(el)el.classList.add('on');
@@ -3011,7 +3069,8 @@ function animateProgressNumbers(){
   }catch(e){}
 }
 function goTrain(){go('Train')}
-function showView(id){if(id!=='vSession')hideSessionHero();document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));document.getElementById(id).classList.add('on');renderSessionBar(id)}
+function showView(id){
+  document.documentElement&&document.documentElement.classList&&document.documentElement.classList.toggle('mech-live',id==='vSession');if(id!=='vSession')hideSessionHero();document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));document.getElementById(id).classList.add('on');renderSessionBar(id)}
 // The session strip above the tab bar. A live session never traps the user:
 // tabs stay visible, navigating away backgrounds the session, this strip
 // carries the rest countdown (any view) or a summary + Resume (away views).
@@ -3644,7 +3703,7 @@ function renderTrain(){
   // H5: weekly commemoration — one line under the litany, shield + motto.
   if(imperiumOn()){
     const _ch=chapterOfWeek(todayStr());
-    html+=`<div class="commem-card">${shieldIcon(_ch.varA,_ch.varB,22)}<div style="min-width:0"><div class="t-meta" style="color:var(--tx2)">This week the record keeps vigil in honour of the ${_ch.name}.</div><div class="t-meta" style="color:var(--gold);margin-top:2px">\u201c${_ch.motto}\u201d</div></div></div>`;
+    html+=`<div class="commem-card">${shieldIcon(_ch.varA,_ch.varB,22)}<div style="min-width:0"><div class="t-meta" style="color:var(--tx2)">This week the record keeps vigil in honour of the <span class="ch-name">${_ch.name}</span>.</div><div class="t-meta" style="color:var(--gold);margin-top:2px">\u201c${_ch.motto}\u201d</div></div></div>`;
   }
   // New-block banner (surfaces when the built-in default differs from the loaded block)
   if(DEF_PROGRAM.version>(S.program.version??0) && S.settings._dismissedProgramVersion!==DEF_PROGRAM.version){
@@ -4316,7 +4375,8 @@ function renderEx(){
   const sess=S.activeSession;if(!sess)return;
   const dayMeta=S.program.days[sess.dayIndex];
   const sLbl=document.getElementById('sDayLbl');
-  sLbl.textContent='Day '+(sess.dayIndex+1)+' · '+((dayMeta&&(dayMeta.defaultDay||dayMeta.dayOfWeek))||'');
+  const _dw=(dayMeta&&(dayMeta.defaultDay||dayMeta.dayOfWeek))||'';
+  sLbl.textContent='Day '+(sess.dayIndex+1)+' · '+(imperiumOn()?_dw.slice(0,3):_dw);
   sLbl.style.color='var(--tx3)'; // C3: neutral — modality colour here was leftover cyan chrome
   document.getElementById('sTitle').textContent=sess.dayLabel;
 
@@ -4483,7 +4543,7 @@ function renderExList(){
               <input type="number" value="${rVal}" placeholder="${ru||'rps'}" id="r${i}_${si}" oninput="stashSetInput(${i},${si})" aria-label="reps">
             </div>
             <button class="set-log ready" onclick="logSet(${i},${si})">${t('log.one')}</button>
-            <button class="set-skip" onclick="skipSet(${i},${si})">skip</button>
+            <button class="set-skip" onclick="skipSet(${i},${si})">${t('skip.set')}</button>
             ${wu||si>=ex.prescribed.sets?`<button class="set-del" onclick="delSet(${i},${si})">×</button>`:''}
           </div>`;
         }).join('');})()}
@@ -4667,7 +4727,7 @@ function focusSetRowHTML(ex,ei,s,si,memberTag){
       <input type="number" value="${rVal}" placeholder="${ru||'rps'}" id="r${ei}_${si}" oninput="stashSetInput(${ei},${si})" aria-label="reps">
     </div>
     <button class="set-log ready" onclick="logSet(${ei},${si})">${t('log.one')}</button>
-    <button class="set-skip" onclick="skipSet(${ei},${si})">skip</button>
+    <button class="set-skip" onclick="skipSet(${ei},${si})">${t('skip.set')}</button>
     ${wu||si>=ex.prescribed.sets?`<button class="set-del" onclick="delSet(${ei},${si})">\u00d7</button>`:''}
   </div>`;
 }
@@ -5878,7 +5938,10 @@ function targetCurrentVal(ex){
 }
 function roleChipHTML(ex){
   const r=exRole(ex);if(!r)return'';
-  return '<span class="role-chip role-'+r+'">'+(ROLE_LABELS[r]||r)+'</span>';
+  const lbl=ROLE_LABELS[r]||r;
+  // The category chip already says it — never print "Rehab" twice on a card.
+  if(String(ex.cat||'').toLowerCase()===lbl.toLowerCase())return'';
+  return '<span class="role-chip role-'+r+'">'+lbl+'</span>';
 }
 // Thin "35 → 40 kg" progress line + at-target/frozen state for the card meta.
 function targetLineHTML(ex){
