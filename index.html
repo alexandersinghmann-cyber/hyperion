@@ -1181,7 +1181,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 
 <div class="overlay" id="subModal">
   <div class="modal" style="max-height:85vh">
-    <div class="modal-t">Substitute · Same Pattern</div>
+    <div class="modal-t">Change exercise</div>
     <div class="extras-pick-hint" id="subHint"></div>
     <div id="subBody"></div>
     <button class="btn btn-s btn-w" style="margin-top:12px" onclick="hideModal('subModal')">Cancel</button>
@@ -1358,6 +1358,13 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   </div>
 </div>
 
+<div class="overlay" id="exSheet">
+  <div class="modal">
+    <div class="modal-t" id="exSheetTitle">Exercise</div>
+    <div id="exSheetBody"></div>
+    <button class="btn btn-s btn-w" style="margin-top:10px" onclick="hideModal('exSheet')">Cancel</button>
+  </div>
+</div>
 <div class="overlay" id="variantSheet">
   <div class="modal">
     <div id="variantSheetBody"></div>
@@ -4594,18 +4601,7 @@ function renderExList(){
         <div class="ex-actions">
           ${!allDone?`<button class="btn btn-sm btn-p" onclick="logAll(${i})">${t('log.all')}</button>`:''}
           <button class="btn btn-sm btn-g" onclick="addSet(${i})">+ Set</button>
-          <div class="ex-more-wrap" style="position:relative;margin-left:auto">
-            <button class="btn btn-sm btn-g" onclick="toggleExMenu(${i})" aria-label="More">⋯</button>
-            <div class="ex-menu" id="exMenu${i}">
-              <button onclick="addWu(${i});closeExMenus()">+ Warmup</button>
-              ${!allDone?`<button onclick="openSubstitute(${i});closeExMenus()">Substitute (equip)</button>`:''}
-              ${!allDone?`<button onclick="openSwap(${i});closeExMenus()">Swap</button>`:''}
-              ${i<sess.exercises.length-1?`<button onclick="pairSuperset(${i});closeExMenus()">${ex.supersetNext?'Unpair superset':'Superset with next'}</button>`:''}
-              ${!allDone?`<button onclick="skipExercise(${i});closeExMenus()">Skip exercise</button>`:''}
-              <button onclick="toggleFreeze(${i});closeExMenus()">${ex.frozen?'Unfreeze':'Freeze at current load'}</button>
-              <button onclick="closeExMenus();openPainModal(${i})" class="danger">⚠ Pain</button>
-            </div>
-          </div>
+          <button class="btn btn-sm btn-g" style="margin-left:auto" onclick="openExSheet(${i})" aria-label="More">⋯</button>
         </div>
         ${ex.painEvent?`<div style="margin-top:8px;padding:8px 10px;border-radius:var(--rs);background:var(--red-dim);font-size:12px;color:var(--red)">⚠ ${ex.painEvent.severity} pain${ex.painEvent.action?' — '+ex.painEvent.action:''}</div>`:''}
         ${allDone&&ex.progression?`<div class="prog-badge prog-${ex.progression==='increase'?'up':ex.progression==='flag'?'flag':ex.progression==='stall'?'stall':ex.progression==='skipped'?'skip':'hold'}">
@@ -4793,20 +4789,7 @@ function focusMemberHeadHTML(ex,ei,tag){
         ${ex.cue?`<div style="font-size:12px;color:var(--brand);margin-top:2px;line-height:1.4">${ex.cue}</div>`:''}
       </div>
       <button class="pain-flag${ex.painEvent&&ex.painEvent.severity!=='none'?' has':''}" onclick="openPainModal(${ei})" aria-label="Log pain for ${ex.name.replace(/"/g,'')}" title="Pain check">\u2691</button>
-      <div class="ex-more-wrap" style="position:relative">
-        <button class="btn btn-sm btn-g" onclick="toggleExMenu(${ei})" aria-label="More">\u22ef</button>
-        <div class="ex-menu" id="exMenu${ei}">
-          <button onclick="addWu(${ei});closeExMenus()">+ Warmup</button>
-          <button onclick="addSet(${ei});closeExMenus()">+ Set</button>
-          <button onclick="openSubstitute(${ei});closeExMenus()">Substitute (equip)</button>
-          <button onclick="openSwap(${ei});closeExMenus()">Swap</button>
-          ${ei<S.activeSession.exercises.length-1?`<button onclick="pairSuperset(${ei});closeExMenus()">${ex.supersetNext?'Unpair superset':'Superset with next'}</button>`:''}
-          <button onclick="logAll(${ei});closeExMenus()">Log all sets</button>
-          <button onclick="skipExercise(${ei});closeExMenus()">Skip exercise</button>
-          <button onclick="toggleFreeze(${ei});closeExMenus()">${ex.frozen?'Unfreeze':'Freeze at current load'}</button>
-          <button onclick="closeExMenus();openPainModal(${ei})" class="danger">\u26a0 Pain</button>
-        </div>
-      </div>
+      <button class="btn btn-sm btn-g" onclick="openExSheet(${ei})" aria-label="More">\u22ef</button>
     </div>
     ${variantSummaryChip(ex,ei)}
   </div>`;
@@ -5563,7 +5546,7 @@ function getAvoided(exName){
 function openSubstitute(ei){
   const sess=S.activeSession;if(!sess)return;
   const ex=sess.exercises[ei];if(!ex)return;
-  _subEi=ei;
+  _subEi=ei;_swapEi=ei; // K11: merged surface — swap picks route through doSwap
   const gym=getActiveGymEquip();
   const gymLabel=gym?'filtered by active gym equipment':'no gym filter set — showing all same-slot variants';
   document.getElementById('subHint').textContent=`Substituting "${ex.name}" (${getMeta(ex.name).pat}) · ${gymLabel}`;
@@ -5585,6 +5568,20 @@ function openSubstitute(ei){
       </div>`;
     };
     body.innerHTML=subs.slice(0,6).map(renderCard).join('');
+  }
+  // K11: "More (similar)" — swap candidates beyond the equipment-fit subs
+  // (Extras/Program/History pool), deduped, collapsed behind an expander.
+  const _subNames=new Set(subs.map(s2=>s2.name.toLowerCase()));
+  const more=getSwapCandidates(ex).filter(c=>!_subNames.has(c.name.toLowerCase()));
+  if(more.length){
+    const dispU2=S.settings.unit||'kg';
+    body.innerHTML+=`<div class="more-sim-wrap"><button class="btn btn-sm btn-g" style="width:100%;margin-top:8px" onclick="var x=document.getElementById('moreSimList');if(x)x.style.display=x.style.display==='none'?'block':'none'">More (similar) \u00b7 ${more.length}</button>
+      <div id="moreSimList" style="display:none;margin-top:6px">${more.map(c=>{
+        const loadDisp=dispU2==='lb'?Math.round(c.loadKg*K2L*10)/10+'lb':c.loadKg+'kg';
+        return `<div class="extra-card tap" onclick="hideModal('subModal');doSwap('${encodeURIComponent(c.name)}')">
+          <div class="ec-head"><div class="ec-name">${c.name}</div><div class="ec-add">\u21c4</div></div>
+          <div class="ec-why">${c.sets}\u00d7${c.reps} \u00b7 ${loadDisp} \u00b7 ${c.source}</div>
+        </div>`;}).join('')}</div></div>`;
   }
   // Contraindicated exercises: hidden from the pool, listed with reasons.
   const avoided=getAvoided(ex.name);
@@ -5720,17 +5717,30 @@ function confirmSkipSet(reasonKey){
 function cancelSkipSet(){_skipSetCtx=null;hideModal('skipSetModal');}
 
 // S1: overflow menu for exercise secondary actions
-function toggleExMenu(i){
-  const menu=document.getElementById('exMenu'+i);if(!menu)return;
-  const wasOn=menu.classList.contains('on');
-  closeExMenus();
-  if(!wasOn){
-    menu.classList.add('on');
-    setTimeout(()=>{
-      const h=ev=>{if(!menu.contains(ev.target)){closeExMenus();document.removeEventListener('click',h,true)}};
-      document.addEventListener('click',h,true);
-    },10);
-  }
+// K11/D8: the per-exercise overflow is a bottom sheet (sessionSheet pattern,
+// 48px rows) — ONE builder for both card views; popover menu retired.
+let _exSheetEi=null;
+function exSheetHTML(ei){
+  const sess=S.activeSession;if(!sess)return'';
+  const ex=sess.exercises[ei];if(!ex)return'';
+  const allDone=(ex.performed||[]).length>0&&ex.performed.every(x=>x.logged||x.skipped);
+  return `
+    <button class="sheet-btn" onclick="hideModal('exSheet');addWu(${ei})">+ Warmup</button>
+    <button class="sheet-btn" onclick="hideModal('exSheet');addSet(${ei})">+ Set</button>
+    ${!allDone?`<button class="sheet-btn" onclick="hideModal('exSheet');openSubstitute(${ei})">Change exercise</button>`:''}
+    ${ei<sess.exercises.length-1?`<button class="sheet-btn" onclick="hideModal('exSheet');pairSuperset(${ei})">${ex.supersetNext?'Unpair superset':'Superset with next'}</button>`:''}
+    ${!allDone?`<button class="sheet-btn" onclick="hideModal('exSheet');logAll(${ei})">Log all sets</button>`:''}
+    ${!allDone?`<button class="sheet-btn" onclick="hideModal('exSheet');skipExercise(${ei})">Skip exercise</button>`:''}
+    <button class="sheet-btn" onclick="hideModal('exSheet');toggleFreeze(${ei})">${ex.frozen?'Unfreeze':'Freeze at current load'}</button>
+    <button class="sheet-btn danger" onclick="hideModal('exSheet');openPainModal(${ei})">\u26a0 Pain</button>`;
+}
+function openExSheet(ei){
+  const sess=S.activeSession;if(!sess)return;
+  const ex=sess.exercises[ei];if(!ex)return;
+  _exSheetEi=ei;
+  const ttl=document.getElementById('exSheetTitle');if(ttl)ttl.textContent=ex.name;
+  const body=document.getElementById('exSheetBody');if(body)body.innerHTML=exSheetHTML(ei);
+  showModal('exSheet');
 }
 function closeExMenus(){document.querySelectorAll('.ex-menu.on').forEach(m=>m.classList.remove('on'))}
 function toggleGoalsMenu(){

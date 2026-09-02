@@ -51,6 +51,7 @@ const patched = js
   .replace(/\blet _userClosed\s*=/g, 'var _userClosed =')
   .replace(/\blet _notesT\s*=/g, 'var _notesT =')
   .replace(/\blet _variantSheetEi\s*=/g, 'var _variantSheetEi =')
+  .replace(/\blet _exSheetEi\s*=/g, 'var _exSheetEi =')
   .replace(/\bconst ACTIVITY_TYPES\s*=/g, 'var ACTIVITY_TYPES =')
   .replace(/\bconst MODALITY_TYPES\s*=/g, 'var MODALITY_TYPES =')
   .replace(/\blet _reachCache\s*=/g, 'var _reachCache =')
@@ -3083,7 +3084,10 @@ confirmRpe(7);
   S.sessions.pop();
 })();
 S.activeSession=null;
-assert((html.match(/toggleFreeze\(\$\{i\}\);closeExMenus\(\)/g)||[]).length===1&&(html.match(/toggleFreeze\(\$\{ei\}\);closeExMenus\(\)/g)||[]).length===1, 'G4: freeze toggle in both overflow menus');
+// K11/D8: the overflow popover is a bottom sheet — ONE builder serves both
+// card views, so freeze lives exactly once, inside exSheetHTML.
+assert((html.match(/openExSheet\(\$\{i\}\)/g)||[]).length===1&&(html.match(/openExSheet\(\$\{ei\}\)/g)||[]).length===1, 'G4/K11: both card views open the exercise sheet');
+assert((html.match(/toggleFreeze\(\$\{ei\}\)/g)||[]).length===1&&/function exSheetHTML\(ei\)\{[\s\S]*?toggleFreeze\(\$\{ei\}\)/.test(html), 'G4/K11: freeze toggle lives once, in the sheet builder');
 assert(/\.role-chip\{/.test(html), 'G4: role chip styled');
 assert(/roleTag\}\$\{stateTag\}/.test(html), 'G4: report prints role + state tags');
 
@@ -3492,5 +3496,30 @@ assert(/#exList \.set-row \.set-log\{opacity:\.35\}/.test(html)&&/#exList \.set-
 assert(/#exList \.set-row:not\(\.current\):not\(\.reveal\) \.set-skip\{display:none\}/.test(html)&&/#exList \.set-row:not\(\.current\):not\(\.reveal\) \.set-del\{display:none\}/.test(html), 'K10/D6: skip/del hidden until current or revealed in list view');
 assert(/wireRowReveal\(document\.getElementById\('exList'\)\)/.test(html), 'K10/D6: long-press reveal wired to the list container');
 assert(!/#exList \.set-row\.current \.set-log\{display:none/.test(html), 'K10/D6: list current-row Log is NOT hidden (no fc-log in list view)');
+
+// ---- K11: D8 overflow bottom sheet + merged Change exercise ----
+console.log('[K11 ExSheet]');
+assert(typeof exSheetHTML==='function'&&typeof openExSheet==='function', 'K11/D8: sheet API defined');
+assert(/id="exSheet"/.test(html)&&/id="exSheetBody"/.test(html)&&/id="exSheetTitle"/.test(html), 'K11/D8: exercise sheet markup exists');
+assert(!/toggleExMenu/.test(html)&&!/id="exMenu\$\{/.test(html), 'K11/D8: per-exercise popover menu fully retired');
+assert(/id="trainMenu"/.test(html)&&/id="goalsMenu"/.test(html)&&typeof closeExMenus==='function', 'K11/D8: train/goals menus untouched');
+(function(){
+  S.activeSession={exercises:[
+    {name:'Back Squat',cat:'squat',equipmentClass:'barbell',frozen:false,supersetNext:false,tags:[],prescribed:{sets:3,reps:'5',loadKg:100,unit:'kg'},performed:[{type:'working',weightKg:100,reps:5,logged:false}]},
+    {name:'RDL',cat:'hinge',equipmentClass:'barbell',frozen:true,tags:[],prescribed:{sets:3,reps:'8',loadKg:80,unit:'kg'},performed:[{type:'working',weightKg:80,reps:8,logged:true}]}
+  ]};
+  const h0=exSheetHTML(0);
+  assert(h0.indexOf('+ Warmup')>=0&&h0.indexOf('+ Set')>=0&&h0.indexOf('Change exercise')>=0&&h0.indexOf('Superset with next')>=0&&h0.indexOf('Log all sets')>=0&&h0.indexOf('Skip exercise')>=0&&h0.indexOf('Freeze at current load')>=0&&h0.indexOf('Pain')>=0, 'K11/D8: unresolved exercise sheet carries the full action set');
+  assert((h0.match(/class="sheet-btn/g)||[]).length===8, 'K11/D8: 48px sheet rows (8 for a mid-session exercise). Got: '+(h0.match(/class="sheet-btn/g)||[]).length);
+  const h1=exSheetHTML(1);
+  assert(h1.indexOf('Change exercise')<0&&h1.indexOf('Log all sets')<0&&h1.indexOf('Skip exercise')<0&&h1.indexOf('Unfreeze')>=0, 'K11/D8: done exercise hides change/log/skip, offers Unfreeze');
+  S.activeSession=null;
+})();
+// merged Change exercise: subs + "More (similar)" swap candidates in ONE surface
+assert(/_subEi=ei;_swapEi=ei;/.test(html), 'K11: merged surface arms doSwap alongside doSubstitute');
+assert(/More \(similar\)/.test(html)&&/id="moreSimList"/.test(html), 'K11: swap candidates render behind the More (similar) expander');
+assert(/hideModal\('subModal'\);doSwap\(/.test(html), 'K11: a similar-pick closes the merged modal (doSwap itself untouched)');
+assert(/getSwapCandidates\(ex\)\.filter\(c=>!_subNames\.has\(c\.name\.toLowerCase\(\)\)\)/.test(html), 'K11: similar list deduped against the sub list');
+assert(/<div class="modal-t">Change exercise<\/div>/.test(html), 'K11: merged modal titled Change exercise');
 
 console.log('\n=== All tests passed ===');
