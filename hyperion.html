@@ -267,6 +267,7 @@ html,body{margin:0;padding:0;overflow:hidden;font-family:var(--sans);background:
 .btn:active{transform:scale(.97);opacity:.85}
 .btn-p{background:var(--brand);color:var(--on-brand)}
 .btn-gold{background:var(--gold);color:var(--on-brand)}
+input[type=range]{accent-color:var(--brand)}
 .btn-gold:active{opacity:.85}
 .btn-s{background:var(--s3);color:var(--tx)}
 .btn-g{background:none;color:var(--tx2);border:1px solid var(--s3)}
@@ -712,7 +713,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 /* Litanies get room to breathe — two calm lines instead of a hard ellipsis. */
 .imperium #rankLine{flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;letter-spacing:.08em}
 .imperium #wmSubtitle{flex:none}
-.imperium #greeting{white-space:normal !important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.45}
+.imperium #greeting{white-space:normal !important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.45;text-wrap:balance}
 .imperium .commem-card .ch-name{font-family:var(--serif);font-variant-caps:small-caps;color:var(--gold);letter-spacing:.04em}
 .imperium .btn-d{background:color-mix(in srgb,var(--crimson) 26%,var(--s1));border-color:color-mix(in srgb,var(--crimson) 55%,transparent)}
 /* MECHANICUS register — the active session only (list AND focus). */
@@ -797,11 +798,13 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .commem-card{display:flex;gap:10px;align-items:center;background:var(--s1);border:1px solid var(--line);border-radius:var(--rs);padding:10px 12px;margin-bottom:10px}
 .goal-card.wk-check{margin-bottom:10px}
 .wkc-row{display:flex;align-items:center;gap:8px;padding:5px 0;font:500 13px var(--sans);color:var(--tx)}
+.wkc-row.is-missed{opacity:.5}
 .wkc-row.is-done{color:var(--tx3)}
 .wkc-row.is-done .wkc-lbl{text-decoration:line-through;text-decoration-color:var(--tx3)}
 .wkc-mark{width:18px;text-align:center;color:var(--grn);font:600 13px var(--mono)}
 .wkc-row:not(.is-done) .wkc-mark{color:var(--tx3)}
 .wkc-lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.imperium #vSession.on .act-save{background:var(--bg-mech)}
 </style>
 </head>
 <body>
@@ -815,7 +818,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       <div style="flex:1 1 auto;min-width:0">
         <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px">
           <svg id="wordmark" width="104" height="14" viewBox="0 0 104 14" aria-label="HYPERION" role="img"><defs><linearGradient id="wmSun" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--brand)"/><stop offset="1" style="stop-color:var(--brand2)"/></linearGradient><clipPath id="wmHz"><rect x="0" y="0" width="14" height="9.5"/></clipPath></defs><circle cx="7" cy="7.5" r="5" fill="url(#wmSun)" clip-path="url(#wmHz)"/><rect x="1.5" y="10.5" width="11" height="1.2" rx=".6" fill="var(--tx)"/><text x="20" y="11" style="font:500 10.5px var(--display);letter-spacing:3.5px" fill="var(--tx)">HYPERION</text></svg>
-          <span style="font:500 10px var(--mono);color:var(--tx3);letter-spacing:.5px" id="blockDateRange"></span>
+          <span style="font:500 10px var(--mono);color:var(--tx3);letter-spacing:.5px;white-space:nowrap" id="blockDateRange"></span>
           <span class="imp-only" id="wmAquila" aria-hidden="true"></span>
         </div>
         <div id="greeting" style="margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span class="q-mark" aria-hidden="true">&ldquo;</span><span style="font-style:italic;font:400 var(--t-meta) var(--sans);color:var(--tx2)" id="quoteText"></span><span style="font:500 10px var(--sans);color:var(--tx3);margin-left:6px;font-style:normal" id="quoteAuthor"></span></div>
@@ -862,7 +865,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <div id="pvSkipInfo" style="display:none;background:rgba(255,255,255,.02);border:1px solid var(--s3);border-radius:var(--rs);padding:12px;margin-bottom:12px;font-size:13px;color:var(--tx3)"></div>
     <div id="pvExercises"></div>
     <div style="display:flex;gap:8px;margin-top:12px">
-      <button class="btn btn-gold btn-w" id="pvStartBtn" onclick="startDay(previewDayI)">Start Session</button>
+      <button class="start-btn" id="pvStartBtn" onclick="startDay(previewDayI)">Start Session</button>
     </div>
     <button class="btn btn-s btn-w" id="pvSkipBtn" style="margin-top:8px;display:none" onclick="openSkipDay(previewDayI)">Skip this day</button>
     <button class="btn btn-g btn-w" id="pvUnskipBtn" style="margin-top:8px;display:none" onclick="unskipDay(previewDayI)">Unskip this day</button>
@@ -976,7 +979,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <!-- Coach Report -->
     <div class="sync-bar" style="margin-top:16px">
       <span data-t="report.title">Coach Report</span>
-      <button class="btn btn-sm btn-gold" onclick="generateCoachReport()" data-t="report.generate">Generate</button>
+      <button class="btn btn-sm btn-p" onclick="generateCoachReport()" data-t="report.generate">Generate</button>
     </div>
     <div id="coachReportBox" style="display:none;margin-top:8px;background:var(--s1);border:1px solid var(--s3);border-radius:var(--rs);padding:12px;font:12px var(--mono);color:var(--tx2);white-space:pre-wrap;max-height:300px;overflow-y:auto"></div>
     <div id="coachReportMsg" style="display:none;text-align:center;padding:6px;font-size:12px;color:var(--grn)" data-t="report.copied">Copied to clipboard</div>
@@ -993,7 +996,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   <div class="view pad" id="vWeek">
     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
       <div class="t-h1" data-t="week.title">This Week</div>
-      <button class="btn btn-sm btn-gold" onclick="openComposer()" data-t="week.compose">Compose week</button>
+      <button class="btn btn-sm btn-p" onclick="openComposer()" data-t="week.compose">Compose week</button>
     </div>
     <div class="t-meta" id="weekRange" style="margin-bottom:14px"></div>
     <div id="weekList"></div>
@@ -1463,6 +1466,7 @@ const STRINGS={
 plain:{
  'tab.train':'Train','tab.week':'Week','tab.progress':'Progress',
  'sess.list':'List','sess.focus':'Focus','sess.cancel':'Cancel','sess.end':'End',
+ 'preview.start':'Start Session','preview.redo':'Redo Session',
  'rest.label':'Rest','rest.plus30':'+30s','rest.skip':'Skip',
  'notes.label':'Session Notes','notes.ph':'How did it feel? Anything to flag...',
  'set.title':'Settings','set.grpTraining':'Training','set.grpData':'Data','set.grpApp':'App','set.grpAdvanced':'Advanced',
@@ -1485,6 +1489,7 @@ plain:{
 gothic:{
  'tab.train':'Crusade','tab.week':'Campaign','tab.progress':'Reliquary',
  'sess.list':'List','sess.focus':'Focus','sess.cancel':'Abandon','sess.end':'Conclude',
+ 'preview.start':'Commence the Rite','preview.redo':'Repeat the Rite',
  'rest.label':'Vigil','rest.plus30':'+30','rest.skip':'End Vigil',
  'notes.label':'The Record','notes.ph':'Let the record show\u2026',
  'set.title':'Administratum','set.grpTraining':'Armoury','set.grpData':'Archivum','set.grpApp':'Rites of the Machine','set.grpAdvanced':'Inner Sanctum',
@@ -3428,7 +3433,7 @@ function renderWeek(){
   }).join('');
   // Sunday auto-shows the composer card atop the week
   const cc=document.getElementById('composerCard');
-  if(cc){cc.innerHTML = (todayDow()==='Sunday') ? `<div class="comp-card"><div class="t-h2">Plan next week</div><div class="t-meta" style="margin:4px 0 8px">It's Sunday — compose your sessions.</div><button class="btn btn-gold btn-w" onclick="openComposer()">Open composer</button></div>` : '';}
+  if(cc){cc.innerHTML = (todayDow()==='Sunday') ? `<div class="comp-card"><div class="t-h2">Plan next week</div><div class="t-meta" style="margin:4px 0 8px">It's Sunday — compose your sessions.</div><button class="btn btn-p btn-w" onclick="openComposer()">Open composer</button></div>` : '';}
 }
 // E1: "+" on a week row — program templates by label, or a plain type.
 // Everything it creates is a ONE-OFF day: logs like any other, never recurs.
@@ -3724,14 +3729,16 @@ function renderTrain(){
   // full week is always visible.
   upcoming.sort((a,b)=>a.sort<b.sort?-1:a.sort>b.sort?1:a.idx-b.idx);
   let html='';
-  // H5: weekly commemoration — one line under the litany, shield + motto.
+  // H5: weekly commemoration — ONE line, shield + chapter name. The motto
+  // quote was dropped (user: two stacked quotes on Train read as clutter —
+  // the greeting litany is the screen's single quote moment).
   if(imperiumOn()){
     const _ch=chapterOfWeek(todayStr());
-    html+=`<div class="commem-card">${shieldIcon(_ch.varA,_ch.varB,22)}<div style="min-width:0"><div class="t-meta" style="color:var(--tx2)">This week the record keeps vigil in honour of the <span class="ch-name">${_ch.name}</span>.</div><div class="t-meta" style="color:var(--gold);margin-top:2px">\u201c${_ch.motto}\u201d</div></div></div>`;
+    html+=`<div class="commem-card">${shieldIcon(_ch.varA,_ch.varB,22)}<div style="min-width:0"><div class="t-meta" style="color:var(--tx2)">This week the record keeps vigil in honour of the <span class="ch-name">${_ch.name}</span>.</div></div></div>`;
   }
   // New-block banner (surfaces when the built-in default differs from the loaded block)
   if(DEF_PROGRAM.version>(S.program.version??0) && S.settings._dismissedProgramVersion!==DEF_PROGRAM.version){
-    html+=`<div class="block-banner"><div><div class="t-meta" style="color:var(--gold)">${t('banner.newBlock')}</div><div style="font:600 14px var(--sans);margin-top:2px">${DEF_PROGRAM.name}</div></div><div style="display:flex;gap:6px"><button class="btn btn-sm btn-gold" onclick="event.stopPropagation();reviewNewBlock()">${t('banner.review')}</button><button class="btn btn-sm btn-g" onclick="event.stopPropagation();dismissNewBlock()">${t('banner.skip')}</button></div></div>`;
+    html+=`<div class="block-banner"><div><div class="t-meta" style="color:var(--gold)">${t('banner.newBlock')}</div><div style="font:600 14px var(--sans);margin-top:2px">${DEF_PROGRAM.name}</div></div><div style="display:flex;gap:6px"><button class="btn btn-sm btn-p" onclick="event.stopPropagation();reviewNewBlock()">${t('banner.review')}</button><button class="btn btn-sm btn-g" onclick="event.stopPropagation();dismissNewBlock()">${t('banner.skip')}</button></div></div>`;
   }
   // Cross-session recovery conflicts (validateWeek) — warn banner if the
   // scheduled week double-trains a movement pattern within 24h.
@@ -3872,11 +3879,11 @@ function showDayPreview(i){
   // Start button
   const startBtn=document.getElementById('pvStartBtn');
   if(done){
-    startBtn.textContent='Redo Session';
+    startBtn.textContent=t('preview.redo');
     startBtn.className='btn btn-s btn-w';
   } else {
-    startBtn.textContent='Start Session';
-    startBtn.className='btn btn-gold btn-w';
+    startBtn.textContent=t('preview.start');
+    startBtn.className='start-btn';
   }
 
   // Skip state handling
@@ -4293,7 +4300,7 @@ function activityFormHTML(sess){
       <div class="field"><label>Perceived effort (1–10)</label><div class="eff-row">${effChips}</div></div>
       ${st==='kb'?`<div class="field"><label>Result (optional)</label><input type="text" value="${esc(a.result||'')}" placeholder="e.g. 5 rounds + 12" onchange="setActivityField('result',this.value)" aria-label="kb result"></div>`:''}
       <div class="field"><label>${st==='kb'?'What you did':'Notes'}</label><textarea id="actNotes" rows="4" placeholder="${st==='kb'?'e.g. 25 min AMRAP: 10 swings / 8 goblet squats / 40m carry':'How did it feel?'}" oninput="queueNotesSave(this.value,'activity')" aria-label="notes">${esc(a.notes||'')}</textarea></div>
-      <button class="btn btn-gold btn-w act-save" onclick="finalizeActivity()">Save ${st==='kb'?'KB':st} session</button>
+      <button class="btn btn-p btn-w act-save" onclick="finalizeActivity()">Save ${st==='kb'?'KB':st} session</button>
     </div>`;
 }
 function renderActivityLog(sess){
@@ -7307,7 +7314,10 @@ function weekChecklistHTML(){
   if(!rows.length)return '';
   const doneN=rows.filter(o=>o.st==='done'||o.st==='ticked'||o.st==='skipped').length;
   return `<div class="goal-card wk-check"><div class="goal-head"><span class="t-h2">${t('check.title')}</span><span class="t-meta tnum">${doneN} / ${rows.length}</span></div>
-    ${rows.map(o=>`<div class="wkc-row${o.st==='pending'?'':' is-done'}"><span class="wkc-mark">${o.st==='pending'?'\u25cb':o.st==='ticked'?'\u2713\u00b7':'\u2713'}</span><span class="wkc-lbl">${esc(o.d.label)}</span><span class="t-meta">${dowOf(dayEffectiveDate(o.d,wd[0])).slice(0,3)}${o.st==='ticked'?' \u00b7 ticked':o.st==='skipped'?' \u00b7 skipped':''}</span></div>`).join('')}
+    ${rows.map(o=>{
+      const missed=o.st==='pending'&&dayEffectiveDate(o.d,wd[0])<todayStr();
+      return `<div class="wkc-row${o.st==='pending'?(missed?' is-missed':''):' is-done'}"><span class="wkc-mark">${missed?'\u2013':o.st==='pending'?'\u25cb':o.st==='ticked'?'\u2713\u00b7':'\u2713'}</span><span class="wkc-lbl">${esc(o.d.label)}</span><span class="t-meta">${dowOf(dayEffectiveDate(o.d,wd[0])).slice(0,3)}${missed?' \u00b7 missed':o.st==='ticked'?' \u00b7 ticked':o.st==='skipped'?' \u00b7 skipped':''}</span></div>`;
+    }).join('')}
   </div>`;
 }
 function buildCoachReport(sessions,program,weekDates){

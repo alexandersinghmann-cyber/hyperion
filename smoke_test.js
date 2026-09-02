@@ -3626,4 +3626,35 @@ console.log('[K13 W3Days]');
   window.confirm=()=>true;cancelSession();
 })();
 
+// ---- K15: Sep 2 phone-report fix pack ----
+console.log('[K15 FixPack]');
+assert(/\.imperium #greeting\{[^}]*text-wrap:balance\}/.test(html), 'K15: wrapped litany lines are balanced (no one-word widow)');
+assert(!/_ch\.motto/.test(html.replace(/\{name:'[^']+',motto:'[^']*'[^}]*\}/g,'')), 'K15: vigil card no longer renders the motto (ONE quote per Train screen)');
+assert(/keeps vigil in honour of the <span class="ch-name">/.test(html), 'K15: commemoration line itself survives');
+assert(/id="blockDateRange"/.test(html)&&/letter-spacing:\.5px;white-space:nowrap" id="blockDateRange"/.test(html), 'K15: header date range never wraps mid-date');
+assert(/<button class="start-btn" id="pvStartBtn"/.test(html)&&/startBtn\.className='start-btn';/.test(html), 'K15: preview Start Session is the brand solar CTA, not flat gold');
+assert(!/btn-gold btn-w" id="pvStartBtn"/.test(html)&&!/startBtn\.className='btn btn-gold btn-w'/.test(html), 'K15: gold start button fully retired (gold stays achievement-only)');
+// gold census: after the audit, gold buttons are ONLY achievement moments
+// (milestone Continue, onboarding Show me, week-complete Copy) — never
+// in-flow actions (save/generate/compose/review/start).
+assert((html.match(/btn-gold/g)||[]).length===5, 'K15: btn-gold sites = CSS pair + 3 achievement moments. Got: '+(html.match(/btn-gold/g)||[]).length);
+assert(/btn btn-p btn-w act-save/.test(html), 'K15: activity Save is brand, not gold');
+assert(/\.imperium #vSession\.on \.act-save\{background:var\(--bg-mech\)\}/.test(html), 'K15: sticky Save has an opaque mech ground (no form bleed-through)');
+assert(STRINGS.plain['preview.start']==='Start Session', 'K15: preview CTA label routed through STRINGS (plain)');
+assert(STRINGS.gothic['preview.start']==='Commence the Rite'&&STRINGS.gothic['preview.redo']==='Repeat the Rite', 'K15: gothic preview labels');
+assert(/input\[type=range\]\{accent-color:var\(--brand\)\}/.test(html), 'K15: duration sliders take the brand accent (no default blue)');
+// missed state: date-robust — real today decides which branch we can assert
+(function(){
+  S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.skips=[];S.settings.weekRemovals={};
+  const wd=weekDatesFor(todayStr());
+  const chk=weekChecklistHTML();
+  if(todayStr()>wd[0]){
+    assert(/is-missed/.test(chk)&&/\u00b7 missed/.test(chk), 'K15: past unlogged days render dimmed with a dash + missed label');
+    assert(/\.wkc-row\.is-missed\{opacity:\.5\}/.test(html), 'K15: missed rows dimmed');
+  } else {
+    assert(!/is-missed/.test(chk), 'K15: Monday start — nothing missed yet');
+  }
+  assert(!/is-missed[\s\S]{0,200}\u25cb/.test(chk.split('is-missed')[1]||''), 'K15: missed rows use the dash marker, not the pending circle');
+})();
+
 console.log('\n=== All tests passed ===');
