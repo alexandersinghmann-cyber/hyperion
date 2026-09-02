@@ -2875,7 +2875,7 @@ assert(typeof resumeGoal==='function'&&typeof togglePausedGoals==='function', 'V
   // restore paused state for the ship default
   S.goals.find(g=>g.id==='g-mu').paused=true;
 })();
-assert(/const activeCards=\[card1000, _pausedIds\.has\('g-mu'\)\?null:cardMU, _pausedIds\.has\('g-run'\)\?null:cardRun\]/.test(html), 'V4/K2: dashboard = 1000lb (+unpaused MU/Run); swim card retired');
+assert(/const activeCards=\[weekChecklistHTML\(\), card1000, _pausedIds\.has\('g-mu'\)\?null:cardMU, _pausedIds\.has\('g-run'\)\?null:cardRun\]/.test(html), 'V4/K2/K5: dashboard = checklist + 1000lb (+unpaused MU/Run)');
 assert(/id="pausedWrap"/.test(html)&&/Resume Muscle-Up</.test(html)&&/Resume Running</.test(html), 'V4: Paused expander + resume actions');
 assert(/if\(!_muPaused\)celebrateMilestone\('mu_'/.test(html), 'V4: paused milestones stay silent (data still updates)');
 assert(!/kb.*goal|goal.*kettlebell/i.test((html.match(/migrateV3[\s\S]{0,3000}/)||[''])[0]), 'V4: no KB goal invented');
@@ -3367,5 +3367,30 @@ console.log('\n--- K4: tick-off ---');
 })();
 assert(/tickOffDay\(\$\{dayIdx\}\)/.test(html)&&/'sheet\.tick'/.test(html), 'K4: session sheet offers Tick off');
 assert(/Ticked off/.test(html), 'K4: day-card subtitle distinguishes a tick');
+
+// ===== K5: WEEKLY CHECKLIST =====
+console.log('\n--- K5: weekly checklist ---');
+(()=>{
+  const saveP=JSON.parse(JSON.stringify(S.program)),saveS=S.sessions,saveK=S.skips,saveR=S.weekRemovals;
+  S.skips=[];S.weekRemovals=[];
+  S.program={name:'ChkTest',active:true,days:[
+    {id:1,label:'Lift A',defaultDay:'Monday',dayOfWeek:'Monday',sessionType:'lifting',dur:60,exercises:[]},
+    {id:2,label:'Rest',defaultDay:'Tuesday',dayOfWeek:'Tuesday',sessionType:'rest',dur:0,exercises:[]},
+    {id:3,label:'Swim',defaultDay:'Wednesday',dayOfWeek:'Wednesday',sessionType:'swim',dur:45,exercises:[]}
+  ]};
+  const wd=weekDatesFor(todayStr());
+  // a record from LAST week must not tick this week (the stale-tick trap)
+  S.sessions=[{date:dateAddDays(wd[0],-3),dayLabel:'Lift A',dayId:1,blockName:'ChkTest',sessionType:'lifting',status:'complete',exercises:[]}];
+  assert(dayWeekStatus(S.program.days[0],wd)==='pending', 'K5: last-week record does not tick this week');
+  S.sessions=[{date:wd[0],dayLabel:'Lift A',dayId:1,blockName:'ChkTest',sessionType:'lifting',status:'complete',exercises:[]},
+              {date:wd[2],dayLabel:'Swim',dayId:3,blockName:'ChkTest',sessionType:'swim',status:'complete',ticked:true,exercises:[],activity:{durationMin:45,distance:0,effort:null,notes:''}}];
+  assert(dayWeekStatus(S.program.days[0],wd)==='done'&&dayWeekStatus(S.program.days[2],wd)==='ticked'&&dayWeekStatus(S.program.days[1],wd)==='rest', 'K5: statuses derive per day');
+  const cardHTML=weekChecklistHTML();
+  assert(/2 \/ 2/.test(cardHTML), 'K5: denominator excludes the rest day. Got: '+(cardHTML.match(/\d+ \/ \d+/)||['?'])[0]);
+  assert(/wkc-row is-done/.test(cardHTML)&&/· ticked/.test(cardHTML), 'K5: rows carry done + ticked styles');
+  assert(isWeekComplete(wd)===true, 'K5: isWeekComplete rides the same predicate');
+  S.program=saveP;S.sessions=saveS;S.skips=saveK;S.weekRemovals=saveR||[];
+})();
+assert(/html\+=weekChecklistHTML\(\);/.test(html), 'K5: checklist mounted on the Train home');
 
 console.log('\n=== All tests passed ===');

@@ -784,6 +784,13 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .imperium div.imp-only{display:block}
 .imperium span.imp-only{display:inline-block;vertical-align:middle}
 .commem-card{display:flex;gap:10px;align-items:center;background:var(--s1);border:1px solid var(--line);border-radius:var(--rs);padding:10px 12px;margin-bottom:10px}
+.goal-card.wk-check{margin-bottom:10px}
+.wkc-row{display:flex;align-items:center;gap:8px;padding:5px 0;font:500 13px var(--sans);color:var(--tx)}
+.wkc-row.is-done{color:var(--tx3)}
+.wkc-row.is-done .wkc-lbl{text-decoration:line-through;text-decoration-color:var(--tx3)}
+.wkc-mark{width:18px;text-align:center;color:var(--grn);font:600 13px var(--mono)}
+.wkc-row:not(.is-done) .wkc-mark{color:var(--tx3)}
+.wkc-lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -1480,6 +1487,7 @@ STRINGS.plain['excl.why']='why?';STRINGS.gothic['excl.why']='by order of the Apo
 STRINGS.plain['valid.clean']='validator clean';STRINGS.gothic['valid.clean']='The Machine Spirit is appeased.';
 STRINGS.plain['sheet.tick']='Tick off';STRINGS.gothic['sheet.tick']='Attest';
 STRINGS.plain['sheet.ticked']='Ticked off';STRINGS.gothic['sheet.ticked']='So attested.';
+STRINGS.plain['check.title']='This week';STRINGS.gothic['check.title']='The Week\u2019s Rites';
 // The four canonical protection sites — and ONLY these four (asserted).
 STRINGS.gothic['readout.top']='THE EMPEROR PROTECTS';
 STRINGS.gothic['pain.confirm']='Wound sustained. The Emperor protects.';
@@ -3729,6 +3737,7 @@ function renderTrain(){
     const sDay=S.program.days[startIdx];
     const isTodayStart=startIdx===todayIdx;
     const label=isTodayStart?`${t('start.pre')}${sDay.label}`:`${t('start.pre')}${sDay.label} (${sDay.defaultDay||sDay.dayOfWeek})`;
+    html+=weekChecklistHTML();
     html+=`<button class="start-btn" onclick="showDayPreview(${startIdx})">${label}</button>`;
     // Train's second (and final) gradient surface: the top-set chip.
     try{
@@ -6794,7 +6803,7 @@ function renderGoalsDashboard(){
   // W4-D: dashboard order = active goals first (1000 lb, Freestyle); paused
   // goals live behind a collapsed expander, data retained, one-tap resume.
   const _pausedIds=new Set((S.goals||[]).filter(g=>g.paused).map(g=>g.id));
-  const activeCards=[card1000, _pausedIds.has('g-mu')?null:cardMU, _pausedIds.has('g-run')?null:cardRun].filter(Boolean).join('');
+  const activeCards=[weekChecklistHTML(), card1000, _pausedIds.has('g-mu')?null:cardMU, _pausedIds.has('g-run')?null:cardRun].filter(Boolean).join('');
   const pausedCards=[_pausedIds.has('g-mu')?cardMU:null, _pausedIds.has('g-run')?cardRun:null].filter(Boolean);
   const pausedBlock=pausedCards.length?`<div class="paused-wrap${_pausedOpen?' open':''}" id="pausedWrap">
     <div class="paused-toggle" onclick="togglePausedGoals()">${t('goal.paused')} <span class="sec-count">${pausedCards.length}</span><span class="sec-chev">${_pausedOpen?'\u2304':'\u203a'}</span></div>
@@ -7179,17 +7188,32 @@ function weeklyScheduled(weekDates,today){
   }catch(e){}
   return {prog,rec,recTypes};
 }
+// A2: ONE per-day predicate feeds the checklist card AND week completeness —
+// week-scoped by construction (a record from last week never ticks this one;
+// recMatchesDay keeps two same-labeled days separate).
+function dayWeekStatus(d,wd){
+  const bn=S.program.name;
+  if(dayRemovedForWeek(d,wd[0]))return 'removed';
+  if(d.sessionType==='rest')return 'rest';
+  if((S.skips||[]).some(sk=>recMatchesDay(sk,d)&&sk.blockName===bn))return 'skipped';
+  const rec=(S.sessions||[]).find(s=>recMatchesDay(s,d)&&wd.includes(s.date));
+  if(rec)return rec.ticked?'ticked':'done';
+  return 'pending';
+}
 function isWeekComplete(weekDates){
   const wd=weekDates||weekDatesFor(todayStr());
-  const bn=S.program.name;
-  // recMatchesDay so each of two same-labeled days (the deload's two Swims)
-  // needs its OWN record — one swim must not complete both.
-  return (S.program.days||[]).length>0&&(S.program.days||[]).every(d=>
-    (d.sessionType==='rest')|| // rest needs no record
-    dayRemovedForWeek(d,wd[0])|| // removed this week — off the hook
-    (S.skips||[]).some(sk=>recMatchesDay(sk,d)&&sk.blockName===bn)||
-    (S.sessions||[]).some(s=>recMatchesDay(s,d)&&wd.includes(s.date))
-  );
+  return (S.program.days||[]).length>0&&(S.program.days||[]).every(d=>dayWeekStatus(d,wd)!=='pending');
+}
+// A2: the weekly checklist card — this week's sessions as tick rows + count.
+// That is the whole card.
+function weekChecklistHTML(){
+  const wd=weekDatesFor(todayStr());
+  const rows=(S.program.days||[]).map(d=>({d,st:dayWeekStatus(d,wd)})).filter(o=>o.st!=='removed'&&o.st!=='rest');
+  if(!rows.length)return '';
+  const doneN=rows.filter(o=>o.st==='done'||o.st==='ticked'||o.st==='skipped').length;
+  return `<div class="goal-card wk-check"><div class="goal-head"><span class="t-h2">${t('check.title')}</span><span class="t-meta tnum">${doneN} / ${rows.length}</span></div>
+    ${rows.map(o=>`<div class="wkc-row${o.st==='pending'?'':' is-done'}"><span class="wkc-mark">${o.st==='pending'?'\u25cb':o.st==='ticked'?'\u2713\u00b7':'\u2713'}</span><span class="wkc-lbl">${esc(o.d.label)}</span><span class="t-meta">${(o.d.defaultDay||o.d.dayOfWeek||'').slice(0,3)}${o.st==='ticked'?' \u00b7 ticked':o.st==='skipped'?' \u00b7 skipped':''}</span></div>`).join('')}
+  </div>`;
 }
 function buildCoachReport(sessions,program,weekDates){
   const wk=(sessions||[]).filter(s=>weekDates.includes(s.date));
