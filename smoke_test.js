@@ -3491,7 +3491,9 @@ assert(/const bits=metaBits\(ex\);/.test(html), 'K9/D1: openFcDetail renders thr
 // D2: current-row-only plate line, both templates
 assert((html.match(/\$\{rowState===' current'\?`<div class="row-plates"/g)||[]).length===2, 'K9/D2: row-plates rendered in the CURRENT row only, both views');
 assert(/const pl=document\.getElementById\(`pl\$\{ei\}_\$\{si\}`\);\n  if\(pl\)pl\.textContent=rowPlateText\(ex,wi\?wi\.value:s\.weightKg\);/.test(html), 'K9/D2: stashSetInput live-patches the plate line as weight is typed');
-assert(/\.row-plates\{flex-basis:100%/.test(html)&&/\.row-plates:empty\{display:none\}/.test(html)&&/\.set-row\.current \.set-fields\{flex-wrap:wrap\}/.test(html), 'K9/D2: plate line wraps under the inputs; empty renders nothing');
+assert(/\.row-plates\{flex-basis:100%;order:99/.test(html)&&/\.row-plates:empty\{display:none\}/.test(html)&&/\.fcard \.set-row\.current\{flex-wrap:wrap\}/.test(html), 'K9/D2: focus row wraps its plate line; list renders it as a sibling annotation');
+assert(/<\/div>\$\{rowState===' current'\?`<div class="row-plates" id="pl\$\{i\}_\$\{si\}"/.test(html), 'K9/D2: list plate line sits OUTSIDE the flex row (input pair never wraps)');
+assert(/dowOf\(dayEffectiveDate\(o\.d,wd\[0\]\)\)\.slice\(0,3\)/.test(html), 'K5: checklist day abbreviation follows the EFFECTIVE date (moved days relabel)');
 assert(rowPlateText({equipmentClass:'barbell',name:'Deadlift'},128.5)==='128.5 = 25 + 20 + 1.25 /side', 'K9/D2: W3 deadlift top row math. Got: '+rowPlateText({equipmentClass:'barbell',name:'Deadlift'},128.5));
 // D5: summary chip + sheet host variantChips unchanged
 assert(typeof variantSummaryChip==='function'&&typeof openVariantSheet==='function', 'K9/D5: variant sheet API defined');

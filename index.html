@@ -356,8 +356,9 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .ex-rx{font:500 12px var(--mono);color:var(--tx3);margin-top:1px}
 .plate-line{font:600 11px var(--mono);color:var(--gold);margin-top:4px;letter-spacing:.3px;opacity:.92}
 .ex-sub{font:500 11px var(--mono);color:var(--tx3);margin-top:4px;line-height:1.5}
-.set-row.current .set-fields{flex-wrap:wrap}
-.row-plates{flex-basis:100%;font:500 11px var(--mono);color:var(--tx3);padding:2px 2px 0;letter-spacing:.02em}
+.fcard .set-row.current{flex-wrap:wrap}
+.row-plates{flex-basis:100%;order:99;font:500 11px var(--mono);color:var(--tx3);padding:3px 2px 0 34px;letter-spacing:.02em}
+#exList .row-plates{padding:3px 2px 7px 36px;border-bottom:1px solid var(--s2)}
 .row-plates:empty{display:none}
 .variant-sum{margin-top:6px}
 .variant-sum .v-chip{min-height:30px;padding:5px 11px}
@@ -3861,7 +3862,7 @@ function showDayPreview(i){
         </div>
         <div style="flex:1;cursor:pointer" onclick="showEditEx(${i},${ei})">
           <div class="pe-name">${ex.name}${ex.tags?.includes('per side')?' <span class="td" style="font-size:11px">/side</span>':''}${ex.tags?.includes('per hand')?' <span class="td" style="font-size:11px">/hand</span>':''}</div>
-          <div class="pe-detail">${ex.sets}×${ex.reps} @ ${fmtW(ex.loadKg,ex.unit)}</div>
+          <div class="pe-detail">${ex.entryType==='circuit'?`${ex.format||'Circuit'} ${ex.minutes||'?'} min${ex.loadKg?' @ '+fmtW(ex.loadKg,'kg'):''}`:`${ex.sets}×${ex.reps} @ ${fmtW(ex.loadKg,ex.unit)}`}</div>
         </div>
         <div class="pe-arrow" onclick="showEditEx(${i},${ei})">›</div>
       </div>`;
@@ -4450,6 +4451,8 @@ function renderEx(){
     if(_v&&_v.classList)_v.classList.toggle('focus-on',!isActivityType(st)&&(S.settings.sessionView||'focus')!=='list');
     const _nw=document.getElementById('sessNotesWrap');
     if(_nw&&_nw.style)_nw.style.display=isActivityType(st)?'none':'';
+    const _sp=document.getElementById('sessProgress');
+    if(_sp&&_sp.style)_sp.style.display=(isActivityType(st)&&!(sess.exercises||[]).length)?'none':'';
   }catch(e){}
   if(isActivityType(st)){
     if((sess.exercises||[]).length){
@@ -4597,12 +4600,11 @@ function renderExList(){
               <input type="number" step="0.5" value="${wVal}" placeholder="wt" id="w${i}_${si}" oninput="stashSetInput(${i},${si})" aria-label="weight">
               <span class="x">×</span>
               <input type="number" value="${rVal}" placeholder="${ru||'rps'}" id="r${i}_${si}" oninput="stashSetInput(${i},${si})" aria-label="reps">
-              ${rowState===' current'?`<div class="row-plates" id="pl${i}_${si}">${rowPlateText(ex,wVal)}</div>`:''}
             </div>
             <button class="set-log ready" onclick="logSet(${i},${si})">${t('log.one')}</button>
             <button class="set-skip" onclick="skipSet(${i},${si})">${t('skip.set')}</button>
             ${wu||si>=ex.prescribed.sets?`<button class="set-del" onclick="delSet(${i},${si})">×</button>`:''}
-          </div>`;
+          </div>${rowState===' current'?`<div class="row-plates" id="pl${i}_${si}">${rowPlateText(ex,wVal)}</div>`:''}`;
         }).join('');})()}
         <div class="ex-actions">
           ${!allDone?`<button class="btn btn-sm btn-p" onclick="logAll(${i})">${t('log.all')}</button>`:''}
@@ -4776,11 +4778,11 @@ function focusSetRowHTML(ex,ei,s,si,memberTag){
       <input type="number" step="0.5" value="${wVal}" placeholder="wt" id="w${ei}_${si}" oninput="stashSetInput(${ei},${si})" aria-label="weight">
       <span class="x">\u00d7</span>
       <input type="number" value="${rVal}" placeholder="${ru||'rps'}" id="r${ei}_${si}" oninput="stashSetInput(${ei},${si})" aria-label="reps">
-      ${rowState===' current'?`<div class="row-plates" id="pl${ei}_${si}">${rowPlateText(ex,wVal)}</div>`:''}
     </div>
     <button class="set-log ready" onclick="logSet(${ei},${si})">${t('log.one')}</button>
     <button class="set-skip" onclick="skipSet(${ei},${si})">${t('skip.set')}</button>
     ${wu||si>=ex.prescribed.sets?`<button class="set-del" onclick="delSet(${ei},${si})">\u00d7</button>`:''}
+    ${rowState===' current'?`<div class="row-plates" id="pl${ei}_${si}">${rowPlateText(ex,wVal)}</div>`:''}
   </div>`;
 }
 function focusMemberHeadHTML(ex,ei,tag){
@@ -7305,7 +7307,7 @@ function weekChecklistHTML(){
   if(!rows.length)return '';
   const doneN=rows.filter(o=>o.st==='done'||o.st==='ticked'||o.st==='skipped').length;
   return `<div class="goal-card wk-check"><div class="goal-head"><span class="t-h2">${t('check.title')}</span><span class="t-meta tnum">${doneN} / ${rows.length}</span></div>
-    ${rows.map(o=>`<div class="wkc-row${o.st==='pending'?'':' is-done'}"><span class="wkc-mark">${o.st==='pending'?'\u25cb':o.st==='ticked'?'\u2713\u00b7':'\u2713'}</span><span class="wkc-lbl">${esc(o.d.label)}</span><span class="t-meta">${(o.d.defaultDay||o.d.dayOfWeek||'').slice(0,3)}${o.st==='ticked'?' \u00b7 ticked':o.st==='skipped'?' \u00b7 skipped':''}</span></div>`).join('')}
+    ${rows.map(o=>`<div class="wkc-row${o.st==='pending'?'':' is-done'}"><span class="wkc-mark">${o.st==='pending'?'\u25cb':o.st==='ticked'?'\u2713\u00b7':'\u2713'}</span><span class="wkc-lbl">${esc(o.d.label)}</span><span class="t-meta">${dowOf(dayEffectiveDate(o.d,wd[0])).slice(0,3)}${o.st==='ticked'?' \u00b7 ticked':o.st==='skipped'?' \u00b7 skipped':''}</span></div>`).join('')}
   </div>`;
 }
 function buildCoachReport(sessions,program,weekDates){
