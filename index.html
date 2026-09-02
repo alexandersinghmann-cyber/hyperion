@@ -2818,6 +2818,15 @@ function migrateV3(){
   //  isDayDone/skip lookups. Its purpose was spent once W2 users were renamed.)
   // --- Sessions: sessionType ---
   (S.sessions||[]).forEach(s=>{if(!s.sessionType)s.sessionType='lifting';});
+  // A3 repair: earlier builds latched milestone flags one-way (a warm-up
+  // pull-up set could stamp one forever). Clear the stored flags once; the
+  // assign-based refresh rebuilds truth from records on next render.
+  if(!S.settings._muMilestoneRecomputeB6W3){
+    S.settings._muMilestoneRecomputeB6W3=true;
+    const _gmu=(S.goals||[]).find(g=>g.id==='g-mu');
+    if(_gmu&&Array.isArray(_gmu.milestones))_gmu.milestones.forEach(m=>{m.done=false;m.manual=false;});
+    if(_gmu)_gmu.current=0;
+  }
   // F4 backfill: pre-flag swims (Jul 26 700 m, Aug 14 900 m among them) were
   // NOT continuous — stamp them false once so the goal card tells the truth.
   if(!S.settings._swimContinuousBackfill){
@@ -3310,7 +3319,11 @@ function dayRemovedForWeek(day,weekMon){
 function removeDayForWeek(dayIdx){
   const d=S.program.days[dayIdx];if(!d)return false;
   if(d.oneOff){S.program.days.splice(dayIdx,1);save();return true;}
-  const wk=weekOfDate(dayEffectiveDate(d));
+  // Anchor at the PLANNING week's Monday — the same anchor the Week grid
+  // places days with — so removing a day always hides it from the week the
+  // user is looking at (today-anchored effective dates roll past mid-week).
+  const _mon=weekOfDate(weekAnchor(todayStr()));
+  const wk=weekOfDate(dayEffectiveDate(d,_mon));
   S.weekRemovals=S.weekRemovals||[];
   if(!dayRemovedForWeek(d,wk))S.weekRemovals.push({dayId:d.id,weekOf:wk});
   save();return true;
@@ -6315,7 +6328,9 @@ function detectMuscleUpMilestones(sessions){
   const done={pullups:false,dips:false,falsegrip:false,negatives:false,firstmu:false};
   (sessions||[]).forEach(s=>{
     (s.exercises||[]).forEach(ex=>{
-      const sets=(ex.performed||[]).filter(p=>p.logged!==false&&!p.skipped);
+      // A3: WORKING sets with an explicit logged flag only — warm-up ramps and
+      // half-imported rows must never award a milestone.
+      const sets=(ex.performed||[]).filter(p=>p.logged===true&&!p.skipped&&p.type==='working');
       if(!sets.length)return;
       const maxReps=sets.reduce((m,p)=>Math.max(m,+p.reps||0),0);
       if(ex.name==='Strict Pull-Up'&&maxReps>=8)done.pullups=true;
@@ -6324,19 +6339,24 @@ function detectMuscleUpMilestones(sessions){
       // (the 30-sec hold IS the milestone); legacy False-Grip Pull-Up still counts.
       if((ex.name==='False-Grip Pull-Up'||canonName(ex.name)==='False-Grip Hold')&&maxReps>=30)done.falsegrip=true;
       if(ex.name==='MU Negative'&&maxReps>=5)done.negatives=true;
-      if(ex.name==='Bar Muscle-Up')done.firstmu=true;
+      if(ex.name==='Bar Muscle-Up'&&maxReps>=1)done.firstmu=true;
     });
   });
   return done;
 }
-// Sync detection into the muscle-up goal; fire single-use celebration on new unlocks.
+// A3: milestones DERIVE from session records (assign, never latch). A paused
+// goal is frozen outright — no silent accrual while shelved; resuming runs a
+// fresh recompute. Celebrations fire on the false→true transition only.
 function refreshMuscleUpGoal(){
   const _muPaused=!!((S.goals||[]).find(g=>g.id==='g-mu')||{}).paused;
   const g=(S.goals||[]).find(g=>g.id==='g-mu');if(!g||!Array.isArray(g.milestones))return 0;
+  if(_muPaused)return g.milestones.filter(m=>m.done).length; // paused: frozen, never accrues
   const det=detectMuscleUpMilestones(S.sessions);
   let current=0;
   g.milestones.forEach(m=>{
-    if((det[m.key]||m.manual)&&!m.done){m.done=true;if(!_muPaused)celebrateMilestone('mu_'+m.key,m.label);}
+    const was=!!m.done;
+    m.done=!!(det[m.key]||m.manual);
+    if(!was&&m.done){if(!_muPaused)celebrateMilestone('mu_'+m.key,m.label);}
     if(m.done)current++;
   });
   g.current=current;save();return current;

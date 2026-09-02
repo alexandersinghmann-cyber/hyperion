@@ -1409,12 +1409,24 @@ assert(detHold(30).falsegrip===true, 'W3: False-Grip Hold ≥30s auto-checks mil
 assert(detHold(15).falsegrip===false, 'W3: a 15s False-Grip Hold does not check milestone 3');
 // legacy exercise name still counts
 assert(detectMuscleUpMilestones([{sessionType:'calisthenics',date:'2026-07-11',exercises:[{name:'False-Grip Pull-Up',performed:[{type:'working',reps:30,logged:true}]}]}]).falsegrip===true, 'W3: legacy False-Grip Pull-Up 30 still checks milestone 3');
-// refreshMuscleUpGoal syncs count
+// refreshMuscleUpGoal syncs count. K1: a PAUSED goal is frozen outright —
+// unpause for the live-recompute assertions, then prove the freeze.
+const _muG=S.goals.find(g=>g.id==='g-mu');const _muPausedSave=_muG.paused;_muG.paused=false;
 S.sessions=muSessions.slice();
 const muCount=refreshMuscleUpGoal();
 assert(muCount===2, 'Track D: refreshMuscleUpGoal sets current=2. Got: '+muCount);
 const muGoal=S.goals.find(g=>g.id==='g-mu');
 assert(muGoal.milestones[0].done===true && muGoal.milestones[2].done===false, 'Track D: milestone done flags synced');
+// K1: paused = frozen — new qualifying records change NOTHING while shelved
+muGoal.paused=true;
+S.sessions=muSessions.concat([{sessionType:'calisthenics',date:'2026-09-01',exercises:[{name:'MU Negative',performed:[{type:'working',reps:5,logged:true}]}]}]);
+assert(refreshMuscleUpGoal()===2&&muGoal.milestones[3].done===false, 'K1: paused goal never accrues');
+muGoal.paused=false;
+assert(refreshMuscleUpGoal()===3&&muGoal.milestones[3].done===true, 'K1: resume recomputes from records');
+// K1: assign semantics — deleting the qualifying record un-ticks the milestone
+S.sessions=muSessions.slice();
+assert(refreshMuscleUpGoal()===2&&muGoal.milestones[3].done===false, 'K1: milestones derive from records (no one-way latch)');
+muGoal.paused=_muPausedSave;
 // swim best + run weekly selectors
 const acts=[
   {sessionType:'swim',date:'2026-06-21',activity:{distance:600}},
@@ -1487,7 +1499,15 @@ S.program={name:'B3',active:true,days:[
 S.sessions=[{date:'2026-06-21',dayLabel:'Sun Dead',blockName:'B3',sessionType:'lifting',exercises:[]}]; // Sunday done
 S.skips=[];
 const todayPick=getNextAvailableDayIdx(); // Sunday done → earliest by effective date
-assert(S.program.days[todayPick] && S.program.days[todayPick].label==='Mon Upper', 'BUG3/G5: Sunday done → next is Mon Upper (effective-date order). Got: '+(S.program.days[todayPick]&&S.program.days[todayPick].label));
+// Date-robust: the pick must be the argmin of dayEffectiveDate over the
+// NOT-done days (the old hardcoded 'Mon Upper' only held when run on a
+// Sunday/Monday — the anchor rolls with the real clock).
+(()=>{
+  const notDone=S.program.days.map((d,i)=>({d,i})).filter(o=>o.d.label!=='Sun Dead');
+  const exp=notDone.reduce((m,o)=>dayEffectiveDate(o.d)<dayEffectiveDate(m.d)?o:m,notDone[0]);
+  assert(todayPick===exp.i, 'BUG3/G5: Sunday done → next is the earliest effective day ('+exp.d.label+'). Got: '+(S.program.days[todayPick]&&S.program.days[todayPick].label));
+  assert(S.program.days[todayPick].label!=='Sun Dead', 'BUG3/G5: a done day never wins the Start slot');
+})();
 
 // BUG 4: blockDateRange spans the full Mon..Sun of the PLANNING week (anchored;
 // rolls to next week on Sunday), regardless of which days have sessions.
