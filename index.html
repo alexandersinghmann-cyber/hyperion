@@ -639,10 +639,6 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .comp-toggle.open .comp-arrow{transform:rotate(90deg)}
 .comp-list{display:none;margin-top:8px}
 .comp-list.open{display:block}
-/* Week-view drag-drop */
-.wk-pill.dragging{opacity:.92;box-shadow:0 8px 24px rgba(0,0,0,.5);transform:scale(1.02);position:relative;z-index:50}
-.wk-row.drag-dim{opacity:.4}
-.wk-row.drop-target{background:var(--brand-dim);outline:2px dashed var(--brand);border-radius:var(--rs)}
 
 /* Last hint expanded */
 .last-hint{cursor:pointer}
@@ -1373,10 +1369,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 <div class="overlay" id="rescheduleSheet">
   <div class="modal">
     <div class="modal-t">Reschedule</div>
-    <button class="sheet-btn" onclick="doReschedule('tomorrow')">Tomorrow</button>
-    <button class="sheet-btn" onclick="doReschedule('nextmon')">Next Monday</button>
-    <div class="field" style="margin-top:8px"><label>Pick a date</label><input type="date" id="reDate"></div>
-    <button class="btn btn-p btn-w" onclick="doReschedule('date')">Move to date</button>
+    <div id="reDays"></div>
     <button class="btn btn-s btn-w" style="margin-top:8px" onclick="hideModal('rescheduleSheet')">Cancel</button>
   </div>
 </div>
@@ -3385,9 +3378,8 @@ function renderWeek(){
       const lock=s.locked?'<span class="t-meta" style="margin-left:4px">🔒</span>':'';
       const stt=s.done?' done':s.skipped?' skipped':'';
       const onclick=s.source==='program'?`openSessionSheet(${s.dayIndex})`:`toast('${(s.label||'').replace(/'/g,"")} — recurring; add via Compose')`;
-      const dnd=s.source==='program'?` data-day-idx="${s.dayIndex}" data-locked="${s.locked?1:0}"`:'';
       const accent=(!s.done&&!s.skipped)?` style="border-left:2px solid ${mc}"`:'';
-      return `<button class="wk-pill${stt} tap"${dnd}${accent} onclick="${onclick}" aria-label="${s.label}">${ic}<span class="wk-pill-l">${s.label}</span>${lock}${moved}</button>`;
+      return `<button class="wk-pill${stt} tap"${accent} onclick="${onclick}" aria-label="${s.label}">${ic}<span class="wk-pill-l">${s.label}</span>${lock}${moved}</button>`;
     }).join('');
     return `<div class="wk-row${r.isToday?' today':''}${isPast(r.date)?' past':''}" data-date="${r.date}">
       <div class="wk-day"><div class="t-h2">${r.dow.slice(0,3)}</div><div class="t-meta">${fmtDate(r.date).replace(/^[A-Za-z]+ /,'')}</div></div>
@@ -3395,58 +3387,9 @@ function renderWeek(){
       <button class="wk-add tap" onclick="openAddSession('${r.date}')" aria-label="Add session on ${r.dow}">+</button>
     </div>`;
   }).join('');
-  wireWeekDrag(el);
   // Sunday auto-shows the composer card atop the week
   const cc=document.getElementById('composerCard');
   if(cc){cc.innerHTML = (todayDow()==='Sunday') ? `<div class="comp-card"><div class="t-h2">Plan next week</div><div class="t-meta" style="margin:4px 0 8px">It's Sunday — compose your sessions.</div><button class="btn btn-gold btn-w" onclick="openComposer()">Open composer</button></div>` : '';}
-}
-// Core drag-move (testable): reschedule a program day to a target date.
-// Locked days resist with a short haptic + return false (snap-back signal).
-function dragMoveTo(dayIdx,targetDate){
-  const d=S.program.days[dayIdx];if(!d)return false;
-  if(d.locked){if(typeof navigator!=='undefined'&&navigator.vibrate)navigator.vibrate(20);return false;}
-  const ok=rescheduleDay(dayIdx,targetDate);
-  if(ok&&typeof navigator!=='undefined'&&navigator.vibrate)navigator.vibrate(15);
-  return ok;
-}
-// Long-press → drag → drop wiring for the week pills (touch + mouse via Pointer
-// Events). Tap still fires the pill's onclick (drag only arms after 300ms hold).
-function wireWeekDrag(container){
-  if(!container||!container.querySelectorAll)return;
-  const pills=container.querySelectorAll('.wk-pill[data-day-idx]');
-  pills.forEach&&pills.forEach(pill=>{
-    let holdT=null,dragging=false,startY=0;
-    const rows=()=>Array.prototype.slice.call(container.querySelectorAll('.wk-row'));
-    const clearDrag=()=>{dragging=false;pill.classList.remove('dragging');rows().forEach(r=>r.classList.remove('drag-dim','drop-target'));};
-    const rowAt=(y)=>rows().find(r=>{const b=r.getBoundingClientRect();return y>=b.top&&y<=b.bottom;});
-    pill.addEventListener('pointerdown',e=>{
-      startY=e.clientY;
-      holdT=setTimeout(()=>{
-        dragging=true;pill.classList.add('dragging');
-        // Capture so a fast drag off the pill still delivers pointerup here.
-        try{if(pill.setPointerCapture)pill.setPointerCapture(e.pointerId);}catch(err){}
-        rows().forEach(r=>r.classList.add('drag-dim'));
-        if(navigator.vibrate)navigator.vibrate(10);
-      },300);
-    });
-    pill.addEventListener('pointermove',e=>{
-      // A real scroll before the long-press arms should cancel the hold.
-      if(!dragging){if(holdT&&Math.abs(e.clientY-startY)>8){clearTimeout(holdT);holdT=null;}return;}
-      e.preventDefault();
-      rows().forEach(r=>r.classList.remove('drop-target'));
-      const r=rowAt(e.clientY);if(r)r.classList.add('drop-target');
-    });
-    const onUp=(e)=>{
-      if(holdT){clearTimeout(holdT);holdT=null;}
-      if(!dragging){return;}
-      const r=rowAt(e.clientY);
-      const idx=parseInt(pill.getAttribute('data-day-idx'));
-      clearDrag();
-      if(r){const date=r.getAttribute('data-date');if(date&&dragMoveTo(idx,date)){renderWeek();toast('Moved to '+fmtDate(date));}else{toast('Locked — change in Settings');}}
-    };
-    pill.addEventListener('pointerup',onUp);
-    pill.addEventListener('pointercancel',()=>{if(holdT)clearTimeout(holdT);clearDrag();});
-  });
 }
 // E1: "+" on a week row — program templates by label, or a plain type.
 // Everything it creates is a ONE-OFF day: logs like any other, never recurs.
@@ -3507,25 +3450,30 @@ function openSessionSheet(dayIdx){
   `;
   showModal('sessionSheet');
 }
+// B: Move to day — a 7-button picker for the planning week (drag-drop is
+// gone; tap is the only scheduling gesture). Built at OPEN time so the
+// dates are never stale.
 function openReschedule(dayIdx){
   const d=S.program.days[dayIdx];if(!d||d.locked){toast('Locked — change in Settings');return;}
   _rescheduleDayIdx=dayIdx;
   hideModal('sessionSheet');
-  const today=todayStr();
-  document.getElementById('reDate').value=d.scheduledDate||today;
+  const wk=weekDatesFor(weekAnchor(todayStr()));
+  const cur=dayEffectiveDate(d,wk[0]);
+  const body=document.getElementById('reDays');
+  if(body)body.innerHTML=wk.map(dt=>{
+    const here=dt===cur;
+    return `<button class="sheet-btn" ${here?'disabled':''} onclick="doReschedule('day','${dt}')">${dowOf(dt)} <span class="t-meta">${fmtDate(dt)}${here?' — current':''}</span></button>`;
+  }).join('');
   showModal('rescheduleSheet');
 }
-function doReschedule(when){
+function doReschedule(when,date){
   const i=_rescheduleDayIdx;if(i==null)return;
-  const today=todayStr();
-  let date;
-  if(when==='tomorrow')date=dateAddDays(today,1);
-  else if(when==='nextmon'){const wd=weekDatesFor(dateAddDays(today,7));date=wd[0];}
-  else date=document.getElementById('reDate').value||today;
+  if(!date)return;
   const ok=rescheduleDay(i,date);
   hideModal('rescheduleSheet');
   if(!ok){toast('Locked session — cannot reschedule');return;}
-  renderWeek();toast('Moved to '+fmtDate(date));
+  renderWeek();try{renderTrain();}catch(e){}
+  toast('Moved to '+fmtDate(date));
 }
 // ===== WEEKLY COMPOSER =====
 const COMPOSER_TYPES=['lifting','calisthenics','swim','run','pilates','mobility','rest'];

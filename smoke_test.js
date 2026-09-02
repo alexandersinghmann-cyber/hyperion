@@ -1526,19 +1526,12 @@ S.settings._dismissedProgramVersion=undefined;dismissNewBlock();
 assert(S.settings._dismissedProgramVersion===DEF_PROGRAM.version, 'BUG5/G7: dismissNewBlock records the dismissed VERSION');
 S.settings._dismissedProgramVersion=undefined;
 
-// FEATURE: drag-drop core
-assert(typeof dragMoveTo==='function', 'Drag: dragMoveTo defined');
-assert(typeof wireWeekDrag==='function', 'Drag: wireWeekDrag defined');
-S.program={name:'DG',active:true,days:[
-  {id:1,label:'Mon',defaultDay:'Monday',dayOfWeek:'Monday',sessionType:'lifting',dur:70,exercises:[],bonus:[]},
-  {id:2,label:'Locked',defaultDay:'Wednesday',dayOfWeek:'Wednesday',sessionType:'calisthenics',dur:60,exercises:[],bonus:[],locked:true}
-]};
-assert(dragMoveTo(0,'2026-06-24')===true, 'Drag: moving Mon → Wed succeeds');
-assert(S.program.days[0].scheduledDate==='2026-06-24', 'Drag: scheduledDate updated');
-const wkAfter=buildWeek(weekDatesFor('2026-06-22'),'2026-06-22');
-assert(wkAfter.find(r=>r.dow==='Wednesday').sessions.some(s=>s.label==='Mon'&&s.movedFrom==='Monday'), 'Drag: moved-from tag renders after drag');
-assert(dragMoveTo(1,'2026-06-25')===false, 'Drag: locked day resists drag (returns false)');
-assert(!S.program.days[1].scheduledDate, 'Drag: locked day not moved');
+// K3: drag-drop is GONE from the Week planner — tap + the 7-day Move picker
+// is the only scheduling gesture. The model layer (rescheduleDay/buildWeek)
+// keeps its own tests above.
+assert(typeof dragMoveTo==='undefined'&&typeof wireWeekDrag==='undefined', 'K3: drag-drop code paths deleted');
+assert(!/wk-pill\.dragging|wk-row\.drag-dim|wk-row\.drop-target/.test(html), 'K3: drag CSS deleted');
+assert(/id="reDays"/.test(html)&&/doReschedule\('day',/.test(html), 'K3: Move-to-day 7-button picker wired');
 // restore clean state
 S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.skips=[];
 
@@ -3154,7 +3147,7 @@ console.log('\n--- G6: planner UI ---');
 assert(/openAddSession\('\$\{r\.date\}'\)/.test(html), 'G6: every week row carries a + button');
 assert(/confirmRemoveWeekDay\(\$\{dayIdx\}\)/.test(html)&&/Remove from this week/.test(html), 'G6: session sheet offers week-scoped delete with confirm');
 assert(/setPointerCapture\(e\.pointerId\)/.test(html), 'G6: drag captures the pointer');
-assert(/Math\.abs\(e\.clientY-startY\)>8/.test(html), 'G6: pre-arm scroll guard cancels the hold');
+assert(true, 'G6: (drag scroll guard retired with the planner drag paths — K3)');
 
 // ===== G7: BLOCK BANNER VERSIONING + STALE MOBILITY REMOVAL =====
 console.log('\n--- G7: banner versioning + F2 ---');
