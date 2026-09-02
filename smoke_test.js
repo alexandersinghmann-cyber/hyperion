@@ -3493,7 +3493,7 @@ assert(/const bits=metaBits\(ex\);/.test(html), 'K9/D1: openFcDetail renders thr
 assert((html.match(/\$\{rowState===' current'\?`<div class="row-plates"/g)||[]).length===2, 'K9/D2: row-plates rendered in the CURRENT row only, both views');
 assert(/const pl=document\.getElementById\(`pl\$\{ei\}_\$\{si\}`\);\n  if\(pl\)pl\.textContent=rowPlateText\(ex,wi\?wi\.value:s\.weightKg\);/.test(html), 'K9/D2: stashSetInput live-patches the plate line as weight is typed');
 assert(/\.row-plates\{flex-basis:100%;order:99/.test(html)&&/\.row-plates:empty\{display:none\}/.test(html)&&/\.fcard \.set-row\.current\{flex-wrap:wrap\}/.test(html), 'K9/D2: focus row wraps its plate line; list renders it as a sibling annotation');
-assert(/<\/div>\$\{rowState===' current'\?`<div class="row-plates" id="pl\$\{i\}_\$\{si\}"/.test(html), 'K9/D2: list plate line sits OUTSIDE the flex row (input pair never wraps)');
+assert(/<\/div>\$\{rowState===' current'&&s\.tag==='top'&&imperiumOn\(\)\?`<div class="row-protect"/.test(html)&&/\$\{rowState===' current'\?`<div class="row-plates" id="pl\$\{i\}_\$\{si\}"/.test(html), 'K9/D2+K17: list annotations (protect line, plate line) sit OUTSIDE the flex row');
 assert(/dowOf\(dayEffectiveDate\(o\.d,wd\[0\]\)\)\.slice\(0,3\)/.test(html), 'K5: checklist day abbreviation follows the EFFECTIVE date (moved days relabel)');
 assert(rowPlateText({equipmentClass:'barbell',name:'Deadlift'},128.5)==='128.5 = 25 + 20 + 1.25 /side', 'K9/D2: W3 deadlift top row math. Got: '+rowPlateText({equipmentClass:'barbell',name:'Deadlift'},128.5));
 // D5: summary chip + sheet host variantChips unchanged
@@ -3703,5 +3703,19 @@ assert(blockDisplayName('Sep 2 Block 6 W3')==='Block 6 \u00b7 Week 3', 'K16: blo
 assert(blockDisplayName('Custom Block Name')==='Custom Block Name', 'K16: unparseable names pass through');
 assert(/if\(S\.program&&S\.program\.version===11&&!S\.program\.startDate\)S\.program\.startDate=DEF_PROGRAM\.startDate;/.test(html), 'K16: already-adopted v11 installs pick up the start date');
 assert(/const from=\(sd&&sd>dates\[0\]&&sd<=dates\[6\]\)\?sd:dates\[0\];/.test(html), 'K16: header range clamps to the block start in the transition week');
+
+// ---- K17: quote provenance + protection-line visibility + header trim ----
+console.log('[K17 Litany]');
+assert(!/battle-record kept for the Imperium/.test(html)&&!/#wmSubtitle/.test(html), 'K17: tagline filler deleted (rank line stays)');
+assert(/id="rankLine"/.test(html), 'K17: rank line survives');
+assert(/class="q-mark q-close"/.test(html)&&/\.q-mark\.q-close\{margin-right:0;margin-left:1px\}/.test(html), 'K17: closing quote mark is the styled twin of the opener');
+assert(/quoteText'\)\.textContent=maxim\[0\];/.test(html)&&!/maxim\[0\]\+'\u201d'/.test(html), 'K17: JS no longer bakes a plain-text close mark into the quote');
+assert(!/\.emperor-line,\{\}/.test(html), 'K17: broken leftover CSS rule removed');
+assert(LITANIES.length===18, 'K17: litany pool expanded to 18. Got: '+LITANIES.length);
+assert(LITANIES.every(l=>typeof l==='string'&&l.length>8), 'K17: litany entries well-formed');
+// the protection line renders in BOTH session views on the top set —
+// key references only; the four canonical literals stay four (pin 3317)
+assert(/tag==='top'\?`<div class="t-meta" style="letter-spacing:\.18em;margin:-2px 0 6px">\$\{STRINGS\.gothic\['readout\.top'\]\}/.test(html), 'K17: focus top-set protection line wired');
+assert(/\.row-protect\{font:600 10px var\(--mono\)/.test(html), 'K17: list top-set protection line styled');
 
 console.log('\n=== All tests passed ===');

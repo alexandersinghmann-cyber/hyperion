@@ -360,6 +360,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .fcard .set-row.current{flex-wrap:wrap}
 .row-plates{flex-basis:100%;order:99;font:500 11px var(--mono);color:var(--tx3);padding:3px 2px 0 34px;letter-spacing:.02em}
 #exList .row-plates{padding:3px 2px 7px 36px;border-bottom:1px solid var(--s2)}
+.row-protect{font:600 10px var(--mono);letter-spacing:.18em;color:var(--tx3);padding:4px 2px 0 36px}
 .row-plates:empty{display:none}
 .variant-sum{margin-top:6px}
 .variant-sum .v-chip{min-height:30px;padding:5px 11px}
@@ -601,6 +602,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .set-grp{font:600 12px var(--sans);color:var(--tx3);opacity:.75;margin:var(--sp-6) 0 2px;padding-bottom:4px;border-bottom:1px solid var(--s3)}
 /* ===== C9: brand accents + depth + hero ===== */
 .q-mark{font:700 20px Georgia,serif;color:var(--brand);margin-right:2px;vertical-align:-3px;line-height:0}
+.q-mark.q-close{margin-right:0;margin-left:1px}
 /* Depth pass: top-edge highlight + soft ambient shadow on card surfaces.
    Layout untouched; radius stays var(--r)/var(--rs). */
 .goal-card,.ex-card,.day-card,.big3-tile,.comp-card,.extra-card,.history-item{box-shadow:0 2px 12px rgba(0,0,0,.35)}
@@ -712,7 +714,6 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .imperium #blockHdr::first-letter{color:inherit;font-size:inherit}
 /* Litanies get room to breathe — two calm lines instead of a hard ellipsis. */
 .imperium #rankLine{flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;letter-spacing:.08em}
-.imperium #wmSubtitle{flex:none}
 .imperium #greeting{white-space:normal !important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.45}
 .imperium .commem-card .ch-name{font-family:var(--serif);font-variant-caps:small-caps;color:var(--gold);letter-spacing:.04em}
 .imperium .btn-d{background:color-mix(in srgb,var(--crimson) 26%,var(--s1));border-color:color-mix(in srgb,var(--crimson) 55%,transparent)}
@@ -771,7 +772,6 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 /* notes + hints */
 .imperium #vSession.on textarea{background:color-mix(in srgb,var(--phos) 5%,var(--bg-mech));border:1px solid color-mix(in srgb,var(--phos) 14%,transparent);color:var(--phos)}
 .imperium #vSession.on .sec-hdr{font:600 10px var(--mono);letter-spacing:.2em;color:var(--tx3)}
-.imperium #vSession.on .emperor-line,{}
 .imperium #vSession.on .set-row.current{border-width:1px}
 @media (prefers-reduced-motion: no-preference){
   .imperium #vSession.on::before{content:'';position:fixed;inset:0;background-image:var(--scan-imp);background-size:1px 3px;opacity:.02;pointer-events:none;z-index:1}
@@ -838,14 +838,13 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
         </button>
       </div>
       </div>
-      <div id="greeting" style="margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span class="q-mark" aria-hidden="true">&ldquo;</span><span style="font-style:italic;font:400 var(--t-meta) var(--sans);color:var(--tx2)" id="quoteText"></span><span style="font:500 10px var(--sans);color:var(--tx3);margin-left:6px;font-style:normal" id="quoteAuthor"></span>
+      <div id="greeting" style="margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span class="q-mark" aria-hidden="true">&ldquo;</span><span style="font-style:italic;font:400 var(--t-meta) var(--sans);color:var(--tx2)" id="quoteText"></span><span class="q-mark q-close" aria-hidden="true">&rdquo;</span><span style="font:500 10px var(--sans);color:var(--tx3);margin-left:6px;font-style:normal" id="quoteAuthor"></span>
       </div>
     </div>
 
     <!-- Big 3 hero/tiles/stats removed (BUG 7) — all goal/stat tracking lives in Progress. -->
 
     <!-- Block days -->
-    <div class="imp-only" id="wmSubtitle" style="font:500 var(--t-meta) var(--sans);color:var(--tx3);margin:-10px 0 2px">A battle-record kept for the Imperium of Man</div>
     <div class="imp-only" id="rankLine" style="font-family:var(--serif);font-variant-caps:small-caps;letter-spacing:.1em;font-size:11.5px;color:var(--gold);margin:0 0 10px"></div>
     <div class="section-hdr" id="blockHdr">Training Block</div>
     <div id="blockDays"></div>
@@ -3048,7 +3047,15 @@ const LITANIES=[
  'The Emperor asks not for ease.',
  'A vow unkept is a wound self-given.',
  'Endure. The alternative is unworthy.',
- 'What is recorded cannot be taken.'
+ 'What is recorded cannot be taken.',
+ 'The cold bar owes you nothing. Warm it with work.',
+ 'Rest is granted, never taken.',
+ 'Every rep unwitnessed is witnessed still.',
+ 'Flesh tires. The record does not.',
+ 'Ask iron for mercy and receive instruction.',
+ 'The rite is small. The keeping of it is not.',
+ 'No shortcut survives the ledger.',
+ 'Stand under the weight; the weight will tell no lies.'
 ];
 function getMaxim(){
   const d=new Date();const h=d.getFullYear()*1000+d.getMonth()*31+d.getDate();
@@ -3646,7 +3653,7 @@ function renderTrain(){
   if(showQuote){
     const maxim=getMaxim();
     // Opening mark is the decorative brand .q-mark in the markup.
-    document.getElementById('quoteText').textContent=maxim[0]+'”';
+    document.getElementById('quoteText').textContent=maxim[0];
     document.getElementById('quoteAuthor').textContent=maxim[1]?('— '+maxim[1]):'';
   }
   document.getElementById('unitBtn').textContent=S.settings.unit.toUpperCase();
@@ -4629,7 +4636,7 @@ function renderExList(){
             <button class="set-log ready" onclick="logSet(${i},${si})">${t('log.one')}</button>
             <button class="set-skip" onclick="skipSet(${i},${si})">${t('skip.set')}</button>
             ${wu||si>=ex.prescribed.sets?`<button class="set-del" onclick="delSet(${i},${si})">×</button>`:''}
-          </div>${rowState===' current'?`<div class="row-plates" id="pl${i}_${si}">${rowPlateText(ex,wVal)}</div>`:''}`;
+          </div>${rowState===' current'&&s.tag==='top'&&imperiumOn()?`<div class="row-protect">${STRINGS.gothic['readout.top']}</div>`:''}${rowState===' current'?`<div class="row-plates" id="pl${i}_${si}">${rowPlateText(ex,wVal)}</div>`:''}`;
         }).join('');})()}
         <div class="ex-actions">
           ${!allDone?`<button class="btn btn-sm btn-p" onclick="logAll(${i})">${t('log.all')}</button>`:''}
