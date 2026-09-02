@@ -50,6 +50,7 @@ const patched = js
   .replace(/\blet _userOpened\s*=/g, 'var _userOpened =')
   .replace(/\blet _userClosed\s*=/g, 'var _userClosed =')
   .replace(/\blet _notesT\s*=/g, 'var _notesT =')
+  .replace(/\blet _variantSheetEi\s*=/g, 'var _variantSheetEi =')
   .replace(/\bconst ACTIVITY_TYPES\s*=/g, 'var ACTIVITY_TYPES =')
   .replace(/\bconst MODALITY_TYPES\s*=/g, 'var MODALITY_TYPES =')
   .replace(/\blet _reachCache\s*=/g, 'var _reachCache =')
@@ -1632,7 +1633,13 @@ assert(/36 kg bar · 25 · 15 \/ side/.test(plateLabel({name:'Deadlift',prescrib
 // gym config present + backfilled
 assert(activeGymBar()===20 && Array.isArray(activePlates()) && activePlates().includes(1.25), 'Plates: Singapore gym has 20kg bar + plate inventory incl 1.25');
 assert(typeof saveBarPlates==='function', 'Plates: saveBarPlates settings handler defined');
-assert(/class="ex-sub"/.test(html) && /bits\.push\(plateLabel\(ex\)\)/.test(html), 'Plates: barbell cards render plate math on the secondary line');
+assert(/bits\.push\(plateLabel\(ex\)\)/.test(html) && typeof metaBits==='function', 'Plates: plate math lives in metaBits (detail sheet) after the K9 card collapse');
+// K9/D2: the per-row plate line replaces the card secondary line as the in-flow plate surface
+assert(typeof rowPlateText==='function', 'K9/D2: rowPlateText defined');
+assert(rowPlateText({equipmentClass:'barbell',name:'Back Squat'},85)==='85 = 25 + 5 + 2.5 /side', 'K9/D2: 85kg squat row → 25+5+2.5/side. Got: '+rowPlateText({equipmentClass:'barbell',name:'Back Squat'},85));
+assert(rowPlateText({equipmentClass:'barbell',name:'Back Squat'},20)==='20 kg \u2014 empty bar', 'K9/D2: bar-weight row says empty bar');
+assert(rowPlateText({equipmentClass:'db',name:'DB Row'},30)==='', 'K9/D2: non-barbell rows render no plate line');
+assert(rowPlateText({equipmentClass:'barbell',name:'Back Squat'},'')==='', 'K9/D2: blank weight → no plate line');
 assert(/barKg:36/.test(html), 'Plates: DEF_PROGRAM Deadlift tagged barKg:36');
 S.settings.activeGymId='gym-commercial';
 
@@ -2193,7 +2200,11 @@ assert(/\.act-ring-val\{color:var\(--acc\)\}/.test(html), 'D6: activity ring val
 assert(/stroke="var\(--acc\)"/.test(html), 'D6: chart strokes stay cyan');
 assert(/button:focus-visible[^{]*\{outline:2px solid var\(--brand\)/.test(html), 'D6: focus rings are brand');
 // exercise-card meta: one secondary line, single colour
-assert(/class="ex-sub"/.test(html)&&/\.ex-sub\{[^}]*color:var\(--tx3\)/.test(html), 'D6: card meta collapsed to one secondary line, single colour');
+// K9/D1: the card secondary line is GONE — cards are name + one chip + one
+// tappable rx line; the deep context renders in the fcDetail sheet only.
+assert(!/class="ex-sub"/.test(html), 'K9/D1: no ex-sub secondary line on cards (context moved to the detail sheet)');
+assert((html.match(/openFcDetail\(\$\{i\}\)/g)||[]).length===1&&(html.match(/openFcDetail\(\$\{ei\}\)/g)||[]).length===1, 'K9/D1: both card views open the detail sheet from the rx line');
+assert((html.match(/fc-meta-more/g)||[]).length>=3, 'K9/D1: ellipsis affordance on list rx, focus meta and variant chip');
 // quote: single t-meta italic line
 assert(/id="greeting" style="margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"/.test(html), 'D6: stoic quote is a single ellipsised line');
 
@@ -2700,8 +2711,11 @@ assert(/document\.activeElement\.id==='fNotes'\)\{renderFocusRail\(\);return;\}/
   S.settings.activeGymId=bak;
 })();
 // full-depth-standard renders prominently on both card templates
-assert(/full-depth-standard'\)\?' <span class="std-chip">Full depth standard<\/span>'/.test(html), 'W3: full-depth chip wired');
-assert((html.match(/std-chip">Full depth standard/g)||[]).length>=2, 'W3: chip on BOTH list + focus templates');
+// K9: the chip literal is centralized in cardChip (frozen > full-depth > role,
+// never more than one chip) and BOTH templates render through it.
+assert(/full-depth-standard'\)\)return ' <span class="std-chip">Full depth standard<\/span>'/.test(html), 'W3/K9: full-depth chip wired via cardChip');
+assert((html.match(/\$\{ex\.name\}\$\{cardChip\(ex\)\}/g)||[]).length===2, 'W3/K9: cardChip on BOTH list + focus name lines');
+assert(cardChip({frozen:true,tags:['full-depth-standard'],prescribed:{}}).indexOf(t('badge.frozen'))>=0&&cardChip({frozen:true,tags:['full-depth-standard'],prescribed:{}}).indexOf('Full depth')<0, 'K9: one chip max — frozen outranks full-depth');
 assert(/\.std-chip\{[^}]*var\(--warn\)/.test(html), 'W3: chip warn-tinted (no new colour)');
 
 // ===== W4: FOCUS POLISH C1-C7 =====
@@ -3443,5 +3457,33 @@ assert(/_sn\.value='';/.test(html), 'D4: startDay clears the static notes box');
 assert(/_nw\.style\.display=isActivityType\(st\)\?'none'/.test(html), 'D4: notes wrap hidden for activity sessions (they own #actNotes)');
 // D7: warm-up rows show no RPE control in either view
 assert((html.match(/\$\{s\.type==='working'\?`<button class="set-rpe/g)||[]).length===2, 'D7: RPE affordance gated to working rows in both views');
+
+// ---- K9: D1 detail sheet + D2 per-row plates + D5 variant sheet ----
+console.log('[K9 CardTest]');
+assert(/const bits=metaBits\(ex\);/.test(html), 'K9/D1: openFcDetail renders through metaBits');
+(function(){
+  const bx={name:'Back Squat',equipmentClass:'barbell',prescribed:{loadKg:115,sets:3,reps:5,unit:'kg'},tags:[],performed:[]};
+  const bits=metaBits(bx);
+  assert(bits.length>=1&&bits.join('|').indexOf('bar')>=0, 'K9/D1: metaBits carries the plate readout for barbell lifts. Got: '+bits.join('|'));
+})();
+// D2: current-row-only plate line, both templates
+assert((html.match(/\$\{rowState===' current'\?`<div class="row-plates"/g)||[]).length===2, 'K9/D2: row-plates rendered in the CURRENT row only, both views');
+assert(/const pl=document\.getElementById\(`pl\$\{ei\}_\$\{si\}`\);\n  if\(pl\)pl\.textContent=rowPlateText\(ex,wi\?wi\.value:s\.weightKg\);/.test(html), 'K9/D2: stashSetInput live-patches the plate line as weight is typed');
+assert(/\.row-plates\{flex-basis:100%/.test(html)&&/\.row-plates:empty\{display:none\}/.test(html)&&/\.set-row\.current \.set-fields\{flex-wrap:wrap\}/.test(html), 'K9/D2: plate line wraps under the inputs; empty renders nothing');
+assert(rowPlateText({equipmentClass:'barbell',name:'Deadlift'},128.5)==='128.5 = 25 + 20 + 1.25 /side', 'K9/D2: W3 deadlift top row math. Got: '+rowPlateText({equipmentClass:'barbell',name:'Deadlift'},128.5));
+// D5: summary chip + sheet host variantChips unchanged
+assert(typeof variantSummaryChip==='function'&&typeof openVariantSheet==='function', 'K9/D5: variant sheet API defined');
+assert(/id="variantSheet"/.test(html)&&/id="variantSheetBody"/.test(html), 'K9/D5: variant sheet markup exists');
+assert((html.match(/\$\{variantSummaryChip\(ex,i\)\}/g)||[]).length===1&&(html.match(/\$\{variantSummaryChip\(ex,ei\)\}/g)||[]).length===1, 'K9/D5: summary chip on both card views (full chip rows off the card)');
+assert(!/\$\{variantChips\(ex,i\)\}/.test(html)&&!/fc-hscroll">\$\{variantChips/.test(html), 'K9/D5: raw variantChips no longer inlined on cards');
+assert(variantSummaryChip({equipmentClass:'kb',name:'KB Swing',tags:[],prescribed:{}},0)===''&&variantSummaryChip({equipmentClass:'bw',name:'Pull-Up',tags:[],prescribed:{}},0)==='', 'K9/D5: kb/bw exercises carry no variant chip');
+(function(){
+  const cx={name:'Cable Low Row',equipmentClass:'cable',variant:null,tags:[],prescribed:{}};
+  const chip=variantSummaryChip(cx,3);
+  assert(chip.indexOf('openVariantSheet(3)')>=0&&chip.indexOf('set variant')>=0, 'K9/D5: cable card gets the summary chip with a set-variant prompt. Got: '+chip);
+  cx.variant={pulley:'single',grip:null,angle:null,machine:null,attachment:null};
+  assert(variantSummaryChip(cx,3).indexOf('single pulley')>=0, 'K9/D5: chip label reflects the chosen variant');
+})();
+assert((html.match(/_refreshVariantSheet\(\);\n\}/g)||[]).length===2, 'K9/D5: both variant setters refresh an open sheet');
 
 console.log('\n=== All tests passed ===');

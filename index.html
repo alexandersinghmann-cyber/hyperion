@@ -349,6 +349,11 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .ex-rx{font:500 12px var(--mono);color:var(--tx3);margin-top:1px}
 .plate-line{font:600 11px var(--mono);color:var(--gold);margin-top:4px;letter-spacing:.3px;opacity:.92}
 .ex-sub{font:500 11px var(--mono);color:var(--tx3);margin-top:4px;line-height:1.5}
+.set-row.current .set-fields{flex-wrap:wrap}
+.row-plates{flex-basis:100%;font:500 11px var(--mono);color:var(--tx3);padding:2px 2px 0;letter-spacing:.02em}
+.row-plates:empty{display:none}
+.variant-sum{margin-top:6px}
+.variant-sum .v-chip{min-height:30px;padding:5px 11px}
 /* Completed cards compress to one expandable row: check + name + top set */
 .ex-card.done .ex-head{padding:9px 16px}
 .ex-card.done .ex-name{font-size:13px;color:var(--tx2)}
@@ -1346,6 +1351,12 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   </div>
 </div>
 
+<div class="overlay" id="variantSheet">
+  <div class="modal">
+    <div id="variantSheetBody"></div>
+    <button class="btn btn-s btn-w" style="margin-top:10px" onclick="hideModal('variantSheet')">Done</button>
+  </div>
+</div>
 <div class="overlay" id="fcDetailSheet">
   <div class="modal">
     <div id="fcDetailBody"></div>
@@ -4296,6 +4307,27 @@ function variantValueAvoided(field,val){
   const names=(AVOID_VARIANTS[field]||{})[val];
   return !!(names&&names.length&&names.every(n=>getMeta(n).avoid===true));
 }
+// D5: cards carry ONE summary chip; the full pulley/grip/attachment rows
+// open in a sheet (variantChips is unchanged — it builds the sheet body).
+let _variantSheetEi=null;
+function variantSummaryChip(ex,ei){
+  const cls=ex.equipmentClass;
+  if(cls==='bw'||cls==='sled'||cls==='kb')return'';
+  if(!variantChips(ex,ei))return'';
+  const lbl=variantLabel(ex.variant)||'set variant';
+  return `<div class="variant-sum"><button class="v-chip" onclick="openVariantSheet(${ei})">${esc(lbl)} <span class="fc-meta-more">\u2026</span></button></div>`;
+}
+function openVariantSheet(ei){
+  const sess=S.activeSession;if(!sess)return;
+  const ex=sess.exercises[ei];if(!ex)return;
+  _variantSheetEi=ei;
+  const body=document.getElementById('variantSheetBody');
+  if(body)body.innerHTML=`<div class="t-h2" style="margin-bottom:8px">${ex.name}</div>`+variantChips(ex,ei);
+  showModal('variantSheet');
+}
+function _refreshVariantSheet(){
+  try{if(_variantSheetEi!=null&&document.getElementById('variantSheet')&&document.getElementById('variantSheet').classList.contains('on'))openVariantSheet(_variantSheetEi);}catch(e){}
+}
 function variantChips(ex,ei){
   const cls=ex.equipmentClass;
   if(cls==='bw'||cls==='sled'||cls==='kb')return'';
@@ -4327,7 +4359,7 @@ function setVariant(ei,field,val){
   if(!ex.variant)ex.variant={pulley:null,grip:null,angle:null,machine:null,attachment:null};
   ex.variant[field]=ex.variant[field]===val?null:val;   // tap selected → clear
   if(!variantKey(ex.variant))ex.variant=null;            // all cleared → no variant
-  rememberVariant(ex);save();renderEx();
+  rememberVariant(ex);save();renderEx();_refreshVariantSheet();
 }
 function setVariantMachine(ei){
   const ex=S.activeSession&&S.activeSession.exercises[ei];if(!ex)return;
@@ -4337,7 +4369,7 @@ function setVariantMachine(ei){
   if(!ex.variant)ex.variant={pulley:null,grip:null,angle:null,machine:null,attachment:null};
   ex.variant.machine=m.trim()||null;
   if(!variantKey(ex.variant))ex.variant=null;
-  rememberVariant(ex);save();renderEx();
+  rememberVariant(ex);save();renderEx();_refreshVariantSheet();
 }
 function rememberVariant(ex){
   if(!S.settings.variantMemory)S.settings.variantMemory={};
@@ -4490,17 +4522,9 @@ function renderExList(){
       <div class="ex-head" onclick="toggleCardOpen(${i})">
         <div class="ex-status ${stCls}">${allDone?'✓':anyDone?'◐':'○'}</div>
         <div class="ex-info">
-          <div class="ex-name">${(ex.tags||[]).includes('bonus')?'<span style="color:var(--gold);font-size:10px;margin-right:4px">★</span>':''}${st==='calisthenics'&&(ex.prescribed.unit==='bw'||!ex.prescribed.loadKg)?'<span style="background:var(--brand-dim);color:var(--brand);font:600 10px var(--sans);padding:1px 5px;border-radius:3px;margin-right:5px">BW</span>':''}${ex.name}${(ex.tags||[]).includes('full-depth-standard')?' <span class="std-chip">Full depth standard</span>':''}${ex.tags.includes('per side')?' <span class="td" style="font-size:11px">/side</span>':''}${ex.tags.includes('per hand')?' <span class="td" style="font-size:11px">/hand</span>':''}${ex.tags.includes('per leg')?' <span class="td" style="font-size:11px">/leg</span>':''}</div>
-          ${allDone?`<div class="ex-topset">${topSet}</div>`:`<div class="ex-rx">${catChip}${ex.prescribed.setScheme?schemeString(ex.prescribed.setScheme,ex.prescribed.unit)+' kg':`${ex.prescribed.sets}×${ex.prescribed.reps}${ex.prescribed.loadKg?' @ '+fmtW(ex.prescribed.loadKg,ex.prescribed.unit):''}`}</div>`}
-          ${allDone?'':(()=>{
-            // One secondary line: plate math · target context, single colour.
-            const bits=[];
-            if((ex.equipmentClass==='barbell'||getMeta(ex.name).eq&&getMeta(ex.name).eq.includes('barbell'))&&ex.prescribed.loadKg)bits.push(plateLabel(ex));
-            const mt=mainTargetLine(ex);if(mt)bits.push(mt);
-            const tl=targetLineHTML(ex);if(tl)bits.push(tl);
-            const rc=roleChipHTML(ex);if(rc)bits.unshift(rc);
-            return bits.length?`<div class="ex-sub">${bits.join('<span class="ex-sub-dot"> · </span>')}</div>`:'';
-          })()}
+          <div class="ex-name">${(ex.tags||[]).includes('bonus')?'<span style="color:var(--gold);font-size:10px;margin-right:4px">★</span>':''}${st==='calisthenics'&&(ex.prescribed.unit==='bw'||!ex.prescribed.loadKg)?'<span style="background:var(--brand-dim);color:var(--brand);font:600 10px var(--sans);padding:1px 5px;border-radius:3px;margin-right:5px">BW</span>':''}${ex.name}${cardChip(ex)}${ex.tags.includes('per side')?' <span class="td" style="font-size:11px">/side</span>':''}${ex.tags.includes('per hand')?' <span class="td" style="font-size:11px">/hand</span>':''}${ex.tags.includes('per leg')?' <span class="td" style="font-size:11px">/leg</span>':''}</div>
+          ${allDone?`<div class="ex-topset">${topSet}</div>`:`<div class="ex-rx" onclick="event.stopPropagation();openFcDetail(${i})" role="button" aria-label="Exercise detail">${catChip}${ex.entryType==='circuit'?`${ex.format||'Circuit'} ${ex.minutes||'?'} min`:ex.prescribed.setScheme?schemeString(ex.prescribed.setScheme,ex.prescribed.unit)+' kg':`${ex.prescribed.sets}×${ex.prescribed.reps}${ex.prescribed.loadKg?' @ '+fmtW(ex.prescribed.loadKg,ex.prescribed.unit):''}`} <span class="fc-meta-more">…</span></div>`}
+          ${''/* D1: deep context (plates · targets · e1RM · last) lives in the detail sheet — metaBits(ex) — one tap away. */}
           ${!allDone&&st==='calisthenics'&&ex.cue?`<div style="font-size:12px;color:var(--brand);margin-top:3px;line-height:1.4">${ex.cue}</div>`:''}
         </div>
         <button class="pain-flag${ex.painEvent&&ex.painEvent.severity!=='none'?' has':''}" onclick="event.stopPropagation();openPainModal(${i})" aria-label="Log pain for ${ex.name.replace(/"/g,'')}" title="Pain check">⚑</button>
@@ -4508,7 +4532,7 @@ function renderExList(){
       </div>
       <div class="ex-body">
         ${ex.prescribed.loadKg?(()=>{const hu=S.settings.unit||'kg';const topRow=schemeTop(ex.prescribed.setScheme);const hl=topRow?topRow.loadKg:ex.prescribed.loadKg;const hw=hu==='lb'?Math.round(hl*K2L):hl;const hx=topRow?schemeString(ex.prescribed.setScheme,ex.prescribed.unit):`${ex.prescribed.sets} × ${ex.prescribed.reps}`;return`<div class="ex-headline"><span class="hl-w tnum">${hw}</span><span class="hl-u">${hu}</span><span class="hl-x">${hx}</span></div>`;})():''}
-        ${variantChips(ex,i)}
+        ${variantSummaryChip(ex,i)}
         ${getLastHint(ex)}
         ${(()=>{const firstUnlogged=ex.performed.findIndex(pp=>!pp.logged&&!pp.skipped);return ex.performed.map((s,si)=>{
           const wu=s.type==='warmup';
@@ -4553,6 +4577,7 @@ function renderExList(){
               <input type="number" step="0.5" value="${wVal}" placeholder="wt" id="w${i}_${si}" oninput="stashSetInput(${i},${si})" aria-label="weight">
               <span class="x">×</span>
               <input type="number" value="${rVal}" placeholder="${ru||'rps'}" id="r${i}_${si}" oninput="stashSetInput(${i},${si})" aria-label="reps">
+              ${rowState===' current'?`<div class="row-plates" id="pl${i}_${si}">${rowPlateText(ex,wVal)}</div>`:''}
             </div>
             <button class="set-log ready" onclick="logSet(${i},${si})">${t('log.one')}</button>
             <button class="set-skip" onclick="skipSet(${i},${si})">${t('skip.set')}</button>
@@ -4742,6 +4767,7 @@ function focusSetRowHTML(ex,ei,s,si,memberTag){
       <input type="number" step="0.5" value="${wVal}" placeholder="wt" id="w${ei}_${si}" oninput="stashSetInput(${ei},${si})" aria-label="weight">
       <span class="x">\u00d7</span>
       <input type="number" value="${rVal}" placeholder="${ru||'rps'}" id="r${ei}_${si}" oninput="stashSetInput(${ei},${si})" aria-label="reps">
+      ${rowState===' current'?`<div class="row-plates" id="pl${ei}_${si}">${rowPlateText(ex,wVal)}</div>`:''}
     </div>
     <button class="set-log ready" onclick="logSet(${ei},${si})">${t('log.one')}</button>
     <button class="set-skip" onclick="skipSet(${ei},${si})">${t('skip.set')}</button>
@@ -4751,17 +4777,12 @@ function focusSetRowHTML(ex,ei,s,si,memberTag){
 function focusMemberHeadHTML(ex,ei,tag){
   const perSide=ex.tags.includes('per side')?' <span class="td" style="font-size:11px">/side</span>':ex.tags.includes('per hand')?' <span class="td" style="font-size:11px">/hand</span>':ex.tags.includes('per leg')?' <span class="td" style="font-size:11px">/leg</span>':'';
   const rx=ex.prescribed.setScheme?schemeString(ex.prescribed.setScheme,ex.prescribed.unit)+' kg':`${ex.prescribed.sets}\u00d7${ex.prescribed.reps}${ex.prescribed.loadKg?' @ '+fmtW(ex.prescribed.loadKg,ex.prescribed.unit):''}`;
-  const bits=[];
-  if((ex.equipmentClass==='barbell'||getMeta(ex.name).eq&&getMeta(ex.name).eq.includes('barbell'))&&ex.prescribed.loadKg)bits.push(plateLabel(ex));
-  const mt=mainTargetLine(ex);if(mt)bits.push(mt);
-  const tl=targetLineHTML(ex);if(tl)bits.push(tl);
-  const rc=roleChipHTML(ex);if(rc)bits.unshift(rc);
   return `<div class="fc-member-block" id="ex${ei}">
     <div class="fc-head">
       ${tag?`<span class="fc-member-tag big">${tag}</span>`:''}
       <div style="flex:1;min-width:0">
-        <div class="fc-name">${(ex.tags||[]).includes('bonus')?'<span style="color:var(--gold);font-size:12px;margin-right:4px">\u2605</span>':''}${ex.name}${(ex.tags||[]).includes('full-depth-standard')?' <span class="std-chip">Full depth standard</span>':''}${perSide}</div>
-        <div class="fc-meta" onclick="openFcDetail(${ei})" role="button" aria-label="Exercise detail">${rx}${bits.length?' \u00b7 '+bits.join(' \u00b7 '):''} <span class="fc-meta-more">\u2026</span></div>
+        <div class="fc-name">${(ex.tags||[]).includes('bonus')?'<span style="color:var(--gold);font-size:12px;margin-right:4px">\u2605</span>':''}${ex.name}${cardChip(ex)}${perSide}</div>
+        <div class="fc-meta" onclick="openFcDetail(${ei})" role="button" aria-label="Exercise detail">${rx} <span class="fc-meta-more">\u2026</span></div>
         ${ex.cue?`<div style="font-size:12px;color:var(--brand);margin-top:2px;line-height:1.4">${ex.cue}</div>`:''}
       </div>
       <button class="pain-flag${ex.painEvent&&ex.painEvent.severity!=='none'?' has':''}" onclick="openPainModal(${ei})" aria-label="Log pain for ${ex.name.replace(/"/g,'')}" title="Pain check">\u2691</button>
@@ -4780,22 +4801,48 @@ function focusMemberHeadHTML(ex,ei,tag){
         </div>
       </div>
     </div>
-    <div class="fc-hscroll">${variantChips(ex,ei)}</div>
+    ${variantSummaryChip(ex,ei)}
   </div>`;
 }
 // C4: the card keeps ONE truncated meta line; everything deeper (plate math,
 // today/e1RM/target, last session) lives in a tap-to-open sheet.
+// D1: the card answers "what do I do RIGHT NOW" — everything else lives in
+// this sheet. metaBits is the ONE builder for the deep context; both card
+// templates collapsed to name + one chip + one rx line.
+function metaBits(ex){
+  const bits=[];
+  if((ex.equipmentClass==='barbell'||getMeta(ex.name).eq&&getMeta(ex.name).eq.includes('barbell'))&&ex.prescribed.loadKg)bits.push(plateLabel(ex));
+  const mt=mainTargetLine(ex);if(mt)bits.push(mt);
+  const tl=targetLineHTML(ex);if(tl)bits.push(tl);
+  const rc=roleChipHTML(ex);if(rc)bits.unshift(rc);
+  return bits;
+}
+// One chip on the card, most-load-bearing first: frozen state > coach
+// standard > role. Never more than one.
+function cardChip(ex){
+  if(ex.frozen)return ' <span class="std-chip">'+t('badge.frozen')+'</span>';
+  if((ex.tags||[]).includes('full-depth-standard'))return ' <span class="std-chip">Full depth standard</span>';
+  const rc=roleChipHTML(ex);return rc?' '+rc:'';
+}
+// D2: contextual plate math for ONE row's actual weight — the current row
+// only, barbell only. "85 = 25 + 5 + 2.5 /side" (+ honest remainder).
+function rowPlateText(ex,weightKg){
+  if((ex.equipmentClass||'')!=='barbell')return'';
+  const w=+weightKg||0;const bar=exerciseBarKg(ex);
+  if(!(w>bar))return w===bar?bar+' kg \u2014 empty bar':'';
+  const r=platesPerSide(w,bar);
+  if(!r.plates.length)return'';
+  let out=w+' = '+r.plates.join(' + ')+' /side';
+  if(r.remainder>0.01)out+=' \u00b7 +'+r.remainder+' over';
+  return out;
+}
 function openFcDetail(ei){
   const sess=S.activeSession;if(!sess)return;
   const ex=sess.exercises[ei];if(!ex)return;
   const body=document.getElementById('fcDetailBody');
   if(body){
     const rx=ex.prescribed.setScheme?schemeString(ex.prescribed.setScheme,ex.prescribed.unit)+' kg':`${ex.prescribed.sets}\u00d7${ex.prescribed.reps}${ex.prescribed.loadKg?' @ '+fmtW(ex.prescribed.loadKg,ex.prescribed.unit):''}`;
-    const bits=[];
-    if((ex.equipmentClass==='barbell'||getMeta(ex.name).eq&&getMeta(ex.name).eq.includes('barbell'))&&ex.prescribed.loadKg)bits.push(plateLabel(ex));
-    const mt=mainTargetLine(ex);if(mt)bits.push(mt);
-    const tl=targetLineHTML(ex);if(tl)bits.push(tl);
-    const rc=roleChipHTML(ex);if(rc)bits.unshift(rc);
+    const bits=metaBits(ex);
     body.innerHTML=`<div class="t-h2" style="margin-bottom:8px">${ex.name}</div>
       <div class="fc-detail-row"><span class="t-meta">Prescription</span><div class="tm">${rx}</div></div>
       ${bits.map(b=>`<div class="fc-detail-row"><div class="tm">${b}</div></div>`).join('')}
@@ -5779,6 +5826,8 @@ function stashSetInput(ei,si){
   const s=ex.performed[si];if(!s)return;
   const wi=document.getElementById(`w${ei}_${si}`),ri=document.getElementById(`r${ei}_${si}`);
   setWorkingInput(s, wi?wi.value:'', ri?ri.value:'', S.settings.unit||'kg');
+  const pl=document.getElementById(`pl${ei}_${si}`);
+  if(pl)pl.textContent=rowPlateText(ex,wi?wi.value:s.weightKg);
   save();
 }
 // RPE picker — body-level popover (not a child of the button), so a tap on a
