@@ -143,6 +143,13 @@
 .fcard .set-row:not(.current):not(.reveal) .set-skip{display:none}
 .fcard .set-row:not(.current):not(.reveal) .set-del{display:none}
 .fcard .set-row.reveal .set-log{opacity:1}
+/* K10/D6: the same record hierarchy in LIST view — ghosts at 35%, but the
+   current row's Log stays LIT (list rows have no fc-log to defer to). */
+#exList .set-row .set-log{opacity:.35}
+#exList .set-row.current .set-log{opacity:1}
+#exList .set-row:not(.current):not(.reveal) .set-skip{display:none}
+#exList .set-row:not(.current):not(.reveal) .set-del{display:none}
+#exList .set-row.reveal .set-log{opacity:1}
 /* C7: rail chips ellipsis at 12ch; scroll area fades at its right edge;
    reorder + counter live OUTSIDE the scroll with their own gap. */
 .rail-chip{max-width:12ch;overflow:hidden;text-overflow:ellipsis}
@@ -7534,6 +7541,7 @@ function init(){
   load();
   // Focus-mode swipe (S6): the track is static DOM — wire once, mock-guarded.
   try{const _ft=document.getElementById('focusTrack');wireFocusSwipe(_ft);wireRowReveal(_ft);}catch(e){}
+  try{wireRowReveal(document.getElementById('exList'));}catch(e){}
   // Reorder surfaces (S7): static containers — listeners survive re-renders.
   try{wireReorderDrag(document.getElementById('roList'));}catch(e){}
   try{wireRailDrag(document.getElementById('focusRail'));}catch(e){}

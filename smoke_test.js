@@ -3486,4 +3486,11 @@ assert(variantSummaryChip({equipmentClass:'kb',name:'KB Swing',tags:[],prescribe
 })();
 assert((html.match(/_refreshVariantSheet\(\);\n\}/g)||[]).length===2, 'K9/D5: both variant setters refresh an open sheet');
 
+// ---- K10: D6 list record hierarchy ----
+console.log('[K10 ListHier]');
+assert(/#exList \.set-row \.set-log\{opacity:\.35\}/.test(html)&&/#exList \.set-row\.current \.set-log\{opacity:1\}/.test(html), 'K10/D6: list rows ghost non-current Logs, current stays lit');
+assert(/#exList \.set-row:not\(\.current\):not\(\.reveal\) \.set-skip\{display:none\}/.test(html)&&/#exList \.set-row:not\(\.current\):not\(\.reveal\) \.set-del\{display:none\}/.test(html), 'K10/D6: skip/del hidden until current or revealed in list view');
+assert(/wireRowReveal\(document\.getElementById\('exList'\)\)/.test(html), 'K10/D6: long-press reveal wired to the list container');
+assert(!/#exList \.set-row\.current \.set-log\{display:none/.test(html), 'K10/D6: list current-row Log is NOT hidden (no fc-log in list view)');
+
 console.log('\n=== All tests passed ===');
