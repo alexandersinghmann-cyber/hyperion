@@ -1478,6 +1478,8 @@ STRINGS.plain['badge.flag']='\u26a0 Flagged';STRINGS.gothic['badge.flag']='\u26a
 STRINGS.plain['skipset.title']='Skip Set \u00b7 Reason';STRINGS.gothic['skipset.title']='Reason for abstention';
 STRINGS.plain['excl.why']='why?';STRINGS.gothic['excl.why']='by order of the Apothecarion';
 STRINGS.plain['valid.clean']='validator clean';STRINGS.gothic['valid.clean']='The Machine Spirit is appeased.';
+STRINGS.plain['sheet.tick']='Tick off';STRINGS.gothic['sheet.tick']='Attest';
+STRINGS.plain['sheet.ticked']='Ticked off';STRINGS.gothic['sheet.ticked']='So attested.';
 // The four canonical protection sites — and ONLY these four (asserted).
 STRINGS.gothic['readout.top']='THE EMPEROR PROTECTS';
 STRINGS.gothic['pain.confirm']='Wound sustained. The Emperor protects.';
@@ -3434,6 +3436,24 @@ function confirmRemoveWeekDay(dayIdx){
   renderWeek();try{renderTrain();}catch(e){}
   toast(wasOneOff?'Deleted':'Removed for this week');
 }
+// B: tick-off — quick-complete without the logging flow (swims, walks,
+// pilates). Writes an ordinary session record: dayId REQUIRED (two same-label
+// days must never share a tick), activity stub ALWAYS attached (the report +
+// day-card take the activity branch), ticked marks it honestly everywhere.
+function tickOffDay(dayIdx){
+  const day=S.program.days[dayIdx];if(!day)return;
+  if(isDayDone(dayIdx)){toast('Already recorded');return;}
+  S.sessions.push({
+    id:'s_'+Date.now(),date:todayStr(),dayLabel:day.label,dayId:day.id,
+    blockName:S.program.name,sessionType:day.sessionType||'lifting',
+    duration:day.dur||0,exercises:[],painEvents:[],status:'complete',ticked:true,
+    activity:{durationMin:day.dur||0,distance:0,effort:null,notes:''}
+  });
+  save();
+  try{renderWeek();}catch(e){}
+  try{renderTrain();}catch(e){}
+  toast(t('sheet.ticked'));
+}
 function openSessionSheet(dayIdx){
   _rescheduleDayIdx=dayIdx;
   const d=S.program.days[dayIdx];if(!d)return;
@@ -3442,6 +3462,7 @@ function openSessionSheet(dayIdx){
   document.getElementById('sessionSheetTitle').textContent=d.label;
   body.innerHTML=`
     ${!done&&!skipped&&isStartableDay(d)?`<button class="sheet-btn" onclick="hideModal('sessionSheet');startDay(${dayIdx})">Start session</button>`:''}
+    ${!done&&!skipped&&isStartableDay(d)?`<button class="sheet-btn" onclick="hideModal('sessionSheet');tickOffDay(${dayIdx})">${t('sheet.tick')}</button>`:''}
     <button class="sheet-btn" onclick="openReschedule(${dayIdx})" ${d.locked?'disabled':''}>${d.locked?'Reschedule (locked — class commitment)':'Reschedule'}</button>
     ${d.scheduledDate?`<button class="sheet-btn" onclick="restoreDay(${dayIdx});hideModal('sessionSheet');renderWeek()">Restore to ${(d.defaultDay||d.dayOfWeek||'').slice(0,3)}</button>`:''}
     ${!done&&!skipped?`<button class="sheet-btn" onclick="hideModal('sessionSheet');openSkipDay(${dayIdx})">Skip</button>`:''}
@@ -3615,7 +3636,7 @@ function renderTrain(){
     if(done&&session&&session.activity){
       // Activity day (swim/run…): distance + duration, no set math.
       const a=session.activity;
-      subtitle=[(a.distance?a.distance+(session.sessionType==='swim'?' m':' km'):null),(a.durationMin?a.durationMin+' min':null),(a.effort?'effort '+a.effort:null)].filter(Boolean).join(' · ')||'Logged';
+      subtitle=[(a.distance?a.distance+(session.sessionType==='swim'?' m':' km'):null),(a.durationMin&&!session.ticked?a.durationMin+' min':null),(a.effort?'effort '+a.effort:null)].filter(Boolean).join(' · ')||(session.ticked?'Ticked off':'Logged');
     } else if(done&&session){
       const mainEx=session.exercises[0];
       const w=(mainEx?.performed||[]).filter(p=>p.type==='working');
@@ -7185,12 +7206,12 @@ function buildCoachReport(sessions,program,weekDates){
     if(s.activity||isActivityType(s.sessionType)){
       const a=s.activity||{};
       const bits=[(a.durationMin?a.durationMin+' min':null),(a.kbWeights?'bells '+a.kbWeights:null),(a.result?'result: '+a.result:null),(a.distance?a.distance+(s.sessionType==='swim'?' m':' km'):null),(a.effort?'effort '+a.effort:null),(a.notes||null)].filter(Boolean).join(' · ');
-      r+=`### ${s.dayLabel||s.sessionType} (${s.sessionType}) — ${fmtDate(s.date)}${bits?' — '+bits:''}\n\n`;
+      r+=`### ${s.dayLabel||s.sessionType} (${s.sessionType}) — ${fmtDate(s.date)}${s.ticked?' — (ticked)':''}${bits?' — '+bits:''}\n\n`;
       return;
     }
     const vol=s.exercises.reduce((a,e)=>(e.performed||[]).filter(p=>(p.type==='working'||p.type==='warmup')&&!p.skipped).reduce((b,p)=>b+p.weightKg*p.reps,a),0);
     const skippedN=s.exercises.reduce((a,e)=>a+(e.performed||[]).filter(p=>p.type==='working'&&p.skipped).length,0);
-    r+=`### ${s.dayLabel} — ${fmtDate(s.date)} — ${s.duration||'?'}m — RPE ${s.rpe||'?'}\n`;
+    r+=`### ${s.dayLabel} — ${fmtDate(s.date)}${s.ticked?' — (ticked)':''} — ${s.duration||'?'}m — RPE ${s.rpe||'?'}\n`;
     let _rptSec=null;
     s.exercises.forEach(ex=>{
       const _sec=(ex.section)||'main';

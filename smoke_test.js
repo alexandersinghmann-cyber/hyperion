@@ -3340,4 +3340,32 @@ assert(!/`[^`]*data-t=/.test(html.match(/<script>([\s\S]*?)<\/script>/)[1]), 'H6
   assert(html.includes(l), 'H6/R1: plain literal survives in source: '+l);
 });
 
+// ===== K4: TICK-OFF QUICK-COMPLETE =====
+console.log('\n--- K4: tick-off ---');
+(()=>{
+  const saveP=JSON.parse(JSON.stringify(S.program)),saveS=S.sessions,saveK=S.skips;
+  S.skips=[];S.sessions=[];
+  S.program={name:'TickTest',active:true,days:[
+    {id:1,label:'Swim',defaultDay:'Monday',dayOfWeek:'Monday',sessionType:'swim',dur:45,exercises:[]},
+    {id:2,label:'Swim',defaultDay:'Thursday',dayOfWeek:'Thursday',sessionType:'swim',dur:45,exercises:[]},
+    {id:3,label:'Lift',defaultDay:'Friday',dayOfWeek:'Friday',sessionType:'lifting',dur:60,exercises:[{name:'Back Squat',cat:'squat',sets:3,reps:'5',loadKg:100,unit:'kg'}]}
+  ]};
+  tickOffDay(0);
+  const rec=S.sessions[S.sessions.length-1];
+  assert(rec.ticked===true&&rec.dayId===1&&rec.exercises.length===0&&rec.status==='complete'&&rec.activity&&rec.duration===45, 'K4: tick record shape (dayId + activity stub + planned duration)');
+  assert(isDayDone(0)===true&&isDayDone(1)===false, 'K4: tick marks ONLY its own day (two same-label swims)');
+  tickOffDay(0);
+  assert(S.sessions.length===1, 'K4: double-tick refused');
+  const wd=weekDatesFor(todayStr());
+  tickOffDay(1);tickOffDay(2);
+  assert(isWeekComplete(wd)===true, 'K4: ticked days complete the week');
+  const rpt=buildCoachReport(S.sessions,S.program,wd);
+  assert(/\(ticked\)/.test(rpt), 'K4: report carries the (ticked) marker. Got: '+(rpt.split('\n').find(l=>/ticked/.test(l))||'none'));
+  const liftLine=rpt.split('\n').find(l=>/### Lift/.test(l));
+  assert(/\(ticked\)/.test(liftLine||''), 'K4: ticked LIFTING day marked too (activity branch via the stub)');
+  S.program=saveP;S.sessions=saveS;S.skips=saveK;
+})();
+assert(/tickOffDay\(\$\{dayIdx\}\)/.test(html)&&/'sheet\.tick'/.test(html), 'K4: session sheet offers Tick off');
+assert(/Ticked off/.test(html), 'K4: day-card subtitle distinguishes a tick');
+
 console.log('\n=== All tests passed ===');
