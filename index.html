@@ -88,7 +88,6 @@
 #vSession.focus-on #focusRoot{display:flex;flex-direction:column;flex:1;min-height:0}
 #vSession.focus-on #exList{display:none}
 #vSession.focus-on .sess-progress{display:none}
-#vSession.focus-on #supersetHints{display:none !important}
 #vSession.focus-on #sessNotesWrap{display:none}
 #focusTrackWrap{position:relative;flex:1;min-height:0;overflow:hidden;margin:0 -16px}
 #focusTrack{display:flex;height:100%;transition:transform var(--motion)}
@@ -757,7 +756,6 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .imperium #vSession.on .fr-ghost,.imperium #vSession.on .fr-skip{font-family:var(--mono)}
 /* notes + hints */
 .imperium #vSession.on textarea{background:color-mix(in srgb,var(--phos) 5%,var(--bg-mech));border:1px solid color-mix(in srgb,var(--phos) 14%,transparent);color:var(--phos)}
-.imperium #vSession.on #supersetHints{font-family:var(--mono);color:var(--tx3)}
 .imperium #vSession.on .sec-hdr{font:600 10px var(--mono);letter-spacing:.2em;color:var(--tx3)}
 .imperium #vSession.on .emperor-line,{}
 .imperium #vSession.on .set-row.current{border-width:1px}
@@ -876,7 +874,6 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       <div class="sess-progress-text" id="sessProgText">0 / 0</div>
       <div class="sess-progress-bar"><div class="sess-progress-fill" id="sessProgFill" style="width:0%"></div></div>
     </div>
-    <div id="supersetHints" style="display:none;margin:6px 0 10px;padding:8px 10px;background:var(--s1);border:1px solid var(--s2);border-radius:var(--rs);font:11px var(--mono);color:var(--tx2)"></div>
     <div id="exList"></div>
     <!-- FOCUS MODE (S5): full-screen card stack + up-next rail. Only one of
          #exList / #focusTrack holds content at a time (ids stay unique). -->
@@ -4157,6 +4154,9 @@ function startDay(i){
     _userOpened=new Set();_userClosed=new Set();
   }
   save();sessionStart=Date.now();startTimer();
+  // D4: a fresh rite starts with an empty record — the static notes box must
+  // never carry the previous session's text into this one.
+  try{const _sn=document.getElementById('sessNotes');if(_sn){_sn.value='';if(_sn.style)_sn.style.height='';}}catch(e){}
   veilCross(()=>{showView('vSession');renderEx();showSessionHero(day);});
 }
 
@@ -4390,6 +4390,15 @@ function renderEx(){
 
   // Multi-modal dispatch: activity-log types render a single form, not cards.
   const st=sess.sessionType||'lifting';
+  // D4: settle the focus-on class BEFORE any early return — a stale class
+  // from the previous lifting session left #sessNotesWrap visible (with the
+  // previous session's note in it) over activity forms.
+  try{
+    const _v=document.getElementById('vSession');
+    if(_v&&_v.classList)_v.classList.toggle('focus-on',!isActivityType(st)&&(S.settings.sessionView||'focus')!=='list');
+    const _nw=document.getElementById('sessNotesWrap');
+    if(_nw&&_nw.style)_nw.style.display=isActivityType(st)?'none':'';
+  }catch(e){}
   if(isActivityType(st)){
     if((sess.exercises||[]).length){
       // K7 hybrid: warm-up cards + the activity form, list layout only.
@@ -4423,22 +4432,8 @@ function renderExList(){
   const notesEl=document.getElementById('sessNotes');
   if(notesEl&&document.activeElement!==notesEl)notesEl.value=sess.notes||'';
 
-  // Phase C: superset hint (low-density single line)
-  try{
-    const hintEl=document.getElementById('supersetHints');
-    if(hintEl){
-      const pairs=recommendSupersets(sess.exercises);
-      // Dedupe: prefer adjacent pairs, limit to 2 top suggestions
-      const adj=pairs.filter(p=>p.bIdx===p.aIdx+1).slice(0,2);
-      const pick=adj.length?adj:pairs.slice(0,2);
-      if(pick.length){
-        hintEl.style.display='block';
-        hintEl.innerHTML='<span style="color:var(--tx3);margin-right:6px">superset:</span>'+pick.map(p=>`<span style="margin-right:10px">${p.aName} + ${p.bName}</span>`).join('');
-      } else {
-        hintEl.style.display='none';
-      }
-    }
-  }catch(e){}
+  // D3 (B6 W3): the header superset dump is gone — pairing renders only as
+  // the linked ss-top/ss-bot markers on the cards themselves.
 
   const list=document.getElementById('exList');
   // W4-A: section headers interleave INSIDE the joined string so every
@@ -4533,7 +4528,7 @@ function renderExList(){
             return`<div class="set-row ${stCl} compact${s._justLogged?' just-logged':''}">
               <div class="set-num ${wu?'wu':''}"><span class="set-check">${icon('check',14)}</span>${s.tag==='top'?'<span class="top-chip">TOP</span>':''}</div>
               <div class="set-summary">${fmtW(s.weightKg,ex.prescribed.unit)} <span class="td">×</span> ${repsDisp}${isPR?' <span class="pr-tag" role="img" aria-label="personal record" title="Personal record">PR</span>':''}</div>
-              <button class="set-rpe ${s.rpe?'has':''}" onclick="showRpePicker(this,${i},${si})" style="position:relative" aria-label="rate effort">${s.rpe?'@'+s.rpe:'RPE'}</button>
+              ${s.type==='working'?`<button class="set-rpe ${s.rpe?'has':''}" onclick="showRpePicker(this,${i},${si})" style="position:relative" aria-label="rate effort">${s.rpe?'@'+s.rpe:'RPE'}</button>`:''}
               <button class="set-edit" onclick="editSet(${i},${si})" title="Edit" aria-label="edit set">✎</button>
             </div>`;
           }
@@ -4722,7 +4717,7 @@ function focusSetRowHTML(ex,ei,s,si,memberTag){
     return `<div class="set-row ${s.skipped?'st-skip':'st-done'} compact${s._justLogged?' just-logged':''}">
       <div class="set-num ${wu?'wu':''}">${tagChip}<span class="set-check">${icon('check',14)}</span>${s.tag==='top'?'<span class="top-chip">TOP</span>':''}</div>
       <div class="set-summary">${fmtW(s.weightKg,ex.prescribed.unit)} <span class="td">\u00d7</span> ${repsDisp}${isPR?' <span class="pr-tag" role="img" aria-label="personal record" title="Personal record">PR</span>':''}</div>
-      <button class="set-rpe ${s.rpe?'has':''}" onclick="showRpePicker(this,${ei},${si})" style="position:relative" aria-label="rate effort">${s.rpe?'@'+s.rpe:'RPE'}</button>
+      ${s.type==='working'?`<button class="set-rpe ${s.rpe?'has':''}" onclick="showRpePicker(this,${ei},${si})" style="position:relative" aria-label="rate effort">${s.rpe?'@'+s.rpe:'RPE'}</button>`:''}
       <button class="set-edit" onclick="editSet(${ei},${si})" title="Edit" aria-label="edit set">\u270e</button>
     </div>`;
   }

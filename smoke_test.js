@@ -3434,4 +3434,14 @@ console.log('\n--- K7: kb-hybrid ---');
 assert(/K7 hybrid: warm-up cards \+ the activity form/.test(html)&&/classList\.remove\('focus-on'\)/.test(html), 'K7: hybrid dispatch forces the list path');
 assert(/list\.innerHTML\+=activityFormHTML\(sess\)/.test(html), 'K7: freeform card appended below the warm-up cards');
 
+// ===== K8: D3 + D4 + D7 =====
+console.log('\n--- K8: superset dump / stale notes / warmup RPE ---');
+assert(!/supersetHints/.test(html), 'D3: header superset dump deleted (markers on cards remain)');
+assert(/\.ex-card\.ss-top/.test(html), 'D3: pair-chain markers kept');
+assert(/_v\.classList\.toggle\('focus-on',!isActivityType\(st\)/.test(html), 'D4: focus-on settled BEFORE the activity early-return');
+assert(/_sn\.value='';/.test(html), 'D4: startDay clears the static notes box');
+assert(/_nw\.style\.display=isActivityType\(st\)\?'none'/.test(html), 'D4: notes wrap hidden for activity sessions (they own #actNotes)');
+// D7: warm-up rows show no RPE control in either view
+assert((html.match(/\$\{s\.type==='working'\?`<button class="set-rpe/g)||[]).length===2, 'D7: RPE affordance gated to working rows in both views');
+
 console.log('\n=== All tests passed ===');
