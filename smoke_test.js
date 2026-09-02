@@ -1222,7 +1222,7 @@ assert(typeof migrateV3 === 'function', 'MigrateV3: defined');
 const g1 = S.goals.find(g=>g.id==='g1');
 assert(g1 && g1.type === 'big3-total' && g1.targetDate === '2026-12-31' && g1.dataSource === 'big3', 'MigrateV3: 1000lb goal upgraded (type/targetDate/dataSource)');
 assert(S.goals.some(g=>g.id==='g-mu' && g.type==='milestone-checklist' && Array.isArray(g.milestones) && g.milestones.length===5), 'MigrateV3: muscle-up goal seeded with 5 milestones');
-assert(S.goals.some(g=>g.id==='g-swim' && g.type==='distance-progressive' && g.target===1000), 'MigrateV3: swim goal seeded (target 1000)');
+assert(!S.goals.some(g=>g.id==='g-swim'), 'K2: swim goal retired — never seeded, removed from stored state');
 assert(S.goals.some(g=>g.id==='g-run' && g.type==='weekly-distance' && g.target===null), 'MigrateV3: run goal seeded (no target)');
 assert(Array.isArray(S.recurringActivities) && S.recurringActivities.some(r=>/Push Pull Give/.test(r.label) && r.locked===true), 'MigrateV3: recurring activities incl. locked Cali Handstand (Push Pull Give)');
 assert(S.version === 3, 'MigrateV3: version stamped to 3');
@@ -1467,7 +1467,7 @@ const blob=parsed.parsed;
 assert(Array.isArray(blob.recurringActivities) && blob.goals.some(g=>g.id==='g-mu') && blob.program.days[3].sessionType==='swim' && blob.program.days[0].sessionType==='kb' && blob.program.days[2].exercises.find(e=>e.name==='Back Squat').setScheme.length===4 && blob.program.days[2].exercises.find(e=>e.name==='Back Squat').role==='strength-driver' && blob.program.days[5].exercises.find(e=>e.name==='Back Extension').frozen===true && blob.program.days[1].note && blob.program.version===10, 'C8/G10: round-trip preserves types + setScheme + role/frozen + note + version');
 // importing that blob and re-migrating is a no-op for v3 fields (idempotent)
 const _s=S;S=JSON.parse(JSON.stringify(blob));migrateV3();
-assert(S.version===3 && S.goals.find(g=>g.id==='g-swim'), 'C8: re-import + migrate keeps v3 shape');
+assert(S.version===3 && S.goals.find(g=>g.id==='g-mu'), 'C8: re-import + migrate keeps v3 shape (swim goal retired)');
 S=_s;
 
 // ===== V3 REVIEW FIXES =====
@@ -1561,7 +1561,7 @@ toggleQuote(); assert(S.settings.showQuote===true, 'Polish: toggleQuote OFF→ON
 assert(/Stoic quote on Train/.test(html), 'Polish: quote toggle row present in Settings');
 // tappable empty goal cards
 assert(typeof startAdHocSession==='function', 'Polish: startAdHocSession defined (tappable empty cards)');
-assert(/\+ Log swim/.test(html) && /\+ Log run/.test(html), 'Polish: swim/run cards have a quick-log affordance (no dead-end)');
+assert(/\+ Log run/.test(html), 'Polish/K2: run card keeps its quick-log affordance (swim card retired)');
 // completed styling
 assert(/✓ Done/.test(html), 'Polish: completed sessions tagged "✓ Done"');
 assert(/\.day-card\.done\{opacity:\.55\}/.test(html), 'Polish: completed cards at 0.55 opacity');
@@ -1688,7 +1688,7 @@ assert(/@media \(prefers-reduced-motion: reduce\)\{[\s\S]*animation:none !import
 assert(/<label id="qlDistLbl" for="qlDist">/.test(html) && /<label for="qlDur">/.test(html), 'A11y: quick-log inputs have associated labels');
 assert(/id="sBarKg"[^>]*aria-label=/.test(html) && /id="sPlates"[^>]*aria-label=/.test(html), 'A11y: bar/plates settings inputs are labelled');
 assert(/class="pr-tag"[^>]*aria-label="personal record"/.test(html), 'A11y: PR tag exposes an accessible label');
-assert(/quickLogActivity\('swim'\)"[^>]*aria-label=/.test(html) && /quickLogActivity\('run'\)"[^>]*aria-label=/.test(html), 'A11y: quick-log buttons are labelled');
+assert(/quickLogActivity\('run'\)"[^>]*aria-label=/.test(html), 'A11y: the quick-log button is labelled');
 assert(/<svg viewBox="0 0 190 190"[^>]*aria-hidden="true"/.test(html) && /<svg viewBox="0 0 88 88" aria-hidden="true"/.test(html), 'A11y: decorative dashboard rings are aria-hidden (numbers carried as text)');
 
 // ===== C2: PROGRESSION SNAPPING + BW RULES =====
@@ -2882,7 +2882,7 @@ assert(typeof resumeGoal==='function'&&typeof togglePausedGoals==='function', 'V
   // restore paused state for the ship default
   S.goals.find(g=>g.id==='g-mu').paused=true;
 })();
-assert(/const activeCards=\[card1000, _pausedIds\.has\('g-mu'\)\?null:cardMU, cardSwim/.test(html), 'V4: dashboard order 1000lb, Freestyle; paused cards pulled out');
+assert(/const activeCards=\[card1000, _pausedIds\.has\('g-mu'\)\?null:cardMU, _pausedIds\.has\('g-run'\)\?null:cardRun\]/.test(html), 'V4/K2: dashboard = 1000lb (+unpaused MU/Run); swim card retired');
 assert(/id="pausedWrap"/.test(html)&&/Resume Muscle-Up</.test(html)&&/Resume Running</.test(html), 'V4: Paused expander + resume actions');
 assert(/if\(!_muPaused\)celebrateMilestone\('mu_'/.test(html), 'V4: paused milestones stay silent (data still updates)');
 assert(!/kb.*goal|goal.*kettlebell/i.test((html.match(/migrateV3[\s\S]{0,3000}/)||[''])[0]), 'V4: no KB goal invented');
@@ -3247,7 +3247,7 @@ console.log('\n--- G9: swim continuous + F5 ---');
 })();
 assert(/setActivityField\('continuous'/.test(html), 'G9: activity form has the Continuous toggle');
 assert(/id="qlCont"/.test(html)&&/continuous:_qlCont/.test(html), 'G9: quick-log path carries the flag too');
-assert(/No continuous swim logged yet/.test(html), 'G9: goal-card empty state');
+assert(!/No continuous swim logged yet/.test(html), 'K2: retired goal-card empty state gone');
 // F5c extra: machine 165 → next 167.5 through the suggestion snap.
 assert(snapSuggestion(165*1.0125,'machine')===167.5, 'F5: leg press 165 +1.25% → 167.5. Got: '+snapSuggestion(165*1.0125,'machine'));
 assert(dispSuggest(166.9,'machine','increase')===167.5, 'F5: stored raw 166.9 machine renders 167.5');

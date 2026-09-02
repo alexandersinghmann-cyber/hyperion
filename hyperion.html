@@ -2787,7 +2787,12 @@ function migrateV3(){
     g1.current=g1.current||0;g1.unit='lb';g1.targetDate='2026-12-31';g1.dataSource='big3';g1.auto=true;
   }
   if(!S.goals.some(g=>g.id==='g-mu'))S.goals.push({id:'g-mu',name:'Bar Muscle-Up',type:'milestone-checklist',target:5,current:0,targetDate:'2026-12-31',dataSource:'calisthenics',milestones:muscleUpMilestones()});
-  if(!S.goals.some(g=>g.id==='g-swim'))S.goals.push({id:'g-swim',name:'1000m Freestyle',type:'distance-progressive',target:1000,current:0,unit:'m',targetDate:'2026-12-31',dataSource:'swim'});
+  // A1: the swim goal is retired — remove any stored copy once (it would
+  // otherwise linger in the generic goals list at 0/1000 forever).
+  if(!S.settings._swimGoalRemovedB6W3){
+    S.settings._swimGoalRemovedB6W3=true;
+    S.goals=(S.goals||[]).filter(g=>g.id!=='g-swim');
+  }
   if(!S.goals.some(g=>g.id==='g-run'))S.goals.push({id:'g-run',name:'Weekly Running',type:'weekly-distance',target:null,current:0,unit:'km',targetDate:null,dataSource:'run'});
   // W4-D: goal refocus — MU + weekly running paused (one-shot; a later
   // manual resume survives reloads). Data keeps updating underneath.
@@ -6312,11 +6317,6 @@ function computePace(goal,todayDate){
     if(parts.allAtTarget)return 'pace-ahead';
     return paceToken(Math.max(0,parts.need), parts.actual, n);
   }
-  if(goal.type==='distance-progressive'){
-    const n=(S.sessions||[]).filter(s=>s.sessionType==='swim'&&s.date>=cut).length;
-    if(n<2)return 'pace-muted';
-    return paceToken(1, swimBest(S.sessions)>0?1:0, n);
-  }
   return 'pace-muted';
 }
 function weeksUntil(fromStr,toStr){
@@ -6808,13 +6808,8 @@ function renderGoalsDashboard(){
     <div class="goal-head"><span class="t-h2">${t('goal.mu')}</span><span class="t-meta">${muDone}/5</span></div>
     <div class="mu-trail">${trail}</div>
     <div class="t-meta" style="margin-top:8px;color:var(--tx2)">${muLabel}</div></div>`;
-  // Swim — manual best distance + 2-tap quick-log
-  const sb=swimBest(S.sessions);
-  const cardSwim=`<div class="goal-card swim">
-    <div class="goal-head"><span class="t-h2">${t('goal.swim')}</span><span class="tagm">manual</span></div>
-    <div class="bigrow"><span class="big" style="color:var(--m-swim)">${sb}</span><span class="bigu">/ 1000 m best</span><button class="qlog" onclick="quickLogActivity('swim')" aria-label="${sb?'Update swim best':'Log a swim'}">${sb?'Update':'+ Log swim'}</button></div>
-    ${sb?'':'<div class="t-meta" style="margin-top:2px">No continuous swim logged yet — only one unbroken effort counts.</div>'}
-    <div class="goal-bar"><div class="goal-bar-fill" style="width:${Math.min(100,sb/1000*100)}%;background:var(--m-swim)"></div></div></div>`;
+  // A1 (B6 W3): the 1000 m Freestyle goal card is retired — the user
+  // self-tracks; swim logging + the continuous flag stay first-class.
   // Run — manual weekly + sparkline + 2-tap quick-log
   const series=runWeeklySeries(S.sessions,today,8);
   const thisWk=series[series.length-1]||0;
@@ -6830,7 +6825,7 @@ function renderGoalsDashboard(){
   // W4-D: dashboard order = active goals first (1000 lb, Freestyle); paused
   // goals live behind a collapsed expander, data retained, one-tap resume.
   const _pausedIds=new Set((S.goals||[]).filter(g=>g.paused).map(g=>g.id));
-  const activeCards=[card1000, _pausedIds.has('g-mu')?null:cardMU, cardSwim, _pausedIds.has('g-run')?null:cardRun].filter(Boolean).join('');
+  const activeCards=[card1000, _pausedIds.has('g-mu')?null:cardMU, _pausedIds.has('g-run')?null:cardRun].filter(Boolean).join('');
   const pausedCards=[_pausedIds.has('g-mu')?cardMU:null, _pausedIds.has('g-run')?cardRun:null].filter(Boolean);
   const pausedBlock=pausedCards.length?`<div class="paused-wrap${_pausedOpen?' open':''}" id="pausedWrap">
     <div class="paused-toggle" onclick="togglePausedGoals()">${t('goal.paused')} <span class="sec-count">${pausedCards.length}</span><span class="sec-chev">${_pausedOpen?'\u2304':'\u203a'}</span></div>
