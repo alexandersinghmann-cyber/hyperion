@@ -3404,4 +3404,34 @@ assert(isActivityType('conditioning')&&MODALITY_TYPES.includes('conditioning')&&
 })();
 assert(/'conditioning'/.test((html.match(/\['kb','swim','run','conditioning','pilates','mobility','rest'\]/)||[''])[0]), 'K6: add-session picker offers Conditioning');
 
+// ===== K7: KB-HYBRID SESSIONS =====
+console.log('\n--- K7: kb-hybrid ---');
+(()=>{
+  const saveP=JSON.parse(JSON.stringify(S.program)),saveS=S.sessions;
+  S.sessions=[];S.activeSession=null;
+  S.program={name:'HybTest',active:true,days:[
+    {id:1,label:'KB + Mobility',defaultDay:'Monday',dayOfWeek:'Monday',sessionType:'kb',dur:40,exercises:[
+      {id:'h1',name:'Wall Slide',cat:'rehab',section:'warmup',sets:1,reps:'10',loadKg:0,unit:'bw',rest:20,tags:[],equipmentClass:'bw'},
+      {id:'h2',name:'Band External Rotation',cat:'rehab',section:'warmup',sets:2,reps:'15',loadKg:0,unit:'bw',rest:30,tags:[],equipmentClass:'bw'}
+    ]}
+  ]};
+  global.startTimer=()=>{};global.showSessionHero=global.showSessionHero||(()=>{});
+  startDay(0);
+  const hs=S.activeSession;
+  assert(hs.sessionType==='kb'&&!!hs.activity&&hs.exercises.length===2&&hs.exercises[0].performed.length===1, 'K7: hybrid session carries activity + warm-up cards');
+  hs.exercises.forEach(ex=>ex.performed.forEach(p2=>{p2.logged=true;}));
+  hs.activity.durationMin=36;hs.activity.kbWeights='24 kg';hs.activity.notes='36-min EMOM';
+  const rec=makeActivitySession(hs);
+  assert(rec.exercises.length===2&&rec.exercises[0].name==='Wall Slide'&&rec.activity.kbWeights==='24 kg', 'K7: record carries warm-ups AND the freeform payload');
+  const rpt=buildCoachReport([Object.assign(rec,{date:todayStr()})],S.program,weekDatesFor(todayStr()));
+  assert(/\(kb\).*36 min.*bells 24 kg/.test(rpt), 'K7: report keeps the kb line');
+  // pure activity day still produces an empty-exercise record (pin 1313 shape)
+  const pure=makeActivitySession({startTime:2,date:todayStr(),dayLabel:'Swim',dayId:9,blockName:'HybTest',sessionType:'swim',activity:{durationMin:30,distance:500,effort:6,notes:''}});
+  assert(pure.exercises.length===0, 'K7: pure activity record stays exercise-free');
+  window.confirm=()=>true;S.activeSession=null;
+  S.program=saveP;S.sessions=saveS;
+})();
+assert(/K7 hybrid: warm-up cards \+ the activity form/.test(html)&&/classList\.remove\('focus-on'\)/.test(html), 'K7: hybrid dispatch forces the list path');
+assert(/list\.innerHTML\+=activityFormHTML\(sess\)/.test(html), 'K7: freeform card appended below the warm-up cards');
+
 console.log('\n=== All tests passed ===');

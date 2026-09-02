@@ -4100,14 +4100,16 @@ function startDay(i){
   // dayId is the day's immutable identity — dayLabel alone is ambiguous when
   // two days share a label (the deload has two "Swim" days).
   S.activeSession={dayIndex:i,dayId:day.id,blockName:S.program.name,date:todayStr(),dayLabel:day.label,sessionType:st,startTime:Date.now(),exercises:[],notes:'',order:[],gymId:(S.settings&&S.settings.activeGymId)||null};
+  const _hybrid=isActivityType(st)&&(day.exercises||[]).length>0;
   if(isActivityType(st)){
-    // Activity-log session: one form, no exercise cards.
+    // Activity-log session: the form — plus warm-up cards when authored (K7).
     S.activeSession.activity={durationMin:day.dur||0,distance:day.defaultDistance||0,effort:null,notes:''};
     if(st==='kb'){S.activeSession.activity.kbWeights='';S.activeSession.activity.result='';}
     if(st==='conditioning')S.activeSession.activity.modality='';
     if(st==='swim')S.activeSession.activity.continuous=false;
-  } else {
-    // Lifting + calisthenics: exercise cards.
+  }
+  if(!isActivityType(st)||_hybrid){
+    // Lifting + calisthenics (and kb-hybrid warm-ups): exercise cards.
     S.activeSession.exercises=(day.exercises||[]).map(ex=>({
       name:ex.name,cat:ex.cat,cue:ex.cue||null,
       prescribed:{sets:ex.sets,reps:ex.reps,loadKg:ex.loadKg,unit:ex.unit||'kg',setScheme:Array.isArray(ex.setScheme)?JSON.parse(JSON.stringify(ex.setScheme)):null},
@@ -4202,7 +4204,8 @@ function makeActivitySession(sess){
   return {id:'s_'+(sess.startTime||0),date:sess.date,dayLabel:sess.dayLabel,dayId:sess.dayId!=null?sess.dayId:null,blockName:sess.blockName||null,sessionType:sess.sessionType,
     duration:Math.round(+a.durationMin||0),
     activity:{durationMin:+a.durationMin||0,distance:+a.distance||0,effort:a.effort!=null?+a.effort:null,notes:a.notes||'',...(sess.sessionType==='kb'?{kbWeights:a.kbWeights||'',result:a.result||''}:{}),...(sess.sessionType==='conditioning'?{modality:a.modality||''}:{}),...(sess.sessionType==='swim'?{continuous:a.continuous===true}:{})},
-    exercises:[],painEvents:[],status:'complete'};
+    exercises:(sess.exercises||[]).filter(ex=>(ex.performed||[]).some(p2=>p2.logged)).map(ex=>({name:ex.name,cat:ex.cat,section:ex.section||'main',prescribed:ex.prescribed,performed:(ex.performed||[]).filter(p2=>p2.logged),notes:ex.notes||'',progression:ex.progression||null,nextLoad:ex.nextLoad||null,variant:ex.variant||null,painEvent:ex.painEvent||null,tags:ex.tags||[]})),
+    painEvents:[],status:'complete'};
 }
 // B3: a day tagged 'unmeasured' (snorkel week) logs duration only.
 function dayUnmeasured(sess){
@@ -4229,10 +4232,11 @@ function finalizeActivity(){
   veilCross(()=>{goTrain();});
   toast(rec.sessionType.charAt(0).toUpperCase()+rec.sessionType.slice(1)+' logged');
 }
-function renderActivityLog(sess){
+// K7: the activity form is a pure template so kb-hybrid days can append it
+// BELOW their warm-up exercise cards (renderExList) while plain activity
+// days keep rendering it alone (renderActivityLog).
+function activityFormHTML(sess){
   const _dayNote=(sess&&sess.dayIndex>=0&&S.program.days[sess.dayIndex]&&S.program.days[sess.dayIndex].note)||'';
-  // F2: never rebuild the form under the notes caret (effort taps re-render).
-  try{if(document.activeElement&&document.activeElement.id==='actNotes')return;}catch(e){}
   sess.activity=sess.activity||{durationMin:0,distance:0,effort:null,notes:''};
   const a=sess.activity;
   const st=sess.sessionType;
@@ -4242,8 +4246,7 @@ function renderActivityLog(sess){
     ?(b=>b>0?`Best continuous: ${b} m. Beat it.`:ACTIVITY_EMPTY.swim)(swimBest(S.sessions))
     :(ACTIVITY_EMPTY[st]||'Log this session');
   const effChips=[1,2,3,4,5,6,7,8,9,10].map(v=>`<button class="eff-chip${a.effort===v?' sel':''}" onclick="setActivityField('effort',${v});renderEx()" aria-label="effort ${v}">${v}</button>`).join('');
-  const list=document.getElementById('exList');
-  list.innerHTML=`${_dayNote?`<div style="margin:0 0 10px;padding:8px 12px;background:var(--s1);border-left:2px solid var(--brand);border-radius:var(--rs);font:12px var(--sans);color:var(--tx2)">${esc(_dayNote)}</div>`:''}
+  return `${_dayNote?`<div style="margin:0 0 10px;padding:8px 12px;background:var(--s1);border-left:2px solid var(--brand);border-radius:var(--rs);font:12px var(--sans);color:var(--tx2)">${esc(_dayNote)}</div>`:''}
     <div class="act-log">
       <div class="act-empty t-meta">${icon(st,16)} ${empty}</div>
       <div class="act-ring-wrap">
@@ -4260,6 +4263,12 @@ function renderActivityLog(sess){
       <div class="field"><label>${st==='kb'?'What you did':'Notes'}</label><textarea id="actNotes" rows="4" placeholder="${st==='kb'?'e.g. 25 min AMRAP: 10 swings / 8 goblet squats / 40m carry':'How did it feel?'}" oninput="queueNotesSave(this.value,'activity')" aria-label="notes">${esc(a.notes||'')}</textarea></div>
       <button class="btn btn-gold btn-w act-save" onclick="finalizeActivity()">Save ${st==='kb'?'KB':st} session</button>
     </div>`;
+}
+function renderActivityLog(sess){
+  // F2: never rebuild the form under the notes caret (effort taps re-render).
+  try{if(document.activeElement&&document.activeElement.id==='actNotes')return;}catch(e){}
+  const list=document.getElementById('exList');
+  if(list)list.innerHTML=activityFormHTML(sess);
 }
 
 // Big-3 target context on the main-lift card: "today 116 · e1RM 135 · target
@@ -4381,7 +4390,14 @@ function renderEx(){
 
   // Multi-modal dispatch: activity-log types render a single form, not cards.
   const st=sess.sessionType||'lifting';
-  if(isActivityType(st)){renderActivityLog(sess);return;}
+  if(isActivityType(st)){
+    if((sess.exercises||[]).length){
+      // K7 hybrid: warm-up cards + the activity form, list layout only.
+      try{const v=document.getElementById('vSession');if(v&&v.classList)v.classList.remove('focus-on');}catch(e){}
+      renderExList();return;
+    }
+    renderActivityLog(sess);return;
+  }
   // Focus ⇄ List dispatch (S5). List = the untouched v3.5 card path; focus =
   // the full-screen card stack. Same mutation entry point either way.
   const focus=(S.settings.sessionView||'focus')!=='list';
@@ -4393,6 +4409,8 @@ function renderEx(){
 }
 function renderExList(){
   const sess=S.activeSession;if(!sess)return;
+  // K7: the hybrid list hosts #actNotes — same caret guard as the pure form.
+  try{if(document.activeElement&&document.activeElement.id==='actNotes')return;}catch(e){}
   const st=sess.sessionType||'lifting';
 
   // Progress indicator
@@ -4573,7 +4591,12 @@ function renderExList(){
 
   // C8: ONE ghost add-action; the sheet carries suggestions (day bonuses +
   // top-scored extras), the pool picker and the custom flow.
-  list.innerHTML+=`<button class="btn btn-g btn-w" style="margin-top:12px;min-height:48px" onclick="openExtras()">+ Add Exercise</button>`;
+  if(isActivityType(st)){
+    // K7 hybrid: the freeform card closes the session — its gold Save is the CTA.
+    list.innerHTML+=activityFormHTML(sess);
+  } else {
+    list.innerHTML+=`<button class="btn btn-g btn-w" style="margin-top:12px;min-height:48px" onclick="openExtras()">+ Add Exercise</button>`;
+  }
 }
 
 // ===== FOCUS MODE RENDER LAYER (S5) =====
