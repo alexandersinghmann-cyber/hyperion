@@ -3393,4 +3393,15 @@ console.log('\n--- K5: weekly checklist ---');
 })();
 assert(/html\+=weekChecklistHTML\(\);/.test(html), 'K5: checklist mounted on the Train home');
 
+// ===== K6: CONDITIONING SESSION TYPE =====
+console.log('\n--- K6: conditioning ---');
+assert(isActivityType('conditioning')&&MODALITY_TYPES.includes('conditioning')&&!!ICONS.conditioning&&/--m-conditioning:/.test(html)&&/conditioning:'Modality, duration/.test(html), 'K6: conditioning fully registered (type, icon, token, empty copy)');
+(()=>{
+  const rec=makeActivitySession({startTime:9,date:'2026-09-06',dayLabel:'Conditioning',dayId:7,blockName:S.program.name,sessionType:'conditioning',activity:{durationMin:20,modality:'row intervals',effort:7,notes:'',distance:0}});
+  assert(rec.activity.modality==='row intervals'&&rec.duration===20, 'K6: modality round-trips');
+  const rpt=buildCoachReport([rec],S.program,weekDatesFor('2026-09-06'));
+  assert(/\(conditioning\).*20 min.*row intervals.*effort 7/.test(rpt), 'K6: report renders the conditioning line. Got: '+(rpt.split('\n').find(l=>/conditioning/.test(l))||'none'));
+})();
+assert(/'conditioning'/.test((html.match(/\['kb','swim','run','conditioning','pilates','mobility','rest'\]/)||[''])[0]), 'K6: add-session picker offers Conditioning');
+
 console.log('\n=== All tests passed ===');

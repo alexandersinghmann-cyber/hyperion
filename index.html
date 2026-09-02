@@ -46,7 +46,7 @@
   /* modality accents — one muted signature per session type */
   /* per-lift ring hues — NEVER rotate (legibility over palette purity) */
   --lift-sq:#22D3EE;--lift-bp:#818CF8;--lift-dl:#C084FC;
-  --m-lifting:#22D3EE;--m-calisthenics:#C9A96E;--m-swim:#6AA6D8;--m-run:#5E9B7E;--m-pilates:#9D8BD0;--m-mobility:#3FB8AB;--m-rest:#4A5568;--m-kb:#C98A5B;
+  --m-lifting:#22D3EE;--m-calisthenics:#C9A96E;--m-swim:#6AA6D8;--m-run:#5E9B7E;--m-pilates:#9D8BD0;--m-mobility:#3FB8AB;--m-rest:#4A5568;--m-kb:#C98A5B;--m-conditioning:#B08968;
   --on-brand:#0A0B0E; /* ink on any brand/solar/gold surface */
   --amber:#F59E0B;--orange:#F97316;
   /* block-rotating brand accent (JS advances per block adoption; semantic
@@ -1518,6 +1518,7 @@ const ICONS={
   mobility:'<circle cx="12" cy="12" r="3"/><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/>',
   rest:'<path d="M20 14a8 8 0 1 1-9.5-9.5A6 6 0 0 0 20 14z"/>',
   kb:'<path d="M9 8V7a3 3 0 0 1 6 0v1"/><circle cx="12" cy="14" r="5.5"/>',
+  conditioning:'<path d="M4 17l4-7 4 4 4-8 4 6M3 20h18"/>',
   // ===== Imperium set (H4) — original geometric drawings, stroke-consistent,
   // flat colour only (the SVG gradient census is assertion-locked at 3).
   eagle:'<path d="M12 4v10M12 6l-3-2M12 6l3-2M9 4l-1.6 1.6M15 4l1.6 1.6M12 9L4 6.5M12 9l8-2.5M4 6.5L2.8 9M21.2 9L20 6.5M12 12l-6-1.6M12 12l6-1.6M12 14l-3.6 4.4M12 14l3.6 4.4M8.4 18.4h7.2"/>',
@@ -1560,10 +1561,10 @@ function shieldIcon(varA,varB,size){
 }
 // Muted signature colour per session type (CSS var reference). One thread that
 // makes the week + history scannable at a glance.
-const MODALITY_TYPES=['lifting','calisthenics','swim','run','pilates','mobility','kb','rest'];
+const MODALITY_TYPES=['lifting','calisthenics','swim','run','pilates','mobility','kb','conditioning','rest'];
 // G2: the session types that log through the activity form (one card, no set
 // rows). 'kb' is freeform: duration + bells + what-you-did + optional result.
-const ACTIVITY_TYPES=['swim','run','pilates','mobility','kb'];
+const ACTIVITY_TYPES=['swim','run','pilates','mobility','kb','conditioning'];
 function isActivityType(t){return ACTIVITY_TYPES.includes(t);}
 // 'rest' renders in the planner but is never startable.
 function isStartableDay(d){return (d&&(d.sessionType||'lifting'))!=='rest';}
@@ -3411,7 +3412,7 @@ function openAddSession(date){
     .filter((o,ix,a)=>a.findIndex(x=>x.d.label===o.d.label)===ix);
   document.getElementById('sessionSheetBody').innerHTML=
     tpl.map(o=>`<button class="sheet-btn" onclick="addWeekSession('tpl',${o.i})">${esc(o.d.label)} <span class="t-meta">program day</span></button>`).join('')+
-    ['kb','swim','run','pilates','mobility','rest'].map(t=>`<button class="sheet-btn" onclick="addWeekSession('type','${t}')">${t==='kb'?'KB':t.charAt(0).toUpperCase()+t.slice(1)}</button>`).join('');
+    ['kb','swim','run','conditioning','pilates','mobility','rest'].map(t=>`<button class="sheet-btn" onclick="addWeekSession('type','${t}')">${t==='kb'?'KB':t.charAt(0).toUpperCase()+t.slice(1)}</button>`).join('');
   showModal('sessionSheet');
 }
 function addWeekSession(kind,arg){
@@ -3505,7 +3506,7 @@ function doReschedule(when,date){
   toast('Moved to '+fmtDate(date));
 }
 // ===== WEEKLY COMPOSER =====
-const COMPOSER_TYPES=['lifting','calisthenics','swim','run','pilates','mobility','rest'];
+const COMPOSER_TYPES=['lifting','calisthenics','swim','run','conditioning','pilates','mobility','rest'];
 function openComposer(){
   go('Week');
   const cc=document.getElementById('composerCard');if(!cc)return;
@@ -4103,6 +4104,7 @@ function startDay(i){
     // Activity-log session: one form, no exercise cards.
     S.activeSession.activity={durationMin:day.dur||0,distance:day.defaultDistance||0,effort:null,notes:''};
     if(st==='kb'){S.activeSession.activity.kbWeights='';S.activeSession.activity.result='';}
+    if(st==='conditioning')S.activeSession.activity.modality='';
     if(st==='swim')S.activeSession.activity.continuous=false;
   } else {
     // Lifting + calisthenics: exercise cards.
@@ -4188,7 +4190,7 @@ function startAdHocSession(type){
 }
 
 // ===== ACTIVITY LOG (swim / run / pilates / mobility) =====
-const ACTIVITY_EMPTY={swim:'Log your longest continuous freestyle.',run:'Set distance or duration to start',pilates:'Time it and take notes',mobility:'Time it and take notes',kb:'Duration, bells, and what you did.'};
+const ACTIVITY_EMPTY={swim:'Log your longest continuous freestyle.',run:'Set distance or duration to start',pilates:'Time it and take notes',mobility:'Time it and take notes',kb:'Duration, bells, and what you did.',conditioning:'Modality, duration, and effort.'};
 function setActivityField(field,val){
   const s=S.activeSession;if(!s)return;
   s.activity=s.activity||{};
@@ -4199,7 +4201,7 @@ function makeActivitySession(sess){
   const a=sess.activity||{};
   return {id:'s_'+(sess.startTime||0),date:sess.date,dayLabel:sess.dayLabel,dayId:sess.dayId!=null?sess.dayId:null,blockName:sess.blockName||null,sessionType:sess.sessionType,
     duration:Math.round(+a.durationMin||0),
-    activity:{durationMin:+a.durationMin||0,distance:+a.distance||0,effort:a.effort!=null?+a.effort:null,notes:a.notes||'',...(sess.sessionType==='kb'?{kbWeights:a.kbWeights||'',result:a.result||''}:{}),...(sess.sessionType==='swim'?{continuous:a.continuous===true}:{})},
+    activity:{durationMin:+a.durationMin||0,distance:+a.distance||0,effort:a.effort!=null?+a.effort:null,notes:a.notes||'',...(sess.sessionType==='kb'?{kbWeights:a.kbWeights||'',result:a.result||''}:{}),...(sess.sessionType==='conditioning'?{modality:a.modality||''}:{}),...(sess.sessionType==='swim'?{continuous:a.continuous===true}:{})},
     exercises:[],painEvents:[],status:'complete'};
 }
 // B3: a day tagged 'unmeasured' (snorkel week) logs duration only.
@@ -4249,6 +4251,7 @@ function renderActivityLog(sess){
         <div class="t-meta">minutes</div>
         <input type="range" min="0" max="120" step="1" value="${Math.round(a.durationMin||0)}" oninput="setActivityField('durationMin',+this.value);document.getElementById('actDur').textContent=this.value" aria-label="duration minutes" style="width:100%;margin-top:10px">
       </div>
+      ${st==='conditioning'?`<div class="field"><label>Modality</label><input type="text" value="${esc(a.modality||'')}" placeholder="e.g. row intervals / incline walk" onchange="setActivityField('modality',this.value)" aria-label="modality"></div>`:''}
       ${st==='kb'?`<div class="field"><label>KB weight(s)</label><input type="text" value="${esc(a.kbWeights||'')}" placeholder="e.g. 16 / 24 kg" onchange="setActivityField('kbWeights',this.value)" aria-label="kb weights"></div>`:''}
       ${st==='swim'?`<div class="field"><label>Continuous?</label><button class="eff-chip${a.continuous?' sel':''}" style="width:auto;padding:0 14px" onclick="setActivityField('continuous',${a.continuous?'false':'true'});renderEx()" aria-pressed="${a.continuous?'true':'false'}" aria-label="continuous swim">${a.continuous?'\u2713 One unbroken effort':'Mark as one unbroken effort'}</button></div>`:''}
       ${showDist?`<div class="field"><label>Distance (${st==='swim'?'m':'km'})${distReq?' — required':(st==='swim'?' — optional (snorkel)':'')}</label><input type="number" step="${st==='swim'?'25':'0.1'}" value="${a.distance||''}" placeholder="${st==='swim'?'e.g. 500':'e.g. 5'}" oninput="setActivityField('distance',+this.value||0)" aria-label="distance"></div>`:''}
@@ -7229,7 +7232,7 @@ function buildCoachReport(sessions,program,weekDates){
   blockSessions.forEach(s=>{
     if(s.activity||isActivityType(s.sessionType)){
       const a=s.activity||{};
-      const bits=[(a.durationMin?a.durationMin+' min':null),(a.kbWeights?'bells '+a.kbWeights:null),(a.result?'result: '+a.result:null),(a.distance?a.distance+(s.sessionType==='swim'?' m':' km'):null),(a.effort?'effort '+a.effort:null),(a.notes||null)].filter(Boolean).join(' · ');
+      const bits=[(a.durationMin?a.durationMin+' min':null),(a.modality||null),(a.kbWeights?'bells '+a.kbWeights:null),(a.result?'result: '+a.result:null),(a.distance?a.distance+(s.sessionType==='swim'?' m':' km'):null),(a.effort?'effort '+a.effort:null),(a.notes||null)].filter(Boolean).join(' · ');
       r+=`### ${s.dayLabel||s.sessionType} (${s.sessionType}) — ${fmtDate(s.date)}${s.ticked?' — (ticked)':''}${bits?' — '+bits:''}\n\n`;
       return;
     }
