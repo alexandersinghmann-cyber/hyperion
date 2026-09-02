@@ -1596,9 +1596,10 @@ assert(dayEffectiveDate(swimTueD,'2026-08-17')==='2026-08-18'&&dayEffectiveDate(
 assert(dayEffectiveDate(restD,'2026-08-17')==='2026-08-21'&&dayEffectiveDate(deadD,'2026-08-17')==='2026-08-22'&&dayEffectiveDate(pressD,'2026-08-17')==='2026-08-23', 'Anchor: Fri-Sun chain (rest Friday places like any day)');
 // Up-next badge logic: stable week-rank (rankMap), dedup of the start session
 assert(/const numGlyph=done\?'✓':skipped\?'⊘':\(rankMap\[i\]\|\|''\)/.test(html), 'Up-next badges: use stable week-rank (rankMap), not display index');
-// Up-next lists ALL remaining sessions (incl. the soonest) — the whole week is
-// always visible; the soonest is also the gold Start button.
-assert(/else upcoming\.push\(\{idx:i,sort:dayEffectiveDate\(day\),card\}\)/.test(html), 'Up-next: every not-done session is listed (no dedup hiding the Monday session)');
+// Up-next lists THIS calendar week's remaining post-start sessions (incl. the
+// soonest, which is also the gold Start button). Next week's rolled-over
+// occurrences and pre-block days stay off the home list (K16).
+assert(/if\(!dayPreBlock\(day,_calWk\)&&_calWk\.includes\(_ed\)\)upcoming\.push\(\{idx:i,sort:_ed,card\}\)/.test(html), 'Up-next: calendar-week scoped, pre-block days excluded');
 S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.skips=[];
 
 // W3 regression: the legacy "Region (Main lift)" relabel migration is GONE —
@@ -3628,7 +3629,15 @@ console.log('[K13 W3Days]');
 
 // ---- K15: Sep 2 phone-report fix pack ----
 console.log('[K15 FixPack]');
-assert(/\.imperium #greeting\{[^}]*text-wrap:balance\}/.test(html), 'K15: wrapped litany lines are balanced (no one-word widow)');
+// K16: the real fix — the greeting was trapped in a ~197px flex column beside
+// the header buttons. It now sits BELOW the header row at full width (balance
+// retired; natural wrap fills the line).
+assert(!/text-wrap:balance/.test(html), 'K16: balance retired — full-width container wraps naturally');
+(function(){
+  const hdr=html.match(/<div id="trainHdr"[\s\S]*?<div id="greeting"/);
+  assert(hdr&&/id="trainHdr" style="margin-bottom:20px">/.test(hdr[0]), 'K16: trainHdr is a block wrapper, not the constraining flex row');
+  assert(hdr[0].indexOf('SET</span>')>=0, 'K16: greeting comes AFTER the buttons row (full header width)');
+})();
 assert(!/_ch\.motto/.test(html.replace(/\{name:'[^']+',motto:'[^']*'[^}]*\}/g,'')), 'K15: vigil card no longer renders the motto (ONE quote per Train screen)');
 assert(/keeps vigil in honour of the <span class="ch-name">/.test(html), 'K15: commemoration line itself survives');
 assert(/id="blockDateRange"/.test(html)&&/letter-spacing:\.5px;white-space:nowrap" id="blockDateRange"/.test(html), 'K15: header date range never wraps mid-date');
@@ -3643,9 +3652,11 @@ assert(/\.imperium #vSession\.on \.act-save\{background:var\(--bg-mech\)\}/.test
 assert(STRINGS.plain['preview.start']==='Start Session', 'K15: preview CTA label routed through STRINGS (plain)');
 assert(STRINGS.gothic['preview.start']==='Commence the Rite'&&STRINGS.gothic['preview.redo']==='Repeat the Rite', 'K15: gothic preview labels');
 assert(/input\[type=range\]\{accent-color:var\(--brand\)\}/.test(html), 'K15: duration sliders take the brand accent (no default blue)');
-// missed state: date-robust — real today decides which branch we can assert
+// missed state: date-robust — startDate nulled so pure missed logic is on
+// trial (pre-block days are a different, exempt state — tested in K16)
 (function(){
   S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.skips=[];S.settings.weekRemovals={};
+  S.program.startDate=null;
   const wd=weekDatesFor(todayStr());
   const chk=weekChecklistHTML();
   if(todayStr()>wd[0]){
@@ -3656,5 +3667,41 @@ assert(/input\[type=range\]\{accent-color:var\(--brand\)\}/.test(html), 'K15: du
   }
   assert(!/is-missed[\s\S]{0,200}\u25cb/.test(chk.split('is-missed')[1]||''), 'K15: missed rows use the dash marker, not the pending circle');
 })();
+
+// ---- K16: mid-week block start (startDate) ----
+console.log('[K16 StartDate]');
+assert(DEF_PROGRAM.startDate==='2026-09-02', 'K16: W3 carries its start date (every future block must)');
+(function(){
+  S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.skips=[];S.settings.weekRemovals={};
+  // transition week: the week containing the start date
+  const wd=weekDatesFor('2026-09-02'); // Aug 31 – Sep 6
+  const monKb=S.program.days.find(d=>d.id===1),tueSwim=S.program.days.find(d=>d.id===2),wedSquat=S.program.days.find(d=>d.id===3);
+  assert(dayPreBlock(monKb,wd)===true&&dayPreBlock(tueSwim,wd)===true&&dayPreBlock(wedSquat,wd)===false, 'K16: Mon/Tue pre-block, Wed onward in-block');
+  assert(dayWeekStatus(monKb,wd)==='preblock'&&dayWeekStatus(wedSquat,wd)==='pending', 'K16: status distinguishes preblock from pending');
+  // future + historical weeks: no exemption
+  const wdNext=weekDatesFor('2026-09-07'),wdPast=weekDatesFor('2026-08-17');
+  assert(dayPreBlock(monKb,wdNext)===false&&dayPreBlock(monKb,wdPast)===false, 'K16: exemption applies ONLY to the transition week');
+  // buildWeek drops pre-block days from the transition week
+  const rows=buildWeek(wd,'2026-09-02');
+  assert(rows[0].sessions.length===0&&rows[1].sessions.length===0&&rows[2].sessions.some(s=>s.label==='Squat'), 'K16: grid/composer/report see an empty Mon/Tue, Squat on Wed');
+  const sched=weeklyScheduled(wd,'2026-09-02');
+  assert(sched.prog===5, 'K16: transition week schedules 5, not 7. Got: '+sched.prog);
+  // isWeekComplete: only Wed–Sun owed
+  const lift=(date,label,dayId)=>({date,dayLabel:label,dayId,blockName:S.program.name,duration:60,rpe:7,status:'complete',exercises:[],painEvents:[]});
+  S.sessions=[lift('2026-09-02','Squat',3),lift('2026-09-03','Swim',4),lift('2026-09-04','KB + Mobility',5),lift('2026-09-05','Deadlift + Pull',6),lift('2026-09-06','Conditioning',7)];
+  assert(isWeekComplete(wd)===true, 'K16: Wed–Sun logged → transition week complete (Mon/Tue never owed)');
+  S.sessions=[];
+  // checklist renders 5 rows, no missed labels for pre-block days
+  if(weekDatesFor(todayStr())[0]===wd[0]){ // only assertable while it IS the transition week
+    const chk=weekChecklistHTML();
+    assert((chk.match(/wkc-row/g)||[]).length===5, 'K16: checklist shows 5 rows this week. Got: '+(chk.match(/wkc-row/g)||[]).length);
+    assert(/0 \/ 5/.test(chk.replace(/<[^>]*>/g,' ').replace(/\s+/g,' '))||/>0 \/ 5</.test(chk), 'K16: denominator is 5');
+    assert(!/missed/.test(chk), 'K16: nothing reads as missed — Mon/Tue were never owed');
+  }
+})();
+assert(blockDisplayName('Sep 2 Block 6 W3')==='Block 6 \u00b7 Week 3', 'K16: block header humanized. Got: '+blockDisplayName('Sep 2 Block 6 W3'));
+assert(blockDisplayName('Custom Block Name')==='Custom Block Name', 'K16: unparseable names pass through');
+assert(/if\(S\.program&&S\.program\.version===11&&!S\.program\.startDate\)S\.program\.startDate=DEF_PROGRAM\.startDate;/.test(html), 'K16: already-adopted v11 installs pick up the start date');
+assert(/const from=\(sd&&sd>dates\[0\]&&sd<=dates\[6\]\)\?sd:dates\[0\];/.test(html), 'K16: header range clamps to the block start in the transition week');
 
 console.log('\n=== All tests passed ===');

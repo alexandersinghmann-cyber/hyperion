@@ -713,7 +713,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 /* Litanies get room to breathe — two calm lines instead of a hard ellipsis. */
 .imperium #rankLine{flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;letter-spacing:.08em}
 .imperium #wmSubtitle{flex:none}
-.imperium #greeting{white-space:normal !important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.45;text-wrap:balance}
+.imperium #greeting{white-space:normal !important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.45}
 .imperium .commem-card .ch-name{font-family:var(--serif);font-variant-caps:small-caps;color:var(--gold);letter-spacing:.04em}
 .imperium .btn-d{background:color-mix(in srgb,var(--crimson) 26%,var(--s1));border-color:color-mix(in srgb,var(--crimson) 55%,transparent)}
 /* MECHANICUS register — the active session only (list AND focus). */
@@ -812,16 +812,16 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   <!-- REST TIMER -->
   <!-- ===== TRAIN VIEW ===== -->
   <div class="view on pad" id="vTrain">
-    <div id="trainHdr" style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
-      <!-- min-width:0 lets the nowrap quote truncate; without it this flex
-           child sizes to the quote and shoves the buttons off-screen. -->
+    <div id="trainHdr" style="margin-bottom:20px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <!-- min-width:0 lets the wordmark row shrink; the greeting lives OUTSIDE
+           this column so the quote spans the full header width. -->
       <div style="flex:1 1 auto;min-width:0">
         <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px">
           <svg id="wordmark" width="104" height="14" viewBox="0 0 104 14" aria-label="HYPERION" role="img"><defs><linearGradient id="wmSun" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--brand)"/><stop offset="1" style="stop-color:var(--brand2)"/></linearGradient><clipPath id="wmHz"><rect x="0" y="0" width="14" height="9.5"/></clipPath></defs><circle cx="7" cy="7.5" r="5" fill="url(#wmSun)" clip-path="url(#wmHz)"/><rect x="1.5" y="10.5" width="11" height="1.2" rx=".6" fill="var(--tx)"/><text x="20" y="11" style="font:500 10.5px var(--display);letter-spacing:3.5px" fill="var(--tx)">HYPERION</text></svg>
           <span style="font:500 10px var(--mono);color:var(--tx3);letter-spacing:.5px;white-space:nowrap" id="blockDateRange"></span>
           <span class="imp-only" id="wmAquila" aria-hidden="true"></span>
         </div>
-        <div id="greeting" style="margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span class="q-mark" aria-hidden="true">&ldquo;</span><span style="font-style:italic;font:400 var(--t-meta) var(--sans);color:var(--tx2)" id="quoteText"></span><span style="font:500 10px var(--sans);color:var(--tx3);margin-left:6px;font-style:normal" id="quoteAuthor"></span></div>
       </div>
       <div style="display:flex;gap:6px;align-items:center;flex:none">
         <div class="ex-more-wrap" style="position:relative">
@@ -836,6 +836,9 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
           <span style="font-family:var(--mono);font-size:10px;letter-spacing:1px">SET</span>
         </button>
+      </div>
+      </div>
+      <div id="greeting" style="margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span class="q-mark" aria-hidden="true">&ldquo;</span><span style="font-style:italic;font:400 var(--t-meta) var(--sans);color:var(--tx2)" id="quoteText"></span><span style="font:500 10px var(--sans);color:var(--tx3);margin-left:6px;font-style:normal" id="quoteAuthor"></span>
       </div>
     </div>
 
@@ -2048,7 +2051,7 @@ function recommendSupersets(exList){
 // F1: version is the block's ORDER. The banner offers a sync only when the
 // shipped version is NEWER than the installed one — a stale cached HTML can
 // never re-offer an old block ("Jul 27 W2" over "Aug 3 W3").
-const DEF_PROGRAM={name:"Sep 2 Block 6 W3",version:11,active:true,days:[
+const DEF_PROGRAM={name:"Sep 2 Block 6 W3",version:11,active:true,startDate:"2026-09-02",days:[
 {id:1,label:"KB + Mobility",defaultDay:"Monday",dayOfWeek:"Monday",sessionType:"kb",dur:45,exercises:[
   {id:"w3d1e1",name:"Cat-Camel",cat:"rehab",section:"warmup",sets:1,reps:"8",loadKg:0,unit:"bw",rest:20,tags:[],angle:null,grip:null,equipmentClass:"bw"},
   {id:"w3d1e2",name:"Wall Slide",cat:"rehab",section:"warmup",sets:1,reps:"10",loadKg:0,unit:"bw",rest:20,tags:[],angle:null,grip:null,equipmentClass:"bw"},
@@ -2751,6 +2754,7 @@ function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse
   // stale (the 24-exercise W2 "Mobility" day) — remove it once, sweep its
   // skips. User-authored permanent days with other labels are untouched.
   try{
+    if(S.program&&S.program.version===11&&!S.program.startDate)S.program.startDate=DEF_PROGRAM.startDate;
     if(!S.settings._staleMobilityRemovedB6&&DEF_PROGRAM.version>=10){
       S.settings._staleMobilityRemovedB6=true;
       const stale=(S.program.days||[]).filter(d=>d.permanent===true&&!d.userAuthored&&!DEF_PROGRAM.days.some(nd=>nd.label===d.label));
@@ -3382,6 +3386,7 @@ function buildWeek(weekDates,todayDate){
     // rolling anchor — on Sundays those differ and days would vanish from
     // the calendar-week report counts.
     const ed=dayEffectiveDate(d,weekDates[0]);
+    if(dayPreBlock(d,weekDates))return; // block started mid-week
     const row=byDate[ed];if(!row)return; // genuinely not this week
     const dow=d.defaultDay||d.dayOfWeek;
     const movedFrom=(!d.oneOff&&dow&&dowOf(ed)!==dow)?dow:null;
@@ -3617,11 +3622,18 @@ function unskipDay(dayIdx){
 
 // Span the full Mon–Sun of the PLANNING week (rolls to next week on Sunday),
 // regardless of which days carry sessions.
+function blockDisplayName(name){
+  const m=/\bBlock\s+(\d+)\s+W(\d+)\s*$/i.exec(name||'');
+  return m?('Block '+m[1]+' \u00b7 Week '+m[2]):(name||'Training Block');
+}
 function blockDateRange(){
   const dates=weekDatesFor(weekAnchor());
   const fmt=(ds)=>{const d=new Date(ds+'T12:00:00');return {m:d.getMonth(),day:d.getDate()};};
   const mn=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const a=fmt(dates[0]),b=fmt(dates[6]);
+  // Mid-week block start: show the span the block actually covers this week.
+  const sd=S.program&&S.program.startDate;
+  const from=(sd&&sd>dates[0]&&sd<=dates[6])?sd:dates[0];
+  const a=fmt(from),b=fmt(dates[6]);
   if(a.m===b.m)return mn[a.m]+' '+a.day+'–'+b.day;
   return mn[a.m]+' '+a.day+' – '+mn[b.m]+' '+b.day;
 }
@@ -3639,7 +3651,7 @@ function renderTrain(){
   }
   document.getElementById('unitBtn').textContent=S.settings.unit.toUpperCase();
   document.getElementById('blockDateRange').textContent=blockDateRange();
-  document.getElementById('blockHdr').textContent=S.program.name||'Training Block';
+  document.getElementById('blockHdr').textContent=blockDisplayName(S.program.name);
   // H5: the Ascension Path line (theme only; plain mode leaves it empty).
   try{
     const rl=document.getElementById('rankLine');
@@ -3660,8 +3672,9 @@ function renderTrain(){
   // E5: number ONLY the surviving queue — filter done/skipped/rest/removed
   // FIRST, then rank by effective date, so Up next always reads 1..n.
   const rankMap={};
-  S.program.days.map((d,i)=>({i,d,ed:dayEffectiveDate(d)}))
-    .filter(o=>!isDayDone(o.i)&&!isDaySkipped(o.i)&&isStartableDay(o.d)&&!dayRemovedForWeek(o.d,weekOfDate(o.ed)))
+  const _calWk=weekDatesFor(todayStr());
+  S.program.days.map((d,i)=>({i,d,ed:dayEffectiveDate(d,_calWk[0])}))
+    .filter(o=>!isDayDone(o.i)&&!isDaySkipped(o.i)&&isStartableDay(o.d)&&!dayRemovedForWeek(o.d,_calWk[0])&&!dayPreBlock(o.d,_calWk)&&_calWk.includes(o.ed))
     .sort((a,b)=>a.ed<b.ed?-1:a.ed>b.ed?1:a.i-b.i).forEach((o,n)=>{rankMap[o.i]=n+1;});
 
   S.program.days.forEach((day,i)=>{
@@ -3721,7 +3734,12 @@ function renderTrain(){
       ${subtitle?`<div style="margin-top:4px;margin-left:42px;font:11px var(--mono);color:var(--tx3);letter-spacing:.2px">${subtitle}</div>`:''}
     </div>`;
     if(done||skipped)completed.push(card);
-    else upcoming.push({idx:i,sort:dayEffectiveDate(day),card});
+    else {
+      // Up-next lists THIS calendar week's remaining, post-start sessions;
+      // next week's rolled-over occurrences live in the Week tab.
+      const _ed=dayEffectiveDate(day,_calWk[0]);
+      if(!dayPreBlock(day,_calWk)&&_calWk.includes(_ed))upcoming.push({idx:i,sort:_ed,card});
+    }
   });
 
   // "Up next" lists ALL remaining sessions (1..N by stable week-rank), date-sorted.
@@ -7293,6 +7311,10 @@ function weeklyScheduled(weekDates,today){
 // A2: ONE per-day predicate feeds the checklist card AND week completeness —
 // week-scoped by construction (a record from last week never ticks this one;
 // recMatchesDay keeps two same-labeled days separate).
+function dayPreBlock(d,wd){
+  const sd=S.program&&S.program.startDate;
+  return !!(sd&&wd[0]<sd&&sd<=wd[6]&&dayEffectiveDate(d,wd[0])<sd);
+}
 function dayWeekStatus(d,wd){
   const bn=S.program.name;
   if(dayRemovedForWeek(d,wd[0]))return 'removed';
@@ -7300,6 +7322,7 @@ function dayWeekStatus(d,wd){
   if((S.skips||[]).some(sk=>recMatchesDay(sk,d)&&sk.blockName===bn))return 'skipped';
   const rec=(S.sessions||[]).find(s=>recMatchesDay(s,d)&&wd.includes(s.date));
   if(rec)return rec.ticked?'ticked':'done';
+  if(dayPreBlock(d,wd))return 'preblock'; // block started mid-week — not owed
   return 'pending';
 }
 function isWeekComplete(weekDates){
@@ -7310,7 +7333,7 @@ function isWeekComplete(weekDates){
 // That is the whole card.
 function weekChecklistHTML(){
   const wd=weekDatesFor(todayStr());
-  const rows=(S.program.days||[]).map(d=>({d,st:dayWeekStatus(d,wd)})).filter(o=>o.st!=='removed'&&o.st!=='rest');
+  const rows=(S.program.days||[]).map(d=>({d,st:dayWeekStatus(d,wd)})).filter(o=>o.st!=='removed'&&o.st!=='rest'&&o.st!=='preblock');
   if(!rows.length)return '';
   const doneN=rows.filter(o=>o.st==='done'||o.st==='ticked'||o.st==='skipped').length;
   return `<div class="goal-card wk-check"><div class="goal-head"><span class="t-h2">${t('check.title')}</span><span class="t-meta tnum">${doneN} / ${rows.length}</span></div>
