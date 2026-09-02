@@ -88,7 +88,7 @@ const seedSquat = e1rm(100,5);
 assert(Math.abs(b3.squat - seedSquat) < 0.1, 'Squat e1RM from seed session: got ' + b3.squat + ' expected ' + seedSquat);
 assert(b3.bench === 95, 'Bench still baseline (seed has no flat bench)');
 // Block 6 W1: Deadlift setScheme top 1x5 @ 126.
-const expDead = e1rm(126, 5); // B6 W1 deadlift top
+const expDead = e1rm(128.5, 5); // B6 W3 deadlift top
 assert(Math.abs(b3.dead - expDead) < 0.1, 'Dead from program fallback: got ' + b3.dead + ' expected ' + expDead);
 
 S.sessions.push({
@@ -272,9 +272,9 @@ assert(canonName('Seated Row') === 'Cable Low Row', 'canonName: Seated Row → C
 assert(canonName('Low Row') === 'Cable Low Row', 'canonName: Low Row → Cable Low Row');
 assert(canonName('Bench Press') === 'Bench Press', 'canonName: pass-through unknowns');
 
-// ===== PROGRAM: Aug 17 Block 6 W1 structure (7 days Mon-Sun) =====
-assert(DEF_PROGRAM.name === 'Aug 17 Block 6 W1', 'Program name is Aug 17 Block 6 W1: got ' + DEF_PROGRAM.name);
-assert(DEF_PROGRAM.version === 10, 'B6: program version 10. Got ' + DEF_PROGRAM.version);
+// ===== PROGRAM: Sep 2 Block 6 W3 structure (7 days Mon-Sun, recomp) =====
+assert(DEF_PROGRAM.name === 'Sep 2 Block 6 W3', 'Program name is Sep 2 Block 6 W3: got ' + DEF_PROGRAM.name);
+assert(DEF_PROGRAM.version === 11, 'W3: program version 11. Got ' + DEF_PROGRAM.version);
 assert(DEF_PROGRAM.days.length === 7, 'Program has 7 days: got ' + DEF_PROGRAM.days.length);
 const d1 = DEF_PROGRAM.days.find(d => d.id === 1);
 const d2 = DEF_PROGRAM.days.find(d => d.id === 2);
@@ -283,76 +283,87 @@ const d4 = DEF_PROGRAM.days.find(d => d.id === 4);
 const d5 = DEF_PROGRAM.days.find(d => d.id === 5);
 const d6 = DEF_PROGRAM.days.find(d => d.id === 6);
 const d7 = DEF_PROGRAM.days.find(d => d.id === 7);
-assert(d1.label==='KB'&&d2.label==='Swim'&&d3.label==='Squat'&&d4.label==='Swim'&&d5.label==='Rest'&&d6.label==='Deadlift + Pull'&&d7.label==='Press + Pull', 'B6: labels pinned. Got: '+DEF_PROGRAM.days.map(d=>d.label).join('|'));
-assert(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].every((dw,i)=>DEF_PROGRAM.days[i].defaultDay===dw), 'B6: Mon-Sun defaultDays');
-// day shapes
-assert(d1.sessionType==='kb'&&d1.exercises.length===0, 'B6: Monday is a freeform KB day');
-assert(d2.sessionType==='swim'&&!(d2.tags||[]).includes('unmeasured')&&/CONTINUOUS freestyle test/.test(d2.note||''), 'B6: Tuesday continuous-test swim, distance required');
-assert(d4.sessionType==='swim'&&/Technique \+ volume/.test(d4.note||''), 'B6: Thursday technique swim');
-assert(d5.sessionType==='rest'&&d5.exercises.length===0&&isStartableDay(d5)===false, 'B6: Friday is a first-class rest day');
+assert(d1.label==='KB + Mobility'&&d2.label==='Swim'&&d3.label==='Squat'&&d4.label==='Swim'&&d5.label==='KB + Mobility'&&d6.label==='Deadlift + Pull'&&d7.label==='Conditioning', 'W3: labels pinned. Got: '+DEF_PROGRAM.days.map(d=>d.label).join('|'));
+assert(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].every((dw,i)=>DEF_PROGRAM.days[i].defaultDay===dw), 'W3: Mon-Sun defaultDays');
+// day shapes — NO press day, NO rest day; every day is startable
+assert(!DEF_PROGRAM.days.some(d=>d.sessionType==='rest'), 'W3: no scheduled rest day (7 training days)');
+assert(!DEF_PROGRAM.days.some(d=>/press/i.test(d.label)), 'W3: Press day removed (shoulder recovery)');
+assert(DEF_PROGRAM.days.every(d=>isStartableDay(d)), 'W3: all 7 days startable');
+// kb-hybrid days: freeform KB card PLUS an authored warm-up section
+assert(d1.sessionType==='kb'&&d1.exercises.length===5&&d1.exercises.every(e=>e.section==='warmup'), 'W3: Monday KB carries the 5-part shoulder opener');
+assert(['Cat-Camel','Wall Slide','Scap Push-Up','Band External Rotation','Pec Doorway Stretch'].every(n=>d1.exercises.some(e=>e.name===n)), 'W3: Monday opener contents');
+assert(d5.sessionType==='kb'&&d5.exercises.length===4&&d5.exercises.every(e=>e.section==='warmup'), 'W3: Friday KB carries the 4-part hip opener');
+assert(['90/90','Frog Pose','Wall Slide','Band External Rotation'].every(n=>d5.exercises.some(e=>e.name===n)), 'W3: Friday opener contents');
+assert(/36-min EMOM/.test(d1.note||'')&&/36-min EMOM/.test(d5.note||''), 'W3: KB notes carry the EMOM prescription');
+assert(d2.sessionType==='swim'&&/CONTINUOUS freestyle/.test(d2.note||'')&&/tick off/.test(d2.note||''), 'W3: Tuesday continuous swim, tick-off friendly');
+assert(d4.sessionType==='swim'&&/Technique \+ volume/.test(d4.note||''), 'W3: Thursday technique swim');
+assert(d7.sessionType==='conditioning'&&d7.exercises.length===0&&/row intervals or incline walk/.test(d7.note||''), 'W3: Sunday conditioning day with the 20-min prescription');
+assert(d7.dur===20, 'W3: conditioning day is 20 min');
 // sections
-assert(d3.exercises.filter(e=>e.section==='warmup').length===2, 'B6: squat day 2-part warmup');
-assert(d6.exercises.filter(e=>e.section==='warmup').length===2, 'B6: DL day 2-part warmup');
-assert(d7.exercises.filter(e=>e.section==='warmup').length===5, 'B6: press day 5-part warmup');
-// Squat Wednesday
+assert(d3.exercises.filter(e=>e.section==='warmup').length===2, 'W3: squat day 2-part warmup');
+assert(d6.exercises.filter(e=>e.section==='warmup').length===2, 'W3: DL day 2-part warmup');
+// finisher circuits: exactly two, one per lifting day, both section:finisher
+const _circs=[];DEF_PROGRAM.days.forEach(d=>(d.exercises||[]).forEach(e=>{if(e.entryType==='circuit')_circs.push(e);}));
+assert(_circs.length===2&&_circs.every(c=>c.section==='finisher'), 'W3: exactly 2 circuit finishers. Got: '+_circs.map(c=>c.name).join('|'));
+const _swingFin=d3.exercises[d3.exercises.length-1];
+assert(_swingFin.name==='100 KB Swings'&&_swingFin.entryType==='circuit'&&_swingFin.format==='AMRAP'&&_swingFin.minutes===10&&_swingFin.loadKg===24&&/sets as needed/.test(_swingFin.movements), 'W3: squat-day swing finisher (AMRAP 10, 24 kg)');
+const _sprintFin=d6.exercises[d6.exercises.length-1];
+assert(_sprintFin.name==='Sprints'&&_sprintFin.entryType==='circuit'&&_sprintFin.format==='Intervals'&&_sprintFin.minutes===8&&/5\u00d730s hard \/ 90s easy/.test(_sprintFin.movements), 'W3: DL-day sprint finisher (Intervals 8)');
+// Squat Wednesday — HOLD pending depth verification (frozen)
 const b6sq=d3.exercises.find(e=>e.name==='Back Squat');
-assert(b6sq.setScheme[0].loadKg===115&&b6sq.setScheme[0].tag==='top'&&b6sq.setScheme[1].loadKg===97.5&&b6sq.setScheme.length===4, 'B6: squat 1x5@115 + 3x5@97.5');
-assert(['RPE-8-cap','full-depth-standard','paused-2sec-backoffs','drop-to-110-if-depth-fails'].every(t=>b6sq.tags.includes(t)), 'B6: squat tags incl. paused backoffs + depth bail');
-assert(/drop to 110/.test(b6sq.cue||''), 'B6: depth-bail cue renders on the card');
-assert(JSON.stringify(b6sq.warmup)===JSON.stringify([{w:60,reps:5},{w:85,reps:3},{w:100,reps:1}]), 'B6: squat w/u 60x5/85x3/100x1');
-assert(b6sq.role==='strength-driver'&&b6sq.target.unit==='e1rm'&&b6sq.target.value===166, 'B6: squat strength-driver, e1RM 166 target');
-// DELIBERATE rep-range shifts (coach data — never "correct")
+assert(b6sq.setScheme[0].loadKg===115&&b6sq.setScheme[0].tag==='top'&&b6sq.setScheme[1].loadKg===97.5&&b6sq.setScheme.length===4, 'W3: squat 1x5@115 + 3x5@97.5 (held)');
+assert(b6sq.frozen===true&&/Hold \u2014 pending depth verification/.test(b6sq.cue||''), 'W3: squat FROZEN with the pending-depth cue');
+assert(['RPE-8-cap','full-depth-standard','paused-2sec-backoffs'].every(tg=>b6sq.tags.includes(tg))&&!b6sq.tags.includes('drop-to-110-if-depth-fails'), 'W3: squat tags (depth-bail tag retired with the hold)');
+assert(JSON.stringify(b6sq.warmup)===JSON.stringify([{w:60,reps:5},{w:85,reps:3},{w:100,reps:1}]), 'W3: squat w/u 60x5/85x3/100x1');
+assert(b6sq.role==='strength-driver'&&b6sq.target.unit==='e1rm'&&b6sq.target.value===166, 'W3: squat strength-driver, e1RM 166 target');
+assert(b6sq.incrementKg===2.5, 'W3: squat increment dropped to 2.5 (recomp)');
+// recomp accessory loads (coach data — never "correct")
 const b6bss=d3.exercises.find(e=>e.name==='Bulgarian Split Squat');
-assert(b6bss.loadKg===17.5&&b6bss.reps==='10'&&b6bss.role==='hypertrophy'&&b6bss.target.value===25, 'B6: BSS 3x10@17.5 (deliberate shift), target 25');
+assert(b6bss.loadKg===15&&b6bss.reps==='10'&&b6bss.role==='hypertrophy'&&b6bss.target.value===25, 'W3: BSS 3x10@15 (recomp), standing target 25');
 const b6rdl=d3.exercises.find(e=>e.name==='DB RDL');
-assert(b6rdl.loadKg===30&&b6rdl.reps==='10'&&b6rdl.target.value===35, 'B6: DB RDL 3x10@30 (deliberate shift), target 35');
-const b6sled=d3.exercises.find(e=>e.name==='Sled Push');
-assert(b6sled.loadKg===170&&b6sled.rest===60&&b6sled.role==='conditioning'&&b6sled.target.value===170&&/vary speed\/distance/.test(b6sled.target.note), 'B6: sled AT TARGET — maintain 170, note on card');
-assert(d3.exercises.find(e=>e.name==='Suitcase Carry').tags.includes('one hand'), 'B6: suitcase carry one-handed');
+assert(b6rdl.loadKg===32.5&&b6rdl.reps==='10'&&b6rdl.target.value===35, 'W3: DB RDL 3x10@32.5, target 35');
+assert(!d3.exercises.some(e=>e.name==='Sled Push'), 'W3: Sled Push off the squat day (swing finisher instead)');
+assert(d3.exercises.find(e=>e.name==='Cable Crunch').loadKg===36, 'W3: cable crunch 36');
+assert(d3.exercises.find(e=>e.name==='Suitcase Carry').tags.includes('one hand'), 'W3: suitcase carry one-handed');
 // Deadlift Saturday
 const b6dl=d6.exercises.find(e=>e.name==='Deadlift');
-assert(b6dl.setScheme[0].loadKg===126&&b6dl.setScheme[1].loadKg===116&&b6dl.setScheme.length===4&&b6dl.barKg===36, 'B6: DL 1x5@126 + 3x5@116 on the 36 bar');
-assert(['RPE-8-hard-cap','reset-every-rep','NO-AMRAP'].every(t=>b6dl.tags.includes(t)), 'B6: DL tags');
-assert(!b6dl.warmup, 'B6: DL warm-ups come from the bar-aware generator this block (no authored array)');
-assert(b6dl.role==='strength-driver'&&b6dl.target.value===186, 'B6: DL strength-driver e1RM 186');
-assert(d6.exercises.find(e=>e.name==='Leg Press').loadKg===167.5&&d6.exercises.find(e=>e.name==='Leg Press').target.value===180, 'B6: leg press 167.5, cap-180 target');
-assert(d6.exercises.find(e=>e.name==='Hip Adduction Machine').loadKg===36&&d6.exercises.find(e=>e.name==='Hip Abduction Machine').loadKg===30, 'B6: hips 36 / 30');
+assert(b6dl.setScheme[0].loadKg===128.5&&b6dl.setScheme[1].loadKg===118.5&&b6dl.setScheme.length===4&&b6dl.barKg===36, 'W3: DL 1x5@128.5 + 3x5@118.5 on the 36 bar');
+assert(['RPE-8-hard-cap','reset-every-rep','NO-AMRAP'].every(tg=>b6dl.tags.includes(tg)), 'W3: DL tags');
+assert(!b6dl.warmup, 'W3: DL warm-ups come from the bar-aware generator (no authored array)');
+assert(b6dl.role==='strength-driver'&&b6dl.target.value===186, 'W3: DL strength-driver e1RM 186');
+assert(b6dl.incrementKg===2.5, 'W3: DL increment dropped to 2.5 (recomp)');
+assert(d6.exercises.find(e=>e.name==='Leg Press').loadKg===170&&d6.exercises.find(e=>e.name==='Leg Press').target.value===180, 'W3: leg press 170, cap-180 target');
+const b6clr=d6.exercises.find(e=>e.name==='Cable Low Row');
+assert(b6clr.loadKg===68&&b6clr.variant.pulley==='single'&&b6clr.tags.includes('single-pulley'), 'W3: Cable Low Row 68 SINGLE pulley (authored: one machine per session)');
+assert(d6.exercises.find(e=>e.name==='Hip Adduction Machine').loadKg===37.5&&d6.exercises.find(e=>e.name==='Hip Abduction Machine').loadKg===30, 'W3: hips 37.5 / 30');
 const b6be=d6.exercises.find(e=>e.name==='Back Extension');
-assert(b6be.frozen===true&&b6be.loadKg===10&&/Depth \+ contraction first/.test(b6be.cue), 'B6: Back Extension FROZEN @10 with the cue');
-assert(d6.exercises.find(e=>e.name==='Standing Calf Raise (DB)').loadKg===30, 'B6: Standing Calf Raise restored (dropped in error in W4)');
-assert(d6.exercises[d6.exercises.length-1].name==='Hanging Knee Raise', 'B6: HKR closes the DL day');
-assert(d6.exercises.find(e=>e.name==='Side Extension').target.value===15, 'B6: Side Extension BW 2x15-then-load target');
-// Press + Pull Sunday
-assert(d7.exercises.find(e=>e.name==='Iso-Lateral Bench Press').loadKg===65&&d7.exercises.find(e=>e.name==='Iso-Lateral Bench Press').tags.includes('twinge-gate'), 'B6: iso-lateral bench 4x8@65 twinge-gated');
-assert(d7.exercises.find(e=>e.name==='Iso-Lateral Decline Press').loadKg===62.5, 'B6: iso-lateral decline 3x10@62.5');
-assert(d7.exercises.find(e=>e.name==='Strict Pull-Up').reps==='6'&&d7.exercises.find(e=>e.name==='Strict Pull-Up').tags.includes('straight-sets'), 'B6: pull-ups 4x6 straight sets');
-assert(d7.exercises.find(e=>e.name==='Narrow-Grip Cable Pulldown').loadKg===36&&d7.exercises.find(e=>e.name==='Narrow-Grip Cable Pulldown').tags.includes('load-continuation'), 'B6: pulldown 36 with the honest load-continuation exemption');
-assert(d7.exercises.find(e=>e.name==='Face Pull').loadKg===13.75&&exRole(d7.exercises.find(e=>e.name==='Face Pull'))==='rehab', 'B6: face pull rehab role (suggestions off)');
-// NO set-level AMRAP anywhere; no kb-day circuits
+assert(b6be.frozen===true&&b6be.loadKg===10&&/Depth \+ contraction first/.test(b6be.cue), 'W3: Back Extension FROZEN @10 with the cue');
+assert(d6.exercises.find(e=>e.name==='Standing Calf Raise (DB)').loadKg===30, 'W3: Standing Calf Raise 3x12@30');
+assert(d6.exercises.find(e=>e.name==='Side Extension').reps==='10'&&d6.exercises.find(e=>e.name==='Side Extension').target.value===15, 'W3: Side Extension 2x10 BW, 2x15-then-load target');
+// NO set-level AMRAP anywhere (the capped swing CIRCUIT is a block, not a set rx)
 DEF_PROGRAM.days.forEach(d=>(d.exercises||[]).forEach(e=>{
-  assert(!(e.tags||[]).some(t=>/amrap/i.test(t)&&!/^no-amrap$/i.test(t)), 'B6: no AMRAP-prescribing tag. Found on '+e.name);
-  assert(!/amrap/i.test(e.reps||''), 'B6: no AMRAP rep prescriptions');
+  assert(!(e.tags||[]).some(tg=>/amrap/i.test(tg)&&!/^no-amrap$/i.test(tg)), 'W3: no AMRAP-prescribing tag. Found on '+e.name);
+  assert(!/amrap/i.test(e.reps||''), 'W3: no AMRAP rep prescriptions');
 }));
-assert(!DEF_PROGRAM.days.some(d=>(d.exercises||[]).some(e=>e.entryType==='circuit')), 'B6: no circuit prescriptions (kb days are freeform; circuits stay available ad hoc)');
 // barbell/overhead ban intact; KB overhead avoided
 DEF_PROGRAM.days.forEach(d=>(d.exercises||[]).forEach(e=>{
-  assert(getMeta(e.name).pat!=='vpush', 'B6: no overhead pattern in program. Found '+e.name);
-  assert(e.name!=='Bench Press', 'B6: barbell bench still excluded');
+  assert(getMeta(e.name).pat!=='vpush', 'W3: no overhead pattern in program. Found '+e.name);
+  assert(e.name!=='Bench Press', 'W3: barbell bench still excluded');
 }));
-['KB Press','KB Snatch','Turkish Get-Up'].forEach(n=>assert(EX_META[n]&&EX_META[n].avoid===true&&/houlder|verhead/.test(EX_META[n].avoidReason), 'B6: '+n+' avoid-listed (overhead)'));
-['Bench Press','DB Shoulder Press','Military Press','Machine Shoulder Press','Incline Bench Press','DB Incline Bench'].forEach(n=>assert(EX_META[n].avoid===true, 'B6: existing avoid intact — '+n));
+['KB Press','KB Snatch','Turkish Get-Up'].forEach(n=>assert(EX_META[n]&&EX_META[n].avoid===true&&/houlder|verhead/.test(EX_META[n].avoidReason), 'W3: '+n+' avoid-listed (overhead)'));
+['Bench Press','DB Shoulder Press','Military Press','Machine Shoulder Press','Incline Bench Press','DB Incline Bench'].forEach(n=>assert(EX_META[n].avoid===true, 'W3: existing avoid intact — '+n));
 // authored barbell loads are rackable on the confirmed Singapore inventory
 (()=>{
   const P7=[25,20,15,10,5,2.5,1.25];
   [[b6sq,20],[b6dl,36]].forEach(([ex,bar])=>{
     const loads=[ex.loadKg].concat((ex.setScheme||[]).map(r=>r.loadKg)).filter(Boolean);
-    loads.forEach(L=>assert(isMakeableTotal(L,bar,P7), 'B6: authored '+ex.name+' '+L+' kg rackable on the '+bar+' bar'));
+    loads.forEach(L=>assert(isMakeableTotal(L,bar,P7), 'W3: authored '+ex.name+' '+L+' kg rackable on the '+bar+' bar'));
   });
 })();
-// time budgets hold on the three lifting days
-[d3,d6,d7].forEach(d=>{
+// time budgets hold on the two lifting days (incl. finisher clock+2)
+[d3,d6].forEach(d=>{
   const est=estimateSessionTime(d.exercises.map(e=>({name:e.name,sets:e.sets,reps:e.reps,rest:e.rest,entryType:e.entryType,minutes:e.minutes})));
-  assert(est<=d.dur+20, 'B6: '+d.label+' estimate '+est+' within '+(d.dur+20));
+  assert(est<=d.dur+20, 'W3: '+d.label+' estimate '+est+' within '+(d.dur+20));
 });
 
 assert(!DEF_PROGRAM.days.some(d => (d.exercises||[]).some(e => /^seated row$/i.test(e.name))), 'No day has bare "Seated Row"');
@@ -762,16 +773,15 @@ const pa_d4 = S.program.days.find(d => d.id === 4);
 const pa_d5 = S.program.days.find(d => d.id === 5);
 const pa_d6 = S.program.days.find(d => d.id === 6);
 const pa_d7 = S.program.days.find(d => d.id === 7);
-assert(pa_d1.exercises.length===0&&pa_d2.exercises.length===0&&pa_d4.exercises.length===0&&pa_d5.exercises.length===0, 'Phase A: kb/swim/rest days carry no exercises');
+// W3: swims (id2/id4) and conditioning (id7) carry no exercises; the KB
+// days are HYBRID (warmup-only exercise lists ahead of the freeform card);
+// every lifting day opens with its WARMUP SECTION ahead of the main work.
+assert(pa_d2.exercises.length===0&&pa_d4.exercises.length===0&&pa_d7.exercises.length===0, 'Phase A: swim/conditioning days carry no exercises');
+assert(pa_d1.exercises.length===5&&pa_d1.exercises.every(e=>e.section==='warmup')&&pa_d5.exercises.length===4&&pa_d5.exercises.every(e=>e.section==='warmup'), 'Phase A: KB days carry warmup-only sections (hybrid)');
 // Squat (id3): Bird Dog → WGS (warmup section) → Back Squat
 (()=>{
   const mainI=pa_d3.exercises.findIndex(e=>e.name==='Back Squat');
   assert(/bird dog/i.test(pa_d3.exercises[0].name)&&mainI===2&&pa_d3.exercises.slice(0,2).every(e=>e.section==='warmup'), 'Phase A: squat day activates then squats. main@'+mainI);
-})();
-// Press+Pull (id7): 5-part shoulder warmup before the first press
-(()=>{
-  const mainI=pa_d7.exercises.findIndex(e=>e.name==='Iso-Lateral Bench Press');
-  assert(mainI===5&&pa_d7.exercises.slice(0,5).every(e=>e.section==='warmup'), 'Phase A: press day warms the shoulder first. main@'+mainI);
 })();
 // Deadlift: Glute Bridge → Dead Bug → Deadlift
 (()=>{
@@ -951,9 +961,9 @@ assert(S.block.sessionsSinceRotate === 0, 'Phase C: rotation counter reset to 0'
 // ===== PHASE C: Superset recommender =====
 assert(typeof recommendSupersets === 'function', 'Phase C: recommendSupersets() defined');
 // D1 Upper A should surface at least one eligible superset pair (e.g., DB Curl + Lateral Raise or Ext Rotation + any iso)
-const freshD1 = JSON.parse(JSON.stringify(DEF_PROGRAM)).days.find(d=>d.id===7); // B6: Press+Pull Sunday (id1 is freeform KB now)
+const freshD1 = JSON.parse(JSON.stringify(DEF_PROGRAM)).days.find(d=>d.id===6); // W3: Deadlift+Pull Saturday (no press day this block)
 const supers = recommendSupersets(freshD1.exercises);
-assert(supers.length > 0, 'Phase C: B6 Press+Pull day has at least one eligible superset pair. Got: ' + supers.length);
+assert(supers.length > 0, 'Phase C: W3 Deadlift+Pull day has at least one eligible superset pair. Got: ' + supers.length);
 // Should never pair two heavy compounds
 const heavyPair = supers.find(p => {
   const ma = getMeta(p.aName), mb = getMeta(p.bName);
@@ -1195,7 +1205,7 @@ assert(typeof ICONS === 'object' && ICONS, 'v3 icons: ICONS map defined');
 assert(typeof icon === 'function', 'v3 icons: icon() helper defined');
 assert(/^<svg /.test(icon('check')) && /viewBox/.test(icon('check')), 'v3 icons: icon() returns an <svg> string');
 assert(/width="28"/.test(icon('swim',28)), 'v3 icons: icon() honors size arg');
-assert(typeof APP_VERSION === 'string' && APP_VERSION === 'v6', 'v6: APP_VERSION bumped for the Imperium theme ship');
+assert(typeof APP_VERSION === 'string' && APP_VERSION === 'v7', 'v7: APP_VERSION bumped for the W3 recomp ship');
 
 // ===== TRACK A: SCHEMA MIGRATION + LOAD SNAPPING (Commit 2) =====
 // snapLoadToEquipment
@@ -1233,7 +1243,7 @@ assert(S.version === 3, 'MigrateV3: version stamped to 3');
 migrateV3();
 const md1 = S.program.days.find(d=>d.sessionType==='lifting');
 assert(md1 && md1.sessionType === 'lifting', 'MigrateV3: lifting day keeps sessionType');
-assert(S.program.days[3].sessionType==='swim'&&S.program.days[0].sessionType==='kb'&&S.program.days[4].sessionType==='rest', 'MigrateV3: kb/swim/rest sessionTypes preserved (not coerced to lifting)');
+assert(S.program.days[3].sessionType==='swim'&&S.program.days[0].sessionType==='kb'&&S.program.days[4].sessionType==='kb'&&S.program.days[6].sessionType==='conditioning', 'MigrateV3: kb/swim/conditioning sessionTypes preserved (not coerced to lifting)');
 assert(md1.defaultDay && md1.dayOfWeek && md1.defaultDay === md1.dayOfWeek, 'MigrateV3: defaultDay/dayOfWeek alias both populated + equal');
 assert(md1.exercises.every(e=>typeof e.equipmentClass==='string' && 'angle' in e && 'grip' in e), 'MigrateV3: exercises gain equipmentClass + angle + grip');
 // sessions get sessionType
@@ -1466,7 +1476,7 @@ const exp2=buildExportPayload('2026-06-22T00:00:00Z');
 const parsed=parseRestorePayload(exp2);
 assert(parsed.ok===true, 'C8: export round-trips through parseRestorePayload');
 const blob=parsed.parsed;
-assert(Array.isArray(blob.recurringActivities) && blob.goals.some(g=>g.id==='g-mu') && blob.program.days[3].sessionType==='swim' && blob.program.days[0].sessionType==='kb' && blob.program.days[2].exercises.find(e=>e.name==='Back Squat').setScheme.length===4 && blob.program.days[2].exercises.find(e=>e.name==='Back Squat').role==='strength-driver' && blob.program.days[5].exercises.find(e=>e.name==='Back Extension').frozen===true && blob.program.days[1].note && blob.program.version===10, 'C8/G10: round-trip preserves types + setScheme + role/frozen + note + version');
+assert(Array.isArray(blob.recurringActivities) && blob.goals.some(g=>g.id==='g-mu') && blob.program.days[3].sessionType==='swim' && blob.program.days[0].sessionType==='kb' && blob.program.days[2].exercises.find(e=>e.name==='Back Squat').setScheme.length===4 && blob.program.days[2].exercises.find(e=>e.name==='Back Squat').role==='strength-driver' && blob.program.days[5].exercises.find(e=>e.name==='Back Extension').frozen===true && blob.program.days[1].note && blob.program.version===11 && blob.program.days[2].exercises.find(e=>e.name==='Back Squat').frozen===true, 'C8/G10: round-trip preserves types + setScheme + role/frozen + note + version');
 // importing that blob and re-migrating is a no-op for v3 fields (idempotent)
 const _s=S;S=JSON.parse(JSON.stringify(blob));migrateV3();
 assert(S.version===3 && S.goals.find(g=>g.id==='g-mu'), 'C8: re-import + migrate keeps v3 shape (swim goal retired)');
@@ -1822,8 +1832,7 @@ assert(variantKey(resolveSessionVariant({name:'Cable Low Row'}))==='pulley:singl
 assert(resolveSessionVariant({name:'Bench Press'})===null, 'Variant: no prescription + no memory → null');
 S.settings.variantMemory={};
 // program seeds + record shape + chip markup
-assert(variantKey(DEF_PROGRAM.days.find(d=>d.id===6).exercises.find(e=>e.name==='Cable Low Row').variant)===kDouble, 'Variant: W4 Cable Low Row prescribed double-pulley narrow');
-assert(DEF_PROGRAM.days.find(d=>d.id===7).exercises.find(e=>e.name==='Face Pull').variant.attachment==='rope', 'Variant: B6 Face Pull prescribed single/rope');
+assert(variantKey(DEF_PROGRAM.days.find(d=>d.id===6).exercises.find(e=>e.name==='Cable Low Row').variant)===variantKey({pulley:'single',grip:'narrow'}), 'Variant: W3 Cable Low Row prescribed SINGLE-pulley narrow (one machine per session)');
 assert(/variant:ex\.variant\|\|null/.test(html), 'Variant: session records persist the variant');
 assert(/class="variant-chips"/.test(html) && /setVariant\(/.test(html), 'Variant: chips rendered on the logging card');
 assert(/equipmentClass:ex\.equipmentClass\|\|inferEquipmentClass\(ex\.name\)/.test(html), 'Variant: session exercises carry equipmentClass (progression snapping depends on it)');
@@ -1848,18 +1857,18 @@ assert(chronicSkips().length===1, 'Skip: a dismissal from a previous block does 
 S.settings.chronicDismissed={};S.sessions=[];
 // move: appends a deep copy to the target day, marks (not splices) the session exercise
 S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();
-S.activeSession={dayIndex:6,dayId:7,date:'2026-08-23',dayLabel:'Press + Pull',sessionType:'lifting',startTime:1,exercises:S.program.days[6].exercises.map(ex=>({name:ex.name,cat:ex.cat,prescribed:{sets:ex.sets,reps:ex.reps,loadKg:ex.loadKg,unit:ex.unit||'kg'},equipmentClass:ex.equipmentClass,performed:[{type:'working',weightKg:ex.loadKg,reps:5,rpe:null,logged:false}],tags:ex.tags||[],rest:ex.rest,progression:null,nextLoad:null})),notes:''};
+S.activeSession={dayIndex:5,dayId:6,date:'2026-09-05',dayLabel:'Deadlift + Pull',sessionType:'lifting',startTime:1,exercises:S.program.days[5].exercises.filter(ex=>ex.entryType!=='circuit').map(ex=>({name:ex.name,cat:ex.cat,prescribed:{sets:ex.sets,reps:ex.reps,loadKg:ex.loadKg,unit:ex.unit||'kg'},equipmentClass:ex.equipmentClass,performed:[{type:'working',weightKg:ex.loadKg,reps:5,rpe:null,logged:false}],tags:ex.tags||[],rest:ex.rest,progression:null,nextLoad:null})),notes:''};
 const preLen=S.activeSession.exercises.length;
 const preTargetLen=S.program.days[2].exercises.length;
-const fpIdx2=S.activeSession.exercises.findIndex(e=>e.name==='Lateral Raise');
+const fpIdx2=S.activeSession.exercises.findIndex(e=>e.name==='Standing Calf Raise (DB)');
 confirmMoveExercise(fpIdx2,2);
 assert(S.activeSession.exercises.length===preLen, 'Skip: move does NOT splice the session (index pairing with confirmRpe preserved)');
 assert(S.activeSession.exercises[fpIdx2].progression==='skipped' && S.activeSession.exercises[fpIdx2].performed[0].skipReason==='moved', 'Skip: moved exercise marked skipped/moved in-session');
-assert(S.program.days[2].exercises.length===preTargetLen+1 && S.program.days[2].exercises.some(e=>e.name==='Lateral Raise'&&(e.tags||[]).includes('moved-in')), 'Skip: deep copy appended to the target day');
+assert(S.program.days[2].exercises.length===preTargetLen+1 && S.program.days[2].exercises.some(e=>e.name==='Standing Calf Raise (DB)'&&(e.tags||[]).includes('moved-in')), 'Skip: deep copy appended to the target day');
 // chronic actions: move earlier + drop
 S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.activeSession=null;
-chronicMoveEarlier('Lateral Raise');
-assert(S.program.days[6].exercises[1].name==='Lateral Raise', 'Skip: Move earlier → index 1 in its own day (press day). Got: '+S.program.days[6].exercises[1].name);
+chronicMoveEarlier('Standing Calf Raise (DB)');
+assert(S.program.days[5].exercises[1].name==='Standing Calf Raise (DB)', 'Skip: Move earlier → index 1 in its own day (DL day). Got: '+S.program.days[5].exercises[1].name);
 assert(/openMoveExercise/.test(html) && /id="moveExModal"/.test(html), 'Skip: skip sheet offers the move action + picker modal exists');
 assert(/Skipped \$\{cs\.count\}/.test(html), 'Skip: chronic card renders on Train (sentence-case)');
 S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.settings.chronicDismissed={};
@@ -1879,19 +1888,19 @@ S.sessions=[
 const rpt=buildCoachReport(S.sessions,S.program,wkAug17);
 assert(/Week .*Aug 17.*Aug 23/.test(rpt), 'Report: header names the calendar week. Got: '+rpt.split('\n')[0]);
 assert(/Deadlift \+ Pull/.test(rpt), 'Report: this week\'s session included');
-// B6: seven program days minus the Rest Friday = 6 scheduled
-assert(/Sessions: 2 \/ 6 scheduled/.test(rpt), 'Report: N/M excludes the rest day (6 scheduled). Got: '+(rpt.split('\n').find(l=>/Sessions:/.test(l))||'none'));
+// W3: seven program days, no rest day = 7 scheduled
+assert(/Sessions: 2 \/ 7 scheduled/.test(rpt), 'Report: N/M counts all 7 W3 days (no rest day). Got: '+(rpt.split('\n').find(l=>/Sessions:/.test(l))||'none'));
 assert(/\(swim\).*45 min.*800 m/.test(rpt), 'Report: swim renders as one activity line');
 // variant label in the line
 S.sessions=[{date:'2026-08-22',dayLabel:'Deadlift + Pull',dayId:6,blockName:S.program.name,duration:60,rpe:7,status:'complete',exercises:[{name:'Cable Low Row',cat:'pull',prescribed:{sets:1,reps:'8',loadKg:34,unit:'kg'},performed:[{type:'working',weightKg:34,reps:8,logged:true}],progression:'hold',nextLoad:34,variant:{pulley:'double',grip:'narrow'},tags:[]}],painEvents:[]}];
 assert(/Cable Low Row \(double pulley, narrow\)/.test(buildCoachReport(S.sessions,S.program,wkAug17)), 'Report: variant label rendered inline');
 
-// isWeekComplete on the live B6 block: six loggable days + the exempt Rest Friday
-S.sessions=[actRec('2026-08-17',1,'kb','KB',0),actRec('2026-08-18',2,'swim','Swim',800,{continuous:true}),liftRec('2026-08-19','Squat',3),actRec('2026-08-20',4,'swim','Swim',600),liftRec('2026-08-22','Deadlift + Pull',6),liftRec('2026-08-23','Press + Pull',7)];
-assert(isWeekComplete(wkAug17)===true, 'Report: six logged days + exempt rest Friday → week complete');
-S.sessions=S.sessions.slice(0,5);
+// isWeekComplete on the live W3 block: all SEVEN days loggable
+S.sessions=[actRec('2026-08-17',1,'kb','KB + Mobility',0),actRec('2026-08-18',2,'swim','Swim',800,{continuous:true}),liftRec('2026-08-19','Squat',3),actRec('2026-08-20',4,'swim','Swim',600),actRec('2026-08-21',5,'kb','KB + Mobility',0),liftRec('2026-08-22','Deadlift + Pull',6),actRec('2026-08-23',7,'conditioning','Conditioning',0,{modality:'row'})];
+assert(isWeekComplete(wkAug17)===true, 'Report: seven logged days → week complete');
+S.sessions=S.sessions.slice(0,6);
 assert(isWeekComplete(wkAug17)===false, 'Report: a missing day → not complete');
-S.skips=[{dayLabel:'Press + Pull',dayId:7,blockName:S.program.name,date:'2026-08-23',reason:'sick'}];
+S.skips=[{dayLabel:'Conditioning',dayId:7,blockName:S.program.name,date:'2026-08-23',reason:'sick'}];
 assert(isWeekComplete(wkAug17)===true, 'Report: a skipped day counts as resolved');
 S.skips=[];S.sessions=[];S.recurringActivities=_raSave;
 
@@ -2041,7 +2050,14 @@ assert(S.activeSession.exercises.find(e=>e.name==='Bird Dog').performed.every(pp
 sqSess.performed.forEach(pp=>{pp.logged=true;if(pp.type==='working')pp.rpe=7;});
 sqSess.performed[1].weightKg=200;sqSess.performed[1].reps=1; // absurd logged warmup
 evalProg(S.activeSession.exercises.indexOf(sqSess));
-assert(sqSess.nextLoad===120, 'D2/E2: progression works off the 115 top set (+5 per-lift step) and ignores the 200kg warmup. Got: '+sqSess.nextLoad);
+// W3: the squat ships FROZEN (Hold — pending depth verification)
+assert(sqSess.progression==='hold'&&sqSess.nextLoad===115, 'W3: frozen squat HOLDS at the 115 top (pending depth verification). Got: '+sqSess.progression+' '+sqSess.nextLoad);
+// …and the warmup-ignore property is pinned on an unfrozen clone: the 2.5
+// recomp override steps off the REAL 115 top, not the 200 kg warmup.
+sqSess.frozen=false;sqSess.progression=null;sqSess.nextLoad=null;
+evalProg(S.activeSession.exercises.indexOf(sqSess));
+assert(sqSess.nextLoad===117.5, 'D2/E2: unfrozen progression works off the 115 top (+2.5 override step), 200kg warmup ignored. Got: '+sqSess.nextLoad);
+sqSess.frozen=true;
 S.sessions=[{date:'2026-08-01',dayLabel:'Squat',dayId:5,blockName:S.program.name,duration:70,rpe:7,status:'complete',exercises:[{name:'Back Squat',prescribed:{sets:4,reps:'5',loadKg:110,unit:'kg'},performed:sqSess.performed,progression:'hold',nextLoad:110,variant:null,tags:[]}],painEvents:[]}];
 assert(bestHistoricalE1rm('Back Squat')<150, 'D2: e1RM ignores the 200kg warmup row in history. Got: '+bestHistoricalE1rm('Back Squat'));
 // report marks warmups distinctly + volume includes them
@@ -2245,8 +2261,10 @@ const e1w=e1sq.performed.filter(pp=>pp.type==='working');
 assert(e1sq.performed[0].type==='warmup'&&e1sq.performed[1].type==='warmup', 'E1: warmup rows still come first');
 assert(e1w.length===4&&e1w[0].weightKg===115&&e1w[1].weightKg===97.5&&e1w[3].weightKg===97.5, 'E1: per-set rows seeded with their own loads (115 + 97.5 backoffs). Got: '+JSON.stringify(e1w.map(x=>x.weightKg)));
 assert(e1w[0].tag==='top'&&!e1w[1].tag, 'E1: top row carries the tag');
-// progression keys off the TOP set (105), not the back-offs
+// progression keys off the TOP set, not the back-offs (unfreeze the W3 hold
+// for this property test — the frozen path is pinned in the D2 suite)
 e1sq.performed.forEach(pp=>{pp.logged=true;if(pp.type==='working')pp.rpe=7;});
+e1sq.frozen=false;
 evalProg(S.activeSession.exercises.indexOf(e1sq));
 assert(e1sq.nextLoad>115, 'E1: suggestion keys off the 115 top set, not the 97.5 back-offs. Got: '+e1sq.nextLoad);
 // e1RM from the top set only
@@ -2255,7 +2273,7 @@ assert(Math.abs(bestHistoricalE1rm('Back Squat')-e1rm(115,5))<0.1, 'E1: e1RM rea
 S.sessions=[];
 // uniform back-compat: accessories on the SAME live session seed uniform rows
 const e1msp=S.activeSession.exercises.find(e=>e.name==='DB RDL');
-assert(e1msp.performed.filter(pp=>pp.type==='working').length===3&&e1msp.performed.filter(pp=>pp.type==='working').every(pp=>pp.weightKg===30), 'E1: uniform prescriptions unchanged (DB RDL 3×30)');
+assert(e1msp.performed.filter(pp=>pp.type==='working').length===3&&e1msp.performed.filter(pp=>pp.type==='working').every(pp=>pp.weightKg===32.5), 'E1: uniform prescriptions unchanged (DB RDL 3\u00d732.5)');
 window.confirm=()=>true;cancelSession();
 // write-back shifts the whole scheme, keeps flat loadKg = top
 // write-back pairs session index with program index — author the squat day
@@ -2696,8 +2714,8 @@ assert(/document\.activeElement\.id==='fNotes'\)\{renderFocusRail\(\);return;\}/
   startDay(5); // B6 Deadlift + Pull (index 5)
   const dl=S.activeSession.exercises.find(e=>e.name==='Deadlift');
   const wu=dl.performed.filter(pp=>pp.type==='warmup').map(pp=>pp.weightKg);
-  // 126 top on the 36 bar with the Singapore 1.25-grid: 61 / 93.5 / 113.5
-  assert(JSON.stringify(wu)==='[61,93.5,113.5]', 'B6: generator DL warm-ups 61/93.5/113.5 on the 36 bar (Singapore rack). Got '+JSON.stringify(wu));
+  // 128.5 top on the 36 bar with the Singapore 1.25-grid: 63.5 / 96 / 116
+  assert(JSON.stringify(wu)==='[63.5,96,116]', 'W3: generator DL warm-ups 63.5/96/116 on the 36 bar (Singapore rack). Got '+JSON.stringify(wu));
   assert(wu.every(w=>isMakeableTotal(w,36)), 'B6: every generated warm-up is rackable');
   window.confirm=()=>true;cancelSession();
   // generator also owns any other un-authored barbell lift
@@ -3169,7 +3187,7 @@ assert(true, 'G6: (drag scroll guard retired with the planner drag paths — K3)
 
 // ===== G7: BLOCK BANNER VERSIONING + STALE MOBILITY REMOVAL =====
 console.log('\n--- G7: banner versioning + F2 ---');
-assert(DEF_PROGRAM.version===10, 'G7/G10: Block 6 W1 ships as version 10. Got: '+DEF_PROGRAM.version);
+assert(DEF_PROGRAM.version===11, 'G7/G10: Block 6 W3 ships as version 11. Got: '+DEF_PROGRAM.version);
 assert(/DEF_PROGRAM\.version>\(S\.program\.version\?\?0\) && S\.settings\._dismissedProgramVersion!==DEF_PROGRAM\.version/.test(html), 'G7: banner fires only for a NEWER version');
 assert(!/DEF_PROGRAM\.name!==S\.program\.name && S\.settings\._dismissedBlock/.test(html), 'G7: the direction-blind name banner is gone');
 // An OLDER cached HTML (lower version) can never re-offer itself:
@@ -3552,5 +3570,58 @@ assert(S.activeSession.exercises[0].nextLoad===105, 'K12/E1: without the overrid
 S.activeSession=null;
 assert(/incrementKg:\(typeof ex\.incrementKg==='number'\)\?ex\.incrementKg:undefined,/.test(html), 'K12/E1: startDay mapper copies the program-day incrementKg');
 assert(/const liftInc=\(ex\.incrementKg\?\?getMeta\(ex\.name\)\.incrementKg\)\|\|null;/.test(html), 'K12/E1: evalProg reads the per-exercise override first');
+
+// ---- K13: Sep 2 Block 6 W3 end-to-end (real program days) ----
+console.log('[K13 W3Days]');
+// Conditioning Sunday: a real activity session with the modality field
+(function(){
+  S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.activeSession=null;
+  global.startTimer=()=>{};global.showSessionHero=global.showSessionHero||(()=>{});
+  startDay(6); // W3 Conditioning (Sunday, id 7, index 6)
+  assert(S.activeSession&&S.activeSession.sessionType==='conditioning'&&S.activeSession.activity&&'modality' in S.activeSession.activity, 'K13: conditioning Sunday starts as an activity session with modality');
+  assert(S.activeSession.exercises.length===0, 'K13: conditioning day has no exercise cards');
+  S.activeSession.activity={durationMin:20,distance:0,effort:7,notes:'',modality:'row intervals'};
+  const rec=makeActivitySession(S.activeSession);
+  assert(rec.sessionType==='conditioning'&&rec.activity.modality==='row intervals', 'K13: conditioning record carries the modality');
+  S.activeSession=null;
+})();
+// KB Monday is HYBRID: warmup cards + the freeform activity form in one session
+(function(){
+  S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.activeSession=null;
+  startDay(0); // W3 KB + Mobility (Monday, id 1, index 0)
+  assert(S.activeSession.sessionType==='kb'&&S.activeSession.activity&&'kbWeights' in S.activeSession.activity, 'K13: Monday KB starts with the activity fields');
+  assert(S.activeSession.exercises.length===5&&S.activeSession.exercises.every(e=>e.section==='warmup'), 'K13: Monday KB carries its 5 warmup cards (hybrid)');
+  assert(S.activeSession.exercises.every(e=>!e.warmup), 'K13: no generated barbell ramps on the bodyweight openers');
+  // warmup-section openers are rehab-role: progression counsel stays off
+  assert(S.activeSession.exercises.every(e=>exRole(e)==='rehab'||e.cat==='core'), 'K13: openers are rehab-role (no load counsel)');
+  window.confirm=()=>true;cancelSession();
+})();
+// Friday KB variant: hip opener, 4 cards
+(function(){
+  S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.activeSession=null;
+  startDay(4); // index 4 = Friday KB + Mobility
+  assert(S.activeSession.sessionType==='kb'&&S.activeSession.exercises.length===4&&S.activeSession.exercises.some(e=>e.name==='90/90'), 'K13: Friday KB carries the 4-part hip opener');
+  window.confirm=()=>true;cancelSession();
+})();
+// Squat Wednesday starts with the swing finisher as a circuit card
+(function(){
+  S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.activeSession=null;
+  startDay(2);
+  const fin=S.activeSession.exercises.find(e=>e.name==='100 KB Swings');
+  assert(fin&&fin.entryType==='circuit'&&fin.format==='AMRAP'&&fin.minutes===10&&fin.loadKg===24&&fin.section==='finisher', 'K13: swing finisher rides into the session as a circuit card (loadKg copied)');
+  assert(fin.performed.length===0, 'K13: circuit seeds no set rows (sets:0)');
+  const sq=S.activeSession.exercises.find(e=>e.name==='Back Squat');
+  assert(sq.frozen===true&&sq.incrementKg===2.5, 'K13: session squat carries frozen + the 2.5 override');
+  window.confirm=()=>true;cancelSession();
+})();
+// DL Saturday: session DL carries the 2.5 override + sprint finisher present
+(function(){
+  S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.activeSession=null;
+  startDay(5);
+  const dl=S.activeSession.exercises.find(e=>e.name==='Deadlift');
+  assert(dl.incrementKg===2.5&&dl.prescribed.setScheme[0].loadKg===128.5, 'K13: session DL carries the 2.5 override + 128.5 top');
+  assert(S.activeSession.exercises.some(e=>e.name==='Sprints'&&e.entryType==='circuit'), 'K13: sprint finisher present');
+  window.confirm=()=>true;cancelSession();
+})();
 
 console.log('\n=== All tests passed ===');
