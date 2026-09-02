@@ -3522,4 +3522,35 @@ assert(/hideModal\('subModal'\);doSwap\(/.test(html), 'K11: a similar-pick close
 assert(/getSwapCandidates\(ex\)\.filter\(c=>!_subNames\.has\(c\.name\.toLowerCase\(\)\)\)/.test(html), 'K11: similar list deduped against the sub list');
 assert(/<div class="modal-t">Change exercise<\/div>/.test(html), 'K11: merged modal titled Change exercise');
 
+// ---- K12: E1 per-side counsel + per-exercise incrementKg ----
+console.log('[K12 PerSide]');
+(function(){
+  const STD2=[25,20,15,10,5,2.5,1.25];
+  const r1=platesPerSide(128.5,36,STD2);
+  assert(r1.perSide===46.25&&r1.remainder===0&&JSON.stringify(r1.plates)===JSON.stringify([25,20,1.25]), 'K12/E1: 128.5@36 → perSide 46.25 exact (25+20+1.25). Got: '+JSON.stringify(r1));
+  const r2=platesPerSide(128.5,36,[25,20,15,10,5,2.5]); // no 1.25s racked
+  assert(r2.perSide===46.25&&r2.remainder===1.25, 'K12/E1: without 1.25s the 46.25 target surfaces the honest 1.25 shortfall. Got: '+JSON.stringify(r2));
+  assert(platesPerSide(36,36,STD2).perSide===0, 'K12/E1: empty bar → perSide 0');
+})();
+assert(perSideSuffix(120,{equipmentClass:'barbell',name:'Back Squat'})===' = 50/side', 'K12/E1: counsel suffix "= 50/side" for 120 on the 20 kg gym bar. Got: "'+perSideSuffix(120,{equipmentClass:'barbell',name:'Back Squat'})+'"');
+assert(perSideSuffix(128.5,{equipmentClass:'barbell',name:'Deadlift'})===' = 46.25/side', 'K12/E1: W3 deadlift counsel 128.5 on the 36 bar → 46.25/side. Got: "'+perSideSuffix(128.5,{equipmentClass:'barbell',name:'Deadlift'})+'"');
+assert(perSideSuffix(50,{equipmentClass:'db',name:'DB Row'})===''&&perSideSuffix(20,{equipmentClass:'barbell',name:'Bench Press'})==='', 'K12/E1: non-barbell and empty-bar loads get no suffix');
+assert((html.match(/fmtW\(ex\.nextLoad,ex\.prescribed\.unit\)\+perSideSuffix\(ex\.nextLoad,ex\)/g)||[]).length===2, 'K12/E1: suffix at BOTH counsel call sites (plain branch only)');
+assert((html.match(/machineCant\('MACHINE SPIRIT COUNSELS:',fmtW\(ex\.nextLoad,ex\.prescribed\.unit\)\)/g)||[]).length===2, 'K12/E1: machineCant branch byte-untouched');
+// incrementKg override: session exercise value beats EX_META
+S.sessions=[];
+S.activeSession={dayIndex:0,date:'2026-09-04',dayLabel:'T',sessionType:'lifting',startTime:1,exercises:[
+  {name:'Back Squat',cat:'squat',incrementKg:2.5,prescribed:{sets:2,reps:'5',loadKg:100,unit:'kg'},equipmentClass:'barbell',
+   performed:[{type:'working',weightKg:100,reps:5,rpe:7,logged:true},{type:'working',weightKg:100,reps:5,rpe:7,logged:true}],tags:[],progression:null,nextLoad:null}
+]};
+evalProg(0);
+assert(S.activeSession.exercises[0].progression==='increase'&&S.activeSession.exercises[0].nextLoad===102.5, 'K12/E1: per-exercise incrementKg 2.5 beats EX_META 5 (100→102.5). Got: '+S.activeSession.exercises[0].nextLoad);
+S.activeSession.exercises[0]={name:'Back Squat',cat:'squat',prescribed:{sets:2,reps:'5',loadKg:100,unit:'kg'},equipmentClass:'barbell',
+  performed:[{type:'working',weightKg:100,reps:5,rpe:7,logged:true},{type:'working',weightKg:100,reps:5,rpe:7,logged:true}],tags:[],progression:null,nextLoad:null};
+evalProg(0);
+assert(S.activeSession.exercises[0].nextLoad===105, 'K12/E1: without the override the EX_META step (5) still applies. Got: '+S.activeSession.exercises[0].nextLoad);
+S.activeSession=null;
+assert(/incrementKg:\(typeof ex\.incrementKg==='number'\)\?ex\.incrementKg:undefined,/.test(html), 'K12/E1: startDay mapper copies the program-day incrementKg');
+assert(/const liftInc=\(ex\.incrementKg\?\?getMeta\(ex\.name\)\.incrementKg\)\|\|null;/.test(html), 'K12/E1: evalProg reads the per-exercise override first');
+
 console.log('\n=== All tests passed ===');
