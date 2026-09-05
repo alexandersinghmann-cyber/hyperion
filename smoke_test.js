@@ -529,6 +529,24 @@ assert(/class="goal-card cond"/.test(html), 'K7: Condition card in the dashboard
   assert(/### CONDITION/.test(rpt)&&/Weight: 83\.4 kg \(-0\.6 kg \/ 7d\)/.test(rpt)&&/BF 23%/.test(rpt), 'K7: Dispatch carries the weight trend. Got: '+(rpt.match(/Weight:[^\n]*/)||['none'])[0]);
   S.bodyMetrics=_bm;S.backLog=_bl;S.settings.lastBackCheckin=_lb;S.habits=_h;
 })();
+
+// ---- K8 (v12 chain): 1000 lb goal dormancy ----
+console.log('[K8 Dormant]');
+(function(){
+  const g=S.goals.find(x=>x.id==='g1');
+  assert(g&&g.targetDate==='2027-03-31'&&S.settings._g1RepeakDated===true, 'K8: goal re-dated once (one-shot flagged)');
+  const _d=g.targetDate;g.targetDate='2027-06-01';migrateV3();
+  assert(g.targetDate==='2027-06-01', 'K8: one-shot never overwrites a user-edited date');
+  g.targetDate=_d;
+  const _sp=S.program;
+  S.program={name:'M',active:true,phase:'maintain',days:[]};
+  assert(computePace(g,todayStr())==='pace-muted', 'K8: pace engine OFF while maintain');
+  S.program={name:'B',active:true,days:[]};
+  S.program=_sp;
+})();
+assert(/'HOLDING':paceLabel/.test(html)&&/goal\.holding/.test(html), 'K8: dormant card renders HOLDING + the re-peak line');
+assert(STRINGS.plain['goal.holding']==='Holding \u2014 re-peak begins January', 'K8: holding copy');
+assert((html.match(/'2026-12-31'/g)||[]).length===1&&/g-mu[^\n]*2026-12-31/.test(html), 'K8: the only Dec-31 left is the MU goal\'s own deadline (unchanged by spec)');
 assert(/\.ab-badge\{/.test(html)&&/<span class="ab-badge">\$\{ex\.week\}/.test(html), 'K2: preview badges A/B rows');
 
 // ===== PROGRAM: Sep 2 Block 6 W3 structure (7 days Mon-Sun, recomp) =====
@@ -1491,7 +1509,7 @@ assert(inferEquipmentClass('Hanging Leg Raise') === 'bw', 'Infer: Hanging Leg Ra
 // migrateV3 ran at eval-time via init()/load(); goals are v3 shape
 assert(typeof migrateV3 === 'function', 'MigrateV3: defined');
 const g1 = S.goals.find(g=>g.id==='g1');
-assert(g1 && g1.type === 'big3-total' && g1.targetDate === '2026-12-31' && g1.dataSource === 'big3', 'MigrateV3: 1000lb goal upgraded (type/targetDate/dataSource)');
+assert(g1 && g1.type === 'big3-total' && g1.targetDate === '2027-03-31' && g1.dataSource === 'big3', 'MigrateV3/K8: 1000lb goal upgraded + re-dated for the 2027 re-peak');
 assert(S.goals.some(g=>g.id==='g-mu' && g.type==='milestone-checklist' && Array.isArray(g.milestones) && g.milestones.length===5), 'MigrateV3: muscle-up goal seeded with 5 milestones');
 assert(!S.goals.some(g=>g.id==='g-swim'), 'K2: swim goal retired — never seeded, removed from stored state');
 assert(S.goals.some(g=>g.id==='g-run' && g.type==='weekly-distance' && g.target===null), 'MigrateV3: run goal seeded (no target)');

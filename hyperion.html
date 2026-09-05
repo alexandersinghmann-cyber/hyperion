@@ -1539,6 +1539,7 @@ STRINGS.plain['valid.clean']='validator clean';STRINGS.gothic['valid.clean']='Th
 STRINGS.plain['sheet.tick']='Tick off';STRINGS.gothic['sheet.tick']='Attest';
 STRINGS.plain['sheet.ticked']='Ticked off';STRINGS.gothic['sheet.ticked']='So attested.';
 STRINGS.plain['check.title']='This week';STRINGS.gothic['check.title']='The Week\u2019s Rites';
+STRINGS.plain['goal.holding']='Holding \u2014 re-peak begins January';STRINGS.gothic['goal.holding']='The tally stands banked \u2014 the great push resumes in January';
 STRINGS.plain['cond.card']='Condition';STRINGS.gothic['cond.card']='The Vessel';
 STRINGS.plain['cond.title']='Log condition';STRINGS.gothic['cond.title']='Assay the vessel';
 STRINGS.plain['back.title']='Back check \u2014 how is it today?';STRINGS.gothic['back.title']='The spine \u2014 report its temper';
@@ -2856,8 +2857,9 @@ function migrateV3(){
   if(!g1){g1={id:'g1',auto:true};S.goals.unshift(g1);}
   if(!g1.type){
     g1.id='g1';g1.name='1000 lb Club';g1.type='big3-total';g1.target=1000;
-    g1.current=g1.current||0;g1.unit='lb';g1.targetDate='2026-12-31';g1.dataSource='big3';g1.auto=true;
+    g1.current=g1.current||0;g1.unit='lb';g1.targetDate='2027-03-31';g1.dataSource='big3';g1.auto=true;
   }
+  if(!S.settings._g1RepeakDated&&(function(){const g=S.goals.find(x=>x.id==='g1');if(g&&(!g.targetDate||g.targetDate<'2027-03-31')){g.targetDate='2027-03-31';return true;}return true;})()){S.settings._g1RepeakDated=true;}
   if(!S.goals.some(g=>g.id==='g-mu'))S.goals.push({id:'g-mu',name:'Bar Muscle-Up',type:'milestone-checklist',target:5,current:0,targetDate:'2026-12-31',dataSource:'calisthenics',milestones:muscleUpMilestones()});
   // A1: the swim goal is retired — remove any stored copy once (it would
   // otherwise linger in the generic goals list at 0/1000 forever).
@@ -6635,13 +6637,14 @@ function big3PaceParts(b3,tgts,wkLeft){
 // 2-week window. <2 → muted grey (BUG 1 — no false red on low-data windows).
 function computePace(goal,todayDate){
   if(goal&&goal.paused)return 'pace-muted'; // W4-D: paused goals leave pace logic
+  if(S.program&&S.program.phase==='maintain')return 'pace-muted'; // E3: dormant while holding
   const today=todayDate||todayStr();
   const cut=dateAddDays(today,-14);
   if(goal.type==='big3-total'){
     const n=(S.sessions||[]).filter(s=>(s.sessionType||'lifting')==='lifting'&&s.date>=cut).length;
     if(n<2)return 'pace-muted';
     const b3=getBig3E1rm();
-    const wkLeft=Math.max(1,weeksUntil(today,goal.targetDate||'2026-12-31'));
+    const wkLeft=Math.max(1,weeksUntil(today,goal.targetDate||'2027-03-31'));
     const parts=big3PaceParts(b3,S.settings.big3Targets||{squat:166,bench:102,dead:186},wkLeft);
     if(parts.allAtTarget)return 'pace-ahead';
     return paceToken(Math.max(0,parts.need), parts.actual, n);
@@ -7068,13 +7071,13 @@ function ringArc(r,pct,color,cx,cy){
 function renderGoalsDashboard(){
   const dash=document.getElementById('goalsDash');if(!dash)return;
   const today=todayStr();
-  const cd=document.getElementById('goalsCountdown');if(cd)cd.textContent=weeksUntil(today,'2026-12-31')+' weeks to Dec 31';
+  const cd=document.getElementById('goalsCountdown');if(cd){const _gd=((S.goals||[]).find(g=>g.id==='g1')||{}).targetDate||'2027-03-31';cd.textContent=(S.program&&S.program.phase==='maintain')?'Holding \u2014 re-peak begins January':weeksUntil(today,_gd)+' weeks to '+fmtDate(_gd);}
   refreshMuscleUpGoal();
   const b3=getBig3E1rm();
   const tg=S.settings.big3Targets||{squat:166,bench:102,dead:186};
   const lb=v=>Math.round(v*K2L);
   const sqL=lb(b3.squat),bnL=lb(b3.bench),dlL=lb(b3.dead),totalLb=sqL+bnL+dlL;
-  const g1=(S.goals||[]).find(g=>g.id==='g1')||{type:'big3-total',target:1000,targetDate:'2026-12-31'};
+  const g1=(S.goals||[]).find(g=>g.id==='g1')||{type:'big3-total',target:1000,targetDate:'2027-03-31'};
   const pace=computePace(g1,today),paceLabel={'pace-ahead':'AHEAD','pace-on':'ON PACE','pace-behind':'BEHIND','pace-critical':'BEHIND','pace-muted':'BUILDING'}[pace]||'';
   const toGo=Math.max(0,1000-totalLb);
   // 1000 lb club — concentric strength rings (squat outer, bench mid, dead inner)
@@ -7119,7 +7122,8 @@ function renderGoalsDashboard(){
     </div>`;
   })();
   const card1000=`<div class="goal-card lift tap" onclick="goToLiftDetail('squat')">
-    <div class="goal-head"><span class="t-h2">${t('goal.g1')}</span><span class="pace2" style="color:var(--${pace})">${paceLabel}</span></div>
+    <div class="goal-head"><span class="t-h2">${t('goal.g1')}</span><span class="pace2" style="color:var(--${(S.program&&S.program.phase==='maintain')?'tx3':pace})">${(S.program&&S.program.phase==='maintain')?'HOLDING':paceLabel}</span></div>
+    ${(S.program&&S.program.phase==='maintain')?`<div class="t-meta" style="margin:-2px 0 6px">${t('goal.holding')}</div>`:''}
     <div class="club2"><svg viewBox="0 0 190 190" width="190" height="190" aria-hidden="true">
       <defs><linearGradient id="sunGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--brand)"/><stop offset="1" style="stop-color:var(--brand2)"/></linearGradient></defs>
       <circle cx="${CTR}" cy="${CTR}" r="34" fill="url(#sunGrad)"/>${rings}</svg>
