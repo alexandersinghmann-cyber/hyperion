@@ -3365,6 +3365,7 @@ function getNextAvailableDayIdx(){
     if(isDayDone(i)||isDaySkipped(i))return;
     const ed=dayEffectiveDate(d);
     if(dayRemovedForWeek(d,weekOfDate(ed)))return; // E2: removed this week
+    if(dayPreBlock(d,weekDatesFor(ed)))return; // block hasn't started — never 'next'
     if(bestDate===null||ed<bestDate){bestDate=ed;best=i;}
   });
   return best;
@@ -7578,7 +7579,13 @@ function weeklyScheduled(weekDates,today){
 // recMatchesDay keeps two same-labeled days separate).
 function dayPreBlock(d,wd){
   const sd=S.program&&S.program.startDate;
-  return !!(sd&&wd[0]<sd&&sd<=wd[6]&&dayEffectiveDate(d,wd[0])<sd);
+  if(!sd)return false;
+  // Transition week (start date inside it): days before the start are exempt.
+  if(wd[0]<sd&&sd<=wd[6])return dayEffectiveDate(d,wd[0])<sd;
+  // Early adoption (block starts NEXT week): the whole current/future week is
+  // pre-block. Historical weeks keep legacy behavior — reports stay stable.
+  if(sd>wd[6]&&wd[6]>=todayStr())return true;
+  return false;
 }
 function dayWeekStatus(d,wd){
   const bn=S.program.name;
@@ -7592,7 +7599,11 @@ function dayWeekStatus(d,wd){
 }
 function isWeekComplete(weekDates){
   const wd=weekDates||weekDatesFor(todayStr());
-  return (S.program.days||[]).length>0&&(S.program.days||[]).every(d=>dayWeekStatus(d,wd)!=='pending');
+  const sts=(S.program.days||[]).map(d=>dayWeekStatus(d,wd));
+  const owed=sts.filter(st=>st!=='removed'&&st!=='rest'&&st!=='preblock');
+  // A week nobody owed anything in (all pre-block) is NOT "complete" — no
+  // spurious week-complete banner the weekend a new block is adopted early.
+  return owed.length>0&&owed.every(st=>st!=='pending');
 }
 // A2: the weekly checklist card — this week's sessions as tick rows + count.
 // That is the whole card.

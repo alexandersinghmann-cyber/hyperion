@@ -4079,6 +4079,21 @@ assert(blockDisplayName('Sep 2 Block 6 W3')==='Block 6 \u00b7 Week 3', 'K16: blo
 assert(blockDisplayName('Custom Block Name')==='Custom Block Name', 'K16: unparseable names pass through');
 assert(/if\(S\.program&&S\.program\.version===11&&!S\.program\.startDate\)S\.program\.startDate='2026-09-02';/.test(html), 'K16: v11 holdouts backfill v11\'s OWN start date (not the shipped block\'s)');
 assert(/const from=\(sd&&sd>dates\[0\]&&sd<=dates\[6\]\)\?sd:dates\[0\];/.test(html), 'K16: header range clamps to the block start in the transition week');
+// early adoption: block starts NEXT Monday → current week owes nothing
+(function(){
+  const _sp=S.program;S.program={name:'Early',active:true,version:96,startDate:dateAddDays(weekOfDate(todayStr()),7),days:[
+    {id:1,label:'Gym',defaultDay:'Saturday',dayOfWeek:'Saturday',sessionType:'lifting',dur:60,exercises:[]},
+    {id:2,label:'Swim',defaultDay:'Monday',dayOfWeek:'Monday',sessionType:'swim',dur:45,exercises:[]}
+  ]};
+  S.sessions=[];S.skips=[];S.weekRemovals=[];
+  const wd=weekDatesFor(todayStr());
+  assert(S.program.days.every(d=>dayWeekStatus(d,wd)==='preblock'), 'K16b: whole current week pre-block when the start is next Monday');
+  assert(isWeekComplete(wd)===false, 'K16b: an all-pre-block week is NOT complete (no spurious banner)');
+  assert(weekChecklistHTML()===''||!/wkc-lbl/.test(weekChecklistHTML().replace(/100 KB Swings[^<]*/,'')), 'K16b: no day rows owed this week');
+  const pick=getNextAvailableDayIdx();
+  assert(pick===1, 'K16b: Start picker skips pre-block days and leads with next Monday. Got: '+pick);
+  S.program=_sp;
+})();
 
 // ---- K17: quote provenance + protection-line visibility + header trim ----
 console.log('[K17 Litany]');
