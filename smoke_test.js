@@ -52,6 +52,7 @@ const patched = js
   .replace(/\blet _notesT\s*=/g, 'var _notesT =')
   .replace(/\blet _variantSheetEi\s*=/g, 'var _variantSheetEi =')
   .replace(/\blet _exSheetEi\s*=/g, 'var _exSheetEi =')
+  .replace(/\bconst DEFAULT_RECURRING\s*=/g, 'var DEFAULT_RECURRING =')
   .replace(/\blet _backPending\s*=/g, 'var _backPending =')
   .replace(/\blet _backStartIdx\s*=/g, 'var _backStartIdx =')
   .replace(/\bconst ACTIVITY_TYPES\s*=/g, 'var ACTIVITY_TYPES =')
@@ -564,6 +565,27 @@ assert(/nudge\.backup/.test(html)&&/exportNudgeSnooze/.test(html), 'K9: banner +
   const b=buildExportPayload('2026-09-05T00:00:00Z');
   assert(a===b, 'K9: buildExportPayload byte-identical for a fixed timestamp');
   S.settings.lastExportAt=_lx;S.settings.exportNudgeSnooze=_sn;
+})();
+
+// ---- K10 (v12 chain): recurring manager + purge semantics ----
+console.log('[K10 Recurring]');
+assert(!/Saturday run/.test(JSON.stringify(DEFAULT_RECURRING))&&!/Push Pull Give/.test(JSON.stringify(DEFAULT_RECURRING)), 'K10: fossils removed from the fresh-install seed too');
+assert(/id="recurList"/.test(html)&&typeof renderRecurringList==='function'&&typeof deleteRecurring==='function'&&typeof setRecurringDay==='function', 'K10: Settings manager (Archivum group) — list/edit/delete');
+(function(){
+  const _ra=JSON.parse(JSON.stringify(S.recurringActivities));
+  // a user RE-ADD of a purged label survives future migrations (one-shot flag)
+  S.recurringActivities.push({type:'run',defaultDay:'Saturday',defaultDuration:40,defaultDistance:5,label:'Saturday run'});
+  migrateV3();
+  assert(S.recurringActivities.some(r=>r.label==='Saturday run'), 'K10: purge is one-shot — a deliberate re-add is never re-deleted');
+  // delete persists across migrate (no per-entry respawn)
+  S.recurringActivities=S.recurringActivities.filter(r=>r.label!=='Saturday run'&&r.label!=='Pilates');
+  migrateV3();
+  assert(!S.recurringActivities.some(r=>r.label==='Pilates'), 'K10: a deleted entry stays deleted across reload/migrate');
+  // planner never spawns the run next week
+  const wk=weekDatesFor(dateAddDays(todayStr(),7));
+  const rows=buildWeek(wk,todayStr());
+  assert(!rows.some(r=>r.sessions.some(x=>x.type==='run'&&x.source==='recurring')), 'K10: no run session appears next week');
+  S.recurringActivities=_ra;save();
 })();
 assert(/\.ab-badge\{/.test(html)&&/<span class="ab-badge">\$\{ex\.week\}/.test(html), 'K2: preview badges A/B rows');
 
@@ -1531,7 +1553,8 @@ assert(g1 && g1.type === 'big3-total' && g1.targetDate === '2027-03-31' && g1.da
 assert(S.goals.some(g=>g.id==='g-mu' && g.type==='milestone-checklist' && Array.isArray(g.milestones) && g.milestones.length===5), 'MigrateV3: muscle-up goal seeded with 5 milestones');
 assert(!S.goals.some(g=>g.id==='g-swim'), 'K2: swim goal retired — never seeded, removed from stored state');
 assert(S.goals.some(g=>g.id==='g-run' && g.type==='weekly-distance' && g.target===null), 'MigrateV3: run goal seeded (no target)');
-assert(Array.isArray(S.recurringActivities) && S.recurringActivities.some(r=>/Push Pull Give/.test(r.label) && r.locked===true), 'MigrateV3: recurring activities incl. locked Cali Handstand (Push Pull Give)');
+assert(Array.isArray(S.recurringActivities) && !S.recurringActivities.some(r=>/Push Pull Give/.test(r.label||'')) && !S.recurringActivities.some(r=>/^Saturday run$/.test(r.label||'')), 'MigrateV3/K10: v3 fossils purged (Saturday run + Cali Handstand gone)');
+assert(S.recurringActivities.some(r=>r.label==='Swim lesson'&&r.locked===true)&&S.recurringActivities.some(r=>r.label==='Pilates'), 'K10: Swim lesson + Pilates survive the purge');
 assert(S.version === 3, 'MigrateV3: version stamped to 3');
 // program days carry sessionType + defaultDay alias + exercise equipmentClass
 // (earlier tests reset S.program from raw DEF_PROGRAM, so re-apply the idempotent migration)

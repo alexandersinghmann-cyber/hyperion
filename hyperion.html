@@ -1298,6 +1298,11 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       <button class="btn btn-sm btn-g" onclick="syncData()">Export</button>
     </div>
     <div style="padding:10px 0;border-bottom:1px solid var(--s2)">
+      <div style="display:flex;justify-content:space-between;align-items:center"><span>Recurring activities</span></div>
+      <div style="font:10px var(--mono);color:var(--tx3)">Weekly placeholders the planner schedules automatically.</div>
+      <div id="recurList" style="margin-top:6px"></div>
+    </div>
+    <div style="padding:10px 0;border-bottom:1px solid var(--s2)">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <span>Import</span>
         <button class="btn btn-sm btn-g" onclick="hideModal('settingsModal');showModal('importModal')">Import</button>
@@ -2836,11 +2841,12 @@ function migrateCategories(){
 // ===== v2 → v3 MIGRATION (multi-modal) =====
 // Idempotent. Runs on every load() (fresh installs too), so it must only add
 // what's missing and never clobber existing v3 data.
+// F (Recomp W1): the seeded 'Saturday run' + 'Cali Handstand' were v3 fossils
+// the planner kept respawning into the week — deleted outright (one-shot
+// below purges existing installs; the manager in Settings owns the rest).
 const DEFAULT_RECURRING=[
   {type:'swim',defaultDay:null,defaultDuration:45,defaultDistance:0,label:'Swim lesson',locked:true},
-  {type:'pilates',defaultDay:null,defaultDuration:50,defaultDistance:0,label:'Pilates'},
-  {type:'run',defaultDay:'Saturday',defaultDuration:40,defaultDistance:5,label:'Saturday run'},
-  {type:'calisthenics',defaultDay:null,defaultDuration:60,defaultDistance:0,label:'Cali Handstand (Push Pull Give)',locked:true}
+  {type:'pilates',defaultDay:null,defaultDuration:50,defaultDistance:0,label:'Pilates'}
 ];
 function muscleUpMilestones(){
   return [
@@ -2877,6 +2883,10 @@ function migrateV3(){
   }
   // --- Recurring activities ---
   if(!Array.isArray(S.recurringActivities))S.recurringActivities=JSON.parse(JSON.stringify(DEFAULT_RECURRING));
+  if(!S.settings._recurringPurgeV12){
+    S.recurringActivities=S.recurringActivities.filter(r=>!/^Saturday run$/.test(r.label||'')&&!/Push Pull Give/.test(r.label||''));
+    S.settings._recurringPurgeV12=true;
+  }
   // --- Recomp W1 (K5): condition metrics, back-status log, daily habits ---
   // Same !Array.isArray guard: user deletions/edits persist, no per-entry respawn.
   if(!Array.isArray(S.bodyMetrics))S.bodyMetrics=[];
@@ -3231,6 +3241,7 @@ function renderSettings(){
     const inp=document.getElementById('sTgt'+kCap);
     if(inp)inp.value=toDisp(tgts[k]);
   });
+  try{renderRecurringList();}catch(e){}
   try{renderGymSelect()}catch(e){}
   // Rotation status line
   const rs=document.getElementById('sRotState');
@@ -5037,6 +5048,29 @@ function goodDayStreak(){
   let d=todayStr();if(by[d]==null)d=dateAddDays(d,-1);
   let n=0;while(by[d]==='good'){n++;d=dateAddDays(d,-1);}
   return n;
+}
+// F: Recurring activities manager — the only edit/delete surface these have.
+function renderRecurringList(){
+  const el=document.getElementById('recurList');if(!el)return;
+  const ra=S.recurringActivities||[];
+  if(!ra.length){el.innerHTML='<div class="t-meta" style="padding:4px 0">None. Create one via Compose week.</div>';return;}
+  const DOWS=['','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  el.innerHTML=ra.map((r,i)=>`<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--s2)">
+    <div style="flex:1;min-width:0"><div style="font:600 13px var(--sans)">${esc(r.label||r.type)}${r.locked?' <span class="t-meta">\u00b7 locked</span>':''}</div><div class="t-meta">${r.type}</div></div>
+    <select onchange="setRecurringDay(${i},this.value)" aria-label="Day for ${esc(r.label||r.type)}" style="padding:5px 6px;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx);font:600 11px var(--mono)">${DOWS.map(d2=>`<option value="${d2}" ${(r.defaultDay||'')===d2?'selected':''}>${d2||'\u2014'}</option>`).join('')}</select>
+    <button class="btn btn-sm btn-g" onclick="deleteRecurring(${i})" aria-label="Delete ${esc(r.label||r.type)}">\u00d7</button>
+  </div>`).join('');
+}
+function setRecurringDay(i,dow){
+  const r=(S.recurringActivities||[])[i];if(!r)return;
+  r.defaultDay=dow||null;save();renderRecurringList();
+  try{renderWeek();}catch(e){}
+}
+function deleteRecurring(i){
+  const r=(S.recurringActivities||[])[i];if(!r)return;
+  if(!confirm('Delete recurring \u201c'+(r.label||r.type)+'\u201d?'+(r.locked?' It is marked as a class commitment.':'')))return;
+  S.recurringActivities.splice(i,1);save();renderRecurringList();
+  try{renderWeek();}catch(e){}
 }
 function openCondLog(){
   try{['cndW','cndBf','cndMu'].forEach(id2=>{const el=document.getElementById(id2);if(el)el.value='';});}catch(e){}
