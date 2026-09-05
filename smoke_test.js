@@ -147,6 +147,7 @@ assert(EXTRAS.some(e => e.name === 'DB Bench Press' && e.pool === 'upper'), 'Ext
 // User: "Got a flagged notification - but no explanation?" — evalProg() now
 // writes a short ex.progressionReason whenever it sets progression='flag'
 // so the UI can render WHY the flag fired (RPE 10, missed reps, pain event).
+if(S.program)S.program.phase='build'; // K3: increment fixtures pin the phase
 const __flagSavedSess = S.activeSession;
 S.activeSession = {dayLabel:'Test', exercises:[{
   name:'Bench Press', cat:'push', prescribed:{sets:4,reps:'5',loadKg:22,unit:'kg'},
@@ -348,6 +349,45 @@ console.log('[K2 WeekAB]');
   S.program=_sp;S.sessions=[];
 })();
 assert(/if\(day&&day\.alternating\)\{_orderOffer=null;return;\}/.test(html), 'K2: applyOrderOffer refuses alternating days');
+
+// ---- K3 (v12 chain): maintain-phase gate ----
+console.log('[K3 Maintain]');
+(function(){
+  const _sp=S.program;
+  S.program={name:'MaintTest',active:true,version:98,phase:'maintain',startDate:'2026-09-07',days:[]};
+  const mk=(extra)=>({name:'Back Squat',cat:'squat',prescribed:{sets:2,reps:'5',loadKg:100,unit:'kg'},equipmentClass:'barbell',
+    performed:[{type:'working',weightKg:100,reps:5,rpe:7,logged:true},{type:'working',weightKg:100,reps:5,rpe:7,logged:true}],tags:[],progression:null,nextLoad:null,...(extra||{})});
+  S.sessions=[];S.activeSession={dayIndex:0,date:'2026-09-12',dayLabel:'Gym',sessionType:'lifting',startTime:1,exercises:[mk()]};
+  evalProg(0);
+  let ex=S.activeSession.exercises[0];
+  assert(ex.progression==='hold'&&ex.nextLoad===100&&ex.progressionReason==='Maintain phase \u2014 holding load', 'K3: would-be increase HOLDS in maintain. Got: '+ex.progression+' '+ex.nextLoad+' / '+ex.progressionReason);
+  // 'build' tag opts back in
+  S.activeSession.exercises=[mk({tags:['build']})];
+  evalProg(0);ex=S.activeSession.exercises[0];
+  assert(ex.progression==='increase'&&ex.nextLoad===105, 'K3: build-tagged lift still increments. Got: '+ex.progression+' '+ex.nextLoad);
+  // pain still wins (flag, not maintain-hold)
+  S.activeSession.exercises=[mk({painEvent:{severity:2,area:'back'}})];
+  evalProg(0);ex=S.activeSession.exercises[0];
+  assert(ex.progression==='flag', 'K3: pain outranks the maintain hold. Got: '+ex.progression);
+  // frozen keeps its SPECIFIC reason (coach cue outranks the generic phase line)
+  S.activeSession.exercises=[mk({frozen:true,cue:'neutral only'})];
+  evalProg(0);ex=S.activeSession.exercises[0];
+  assert(ex.progression==='hold'&&/Frozen — neutral only/.test(ex.progressionReason), 'K3: frozen reason wins inside maintain. Got: '+ex.progressionReason);
+  // consecutive maintain holds are the PLAN — never a stall
+  S.sessions=[
+    {date:'2026-09-05',dayLabel:'G',exercises:[{name:'Back Squat',prescribed:{sets:2,reps:'5',loadKg:100,unit:'kg'},performed:[{type:'working',weightKg:100,reps:5,logged:true}],variant:null}]},
+    {date:'2026-09-12',dayLabel:'G',exercises:[{name:'Back Squat',prescribed:{sets:2,reps:'5',loadKg:100,unit:'kg'},performed:[{type:'working',weightKg:100,reps:5,logged:true}],variant:null}]}
+  ];
+  S.activeSession.exercises=[mk()];
+  evalProg(0);ex=S.activeSession.exercises[0];
+  assert(ex.progression==='hold', 'K3: maintain hold never converts to stall. Got: '+ex.progression);
+  // no phase (or build) → engine untouched
+  S.program.phase=undefined;S.sessions=[];
+  S.activeSession.exercises=[mk()];
+  evalProg(0);ex=S.activeSession.exercises[0];
+  assert(ex.progression==='increase'&&ex.nextLoad===105, 'K3: phaseless program keeps the build path. Got: '+ex.progression+' '+ex.nextLoad);
+  S.program=_sp;S.sessions=[];S.activeSession=null;
+})();
 assert(/\.ab-badge\{/.test(html)&&/<span class="ab-badge">\$\{ex\.week\}/.test(html), 'K2: preview badges A/B rows');
 
 // ===== PROGRAM: Sep 2 Block 6 W3 structure (7 days Mon-Sun, recomp) =====
@@ -1807,6 +1847,7 @@ S.sessions=[];
 // (E2) Back Squat carries incrementKg:5 — RPE ≤8 + hitTop earns the FULL
 // per-lift step now. The half-step demote path is covered by a non-override
 // lift (Pause Squat) below.
+if(S.program)S.program.phase='build'; // K3: RPE battery expects increments
 S.activeSession={dayIndex:0,date:'2026-07-10',dayLabel:'T',sessionType:'lifting',startTime:1,exercises:[
   {name:'Back Squat',cat:'squat',prescribed:{sets:2,reps:'5',loadKg:92.5,unit:'kg'},equipmentClass:'barbell',
    performed:[{type:'working',weightKg:92.5,reps:5,rpe:8,logged:true},{type:'working',weightKg:92.5,reps:5,rpe:8,logged:true}],tags:[],progression:null,nextLoad:null}
@@ -2118,6 +2159,7 @@ S.sessions=[];
 S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.activeSession=null;
 global.showSessionHero=global.showSessionHero||(()=>{});
 global.startTimer=()=>{}; // real interval would hang the harness (node never exits)
+S.program.phase='build'; // K3: the unfrozen-clone assert expects +2.5
 startDay(2); // B6 Squat (Wednesday, id 3, index 2)
 const sqSess=S.activeSession.exercises.find(e=>e.name==='Back Squat');
 const wuRows=sqSess.performed.filter(pp=>pp.type==='warmup');
@@ -2334,6 +2376,7 @@ assert(schemeTop([{reps:5,loadKg:80},{reps:5,loadKg:90}]).loadKg===90, 'E1: unta
 // Squat day ships this scheme, so exercise it directly.
 S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.activeSession=null;
 global.startTimer=()=>{};global.showSessionHero=global.showSessionHero||(()=>{});
+S.program.phase='build'; // K3
 startDay(2); // B6 Squat Wednesday
 const e1sq=S.activeSession.exercises.find(e=>e.name==='Back Squat');
 const e1w=e1sq.performed.filter(pp=>pp.type==='working');
@@ -2379,6 +2422,7 @@ const e2case=(name,cls,load,rpe)=>{
   S.activeSession={dayIndex:0,date:'2026-07-22',dayLabel:'T',sessionType:'lifting',startTime:1,exercises:[
     {name,cat:'hinge',prescribed:{sets:1,reps:'5',loadKg:load,unit:'kg'},equipmentClass:cls,
      performed:[{type:'working',weightKg:load,reps:5,rpe,logged:true}],tags:[],progression:null,nextLoad:null}]};
+  if(S.program)S.program.phase='build'; // K3: e2case battery expects per-lift increments
   evalProg(0);return S.activeSession.exercises[0];
 };
 const dl8=e2case('Deadlift','barbell',125,8);
@@ -2736,6 +2780,7 @@ assert(/gymId:sess\.gymId\|\|/.test(html)&&/gymId:\(S\.settings&&S\.settings\.ac
     {date:'2026-08-02',gymId:'gym-holiday',dayLabel:'X',exercises:[{name:'Leg Press',prescribed:{sets:3,reps:'10',loadKg:160,unit:'kg'},performed:[{type:'working',weightKg:160,reps:10,logged:true}]}]}
   ];
   ex.progression=null;ex.progressionReason=null;
+  if(S.program)S.program.phase='build'; // K3
   evalProg(0);
   assert(ex.progression==='increase'&&ex.nextLoad===162.5, 'B2+B4: calibrated machine resumes suggestions on the 2.5 grid. Got '+ex.progression+' '+ex.nextLoad);
   S.sessions=[];S.activeSession=null;S.settings.activeGymId='gym-commercial';
@@ -3139,6 +3184,7 @@ assert(/_sgPlates1kgDroppedB6/.test(html), 'G3: one-shot drops the 1 kg pair fro
 
 // ===== G4: ROLE / TARGET / FROZEN =====
 console.log('\n--- G4: role/target/frozen ---');
+if(S.program)S.program.phase='build'; // K3: G4's below-target increase expects the build path
 assert(exRole({name:'Face Pull'})==='rehab', 'G4: ROLE_DEFAULTS — Face Pull is rehab');
 assert(exRole({name:'Band External Rotation'})==='rehab', 'G4: rehab-shaped meta defaults to rehab');
 assert(exRole({name:'Back Squat'})===null, 'G4: main lifts carry no default role');
@@ -3652,6 +3698,7 @@ assert((html.match(/fmtW\(ex\.nextLoad,ex\.prescribed\.unit\)\+perSideSuffix\(ex
 assert((html.match(/machineCant\('MACHINE SPIRIT COUNSELS:',fmtW\(ex\.nextLoad,ex\.prescribed\.unit\)\)/g)||[]).length===2, 'K12/E1: machineCant branch byte-untouched');
 // incrementKg override: session exercise value beats EX_META
 S.sessions=[];
+if(S.program)S.program.phase='build'; // K3
 S.activeSession={dayIndex:0,date:'2026-09-04',dayLabel:'T',sessionType:'lifting',startTime:1,exercises:[
   {name:'Back Squat',cat:'squat',incrementKg:2.5,prescribed:{sets:2,reps:'5',loadKg:100,unit:'kg'},equipmentClass:'barbell',
    performed:[{type:'working',weightKg:100,reps:5,rpe:7,logged:true},{type:'working',weightKg:100,reps:5,rpe:7,logged:true}],tags:[],progression:null,nextLoad:null}

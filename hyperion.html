@@ -6181,6 +6181,14 @@ function evalProg(ei){
     ex.progressionReason=ex.frozen?('Frozen — '+(ex.cue||'technique focus, load stays')):'At target — maintain';
     save();return;
   }
+  // A (Recomp W1): phase gate — in a maintain block EVERY remaining lift holds
+  // (no ↑, no increment math) unless the coach tags it 'build'. Pain still
+  // wins (flag surfaces below); frozen/at-target keep their specific reasons.
+  if(S.program&&S.program.phase==='maintain'&&!(ex.tags||[]).includes('build')&&!(ex.painEvent&&ex.painEvent.severity!=='none')){
+    ex.progression='hold';ex.nextLoad=isBW?null:(topW||ex.prescribed.loadKg);ex.nextTarget=null;
+    ex.progressionReason='Maintain phase \u2014 holding load';
+    save();return;
+  }
 
   if(ex.painEvent&&ex.painEvent.severity!=='none'){
     ex.progression='flag';ex.nextLoad=topW||ex.prescribed.loadKg;
@@ -6238,7 +6246,7 @@ function evalProg(ei){
   // prescribed), on the SAME variant track (legacy no-variant records match).
   const vKey=variantKey(ex.variant);
   const hist=trackSessions(ex.name,vKey); // B2: stall compares within THIS gym's track
-  if(hist.length>=2&&ex.progression==='hold'){
+  if(hist.length>=2&&ex.progression==='hold'&&!(S.program&&S.program.phase==='maintain'&&!(ex.tags||[]).includes('build'))){
     const rec=hist.slice(-2);
     const same=rec.every(s=>{
       const e=s.exercises.find(e=>histMatch(e,ex.name,vKey));
