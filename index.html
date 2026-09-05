@@ -1274,7 +1274,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
         <div style="flex:1"><div style="font:600 10px var(--sans);color:var(--tx3);opacity:.7;margin-bottom:2px">Bar kg</div><input type="number" step="0.5" id="sBarKg" onchange="saveBarPlates()" aria-label="Bar weight in kg" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx);font:600 13px var(--mono)"></div>
         <div style="flex:2"><div style="font:600 10px var(--sans);color:var(--tx3);opacity:.7;margin-bottom:2px">Plates (kg, per side)</div><input type="text" id="sPlates" onchange="saveBarPlates()" aria-label="Plate inventory, kg per side, comma separated" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx);font:600 12px var(--mono)"></div>
       </div>
-      <div style="font:10px var(--mono);color:var(--tx3);margin-top:5px">Deadlift uses a 36 kg bar by default (per-exercise override).</div>
+      <div style="font:10px var(--mono);color:var(--tx3);margin-top:5px">Trap Bar Deadlift uses the 36 kg trap bar by default (per-exercise override).</div>
     </div>
     <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
       <div><div>Sync Program to Default</div><div style="font:10px var(--mono);color:var(--tx3);margin-top:2px">Built-in block · history preserved · validator auto-runs</div></div>
@@ -1325,7 +1325,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       <div style="display:flex;gap:6px">
         <button class="btn btn-sm btn-g" style="flex:1" onclick="hideModal('settingsModal');startCalibrationSession('Back Squat')">Squat</button>
         <button class="btn btn-sm btn-g" style="flex:1" onclick="hideModal('settingsModal');startCalibrationSession('Bench Press')">Bench</button>
-        <button class="btn btn-sm btn-g" style="flex:1" onclick="hideModal('settingsModal');startCalibrationSession('Deadlift')">Dead</button>
+        <button class="btn btn-sm btn-g" style="flex:1" onclick="hideModal('settingsModal');startCalibrationSession('Trap Bar Deadlift')">Dead</button>
       </div>
     </div>
     <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
@@ -1711,6 +1711,7 @@ const NAME_ALIASES={
   'Low Row':'Cable Low Row',
   'Cable Row':'Cable Low Row',
   'Cable Row (wide)':'Cable Low Row',
+  'Deadlift':'Trap Bar Deadlift',
   'Calf Raise (sitting)':'Calf Raise',
   'Standing Overhead Barbell Press':'Military Press',
   'Overhead Press':'Military Press'
@@ -1883,7 +1884,8 @@ const EX_META={
   'Bulgarian Split Squat':{pat:'squat',prim:['quad','glute'],eq:['db','bench'],fat:'light-compound',sh:'safe',slot:'squat-secondary'},
   'Goblet Squat':{pat:'squat',prim:['quad','glute','core'],eq:['db'],fat:'light-compound',sh:'safe',slot:'squat-secondary'},
   // Hinge
-  'Deadlift':{pat:'hinge',prim:['erector','glute','hamstring','lat','trap'],eq:['barbell','platform'],fat:'heavy-compound',sh:'safe',slot:'deadlift-main',incrementKg:5},
+  'Trap Bar Deadlift':{pat:'hinge',prim:['erector','glute','hamstring','lat','trap'],eq:['trap-bar','platform'],fat:'heavy-compound',sh:'safe',slot:'deadlift-main',incrementKg:5},
+  'Deadlift (Barbell)':{pat:'hinge',prim:['erector','glute','hamstring','lat','trap'],eq:['barbell','platform'],fat:'heavy-compound',sh:'safe',slot:'deadlift-main',incrementKg:5},
   'Deficit Deadlift':{pat:'hinge',prim:['erector','glute','hamstring','quad'],eq:['barbell','platform'],fat:'heavy-compound',sh:'safe',slot:'deadlift-main'},
   'Block Pull':{pat:'hinge',prim:['erector','glute','hamstring','trap'],eq:['barbell','blocks'],fat:'heavy-compound',sh:'safe',slot:'deadlift-main'},
   'Pause Deadlift':{pat:'hinge',prim:['erector','glute','hamstring'],eq:['barbell','platform'],fat:'heavy-compound',sh:'safe',slot:'deadlift-main'},
@@ -2099,7 +2101,7 @@ const DEF_PROGRAM={name:"Sep 2 Block 6 W3",version:11,active:true,startDate:"202
 {id:6,label:"Deadlift + Pull",defaultDay:"Saturday",dayOfWeek:"Saturday",sessionType:"lifting",dur:75,exercises:[
   {id:"w3d6e1",name:"Glute Bridge",cat:"rehab",section:"warmup",sets:2,reps:"10",loadKg:0,unit:"bw",rest:30,tags:[],angle:null,grip:null,equipmentClass:"bw"},
   {id:"w3d6e2",name:"Dead Bug",cat:"core",section:"warmup",sets:1,reps:"8",loadKg:0,unit:"bw",rest:30,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"w3d6e3",name:"Deadlift",cat:"hinge",sets:4,reps:"5",loadKg:128.5,unit:"kg",rest:180,
+  {id:"w3d6e3",name:"Trap Bar Deadlift",cat:"hinge",sets:4,reps:"5",loadKg:128.5,unit:"kg",rest:180,
     setScheme:[{loadKg:128.5,reps:5,tag:"top"},{loadKg:118.5,reps:5},{loadKg:118.5,reps:5},{loadKg:118.5,reps:5}],
     tags:["RPE-8-hard-cap","reset-every-rep","NO-AMRAP"],
     cue:"Cap hard at 8 \u2014 every rep from a dead stop",
@@ -2265,7 +2267,7 @@ const VARIANTS={
   calf:['Calf Raise'],
   carry:['Farmer Carry','DB Carry','Suitcase Carry']
 };
-const FIXED_MAINS=['Back Squat','Bench Press','Deadlift'];
+const FIXED_MAINS=['Back Squat','Bench Press','Trap Bar Deadlift'];
 // Rotation threshold (sessions). Rule #17: every ~14 sessions or 4 wks, whichever first.
 const ROTATION_THRESHOLD=14;
 
@@ -2347,7 +2349,7 @@ function activeGymBar(){const g=_activeGym();return (g&&g.defaultBarKg)||20;}
 const DEFAULT_PLATES=[25,20,15,10,5,2.5,1.25];
 function activePlates(){const g=_activeGym();return (g&&g.plateInventory)||DEFAULT_PLATES;}
 // Per-exercise bar weight: explicit override > known default > active gym default.
-const BAR_DEFAULTS={'Deadlift':36};
+const BAR_DEFAULTS={'Trap Bar Deadlift':36};
 function exerciseBarKg(ex){
   if(ex&&typeof ex.barKg==='number')return ex.barKg;
   const d=BAR_DEFAULTS[canonName(ex&&ex.name||'')];
@@ -2542,8 +2544,8 @@ function buildCalibrationRamp(current1RM){
   return pcts.map(p=>({type:p.type,weightKg:roundPlate(current1RM*p.pct),reps:p.reps,rpe:null,logged:false}));
 }
 function startCalibrationSession(liftName){
-  const lifts={'Back Squat':'squat','Bench Press':'bench','Deadlift':'dead'};
-  const key=lifts[liftName];if(!key){alert('Calibration is for Back Squat / Bench Press / Deadlift.');return;}
+  const lifts={'Back Squat':'squat','Bench Press':'bench','Trap Bar Deadlift':'dead'};
+  const key=lifts[liftName];if(!key){alert('Calibration is for Back Squat / Bench Press / Trap Bar Deadlift.');return;}
   // Pull the most recent heavy working set to seed current e1RM
   let cur=S.settings.big3Targets?S.settings.big3Targets[key]:null;
   // Override with latest achieved Epley estimate if any
@@ -4339,7 +4341,7 @@ function renderActivityLog(sess){
 // 186" — the Settings targets, surfaced where the work happens. Display unit
 // respected; FIXED_MAINS only.
 function mainTargetLine(ex){
-  const keyMap={'Back Squat':'squat','Bench Press':'bench','Deadlift':'dead'};
+  const keyMap={'Back Squat':'squat','Bench Press':'bench','Trap Bar Deadlift':'dead'};
   const k=keyMap[canonName(ex.name)];
   if(!k||!FIXED_MAINS.includes(canonName(ex.name)))return'';
   const tg=(S.settings.big3Targets||{})[k];if(!tg)return'';
@@ -6486,9 +6488,10 @@ function runWeeklySeries(sessions,today,weeks){
 // Bench uses logged Flat Bench only; if none has been logged, falls back to S.settings.benchBaseline1RM (Alex: 95 kg).
 // Incline Bench is deliberately EXCLUDED — it is not a 1RM proxy for flat bench.
 function getBig3E1rm(){
-  // name match: "Back Squat" exactly (not "Back Squat (light)") | "Deadlift" exactly | "Flat Bench" or "Bench Press"
+  // name match: "Back Squat" exactly (not "Back Squat (light)") | the trap-bar
+  // pull exactly (canonName folds pre-rename 'Deadlift' records in) | Bench.
   const isSquat = n => n === 'Back Squat';
-  const isDead  = n => n === 'Deadlift';
+  const isDead  = n => canonName(n) === 'Trap Bar Deadlift';
   const isFlatBench = n => /^(flat bench|bench press|barbell bench)$/i.test(n);
   const series = { squat: [], bench: [], dead: [] };
 
@@ -6561,7 +6564,7 @@ function getBig3DiagnosticData(liftKey){
   const matchers = {
     squat: { label:'Squat',      desc:'"Back Squat" exact match',                            test:n => n === 'Back Squat' },
     bench: { label:'Flat Bench', desc:'/^(flat bench|bench press|barbell bench)$/i',          test:n => /^(flat bench|bench press|barbell bench)$/i.test(n) },
-    dead:  { label:'Deadlift',   desc:'"Deadlift" exact match',                              test:n => n === 'Deadlift' }
+    dead:  { label:'Trap Bar DL', desc:'canonName === "Trap Bar Deadlift"',                   test:n => canonName(n) === 'Trap Bar Deadlift' }
   };
   const m = matchers[liftKey];
   if(!m) return {liftKey, label:String(liftKey), desc:'unknown', rows:[]};
@@ -6686,7 +6689,7 @@ function renderBig3Tiles(){
   const tiles = [
     { key:'squat', name:'Squat',    val:b3.squat, baseline:false,               tgtKg:tgts.squat },
     { key:'bench', name:'Bench',    val:b3.bench, baseline:b3.benchIsBaseline,  tgtKg:tgts.bench },
-    { key:'dead',  name:'Deadlift', val:b3.dead,  baseline:false,               tgtKg:tgts.dead  },
+    { key:'dead',  name:'Trap Bar DL', val:b3.dead,  baseline:false,            tgtKg:tgts.dead  },
   ];
   // Ring geometry
   const R = 38, CX = 44, CY = 44;
@@ -6859,7 +6862,7 @@ function renderGoalsDashboard(){
   // Goal-complete state (4d): e1RM >= target -> full GREEN ring + check badge
   // + a one-time celebration (same one-shot store as MU milestones).
   const liftDone={squat:b3.squat>=tg.squat,bench:b3.bench>=tg.bench,dead:b3.dead>=tg.dead};
-  const liftLabel={squat:'Squat',bench:'Bench',dead:'Deadlift'};
+  const liftLabel={squat:'Squat',bench:'Bench',dead:'Trap Bar Deadlift'};
   Object.keys(liftDone).forEach(k=>{if(liftDone[k])try{celebrateMilestone('lift_target_'+k,liftLabel[k]+' target hit — '+tg[k]+' kg');}catch(e){}});
   // Orbit treatment: each arc's leading edge carries a planet dot + tight
   // label (SQ/BP/DL + current lb) so the rings read without a legend.
@@ -7054,7 +7057,7 @@ function renderE1rmChart(){
   const legend=document.getElementById('e1rmLegend');
   if(S.sessions.length===0){chart.innerHTML='<text x="50%" y="60" text-anchor="middle" fill="var(--tx3)" font-size="12">Complete sessions to see trends</text>';legend.innerHTML='';return}
 
-  const lifts={Squat:{color:'var(--lift-sq)',points:[]},Bench:{color:'var(--lift-bp)',points:[]},Deadlift:{color:'var(--lift-dl)',points:[]}};
+  const lifts={Squat:{color:'var(--lift-sq)',points:[]},Bench:{color:'var(--lift-bp)',points:[]},'Trap Bar DL':{color:'var(--lift-dl)',points:[]}};
   const isFlatBench = n => /^(flat bench|bench press|barbell bench)$/i.test(n);
   S.sessions.forEach((s,si)=>{
     let sq=0,bn=0,dl=0;
@@ -7066,12 +7069,12 @@ function renderE1rmChart(){
         const e=e1rm(set.weightKg,set.reps);
         if(ex.name==='Back Squat'&&e>sq)sq=e;
         if(isFlatBench(ex.name)&&e>bn)bn=e;
-        if(ex.name==='Deadlift'&&e>dl)dl=e;
+        if(canonName(ex.name)==='Trap Bar Deadlift'&&e>dl)dl=e;
       });
     });
     if(sq>0)lifts.Squat.points.push({x:si,y:sq});
     if(bn>0)lifts.Bench.points.push({x:si,y:bn});
-    if(dl>0)lifts.Deadlift.points.push({x:si,y:dl});
+    if(dl>0)lifts['Trap Bar DL'].points.push({x:si,y:dl});
   });
 
   // If no flat bench logged yet, seed the Bench series with the self-reported baseline
@@ -7095,7 +7098,7 @@ function renderE1rmChart(){
   // Grid lines
   for(let i=0;i<=3;i++){const y=pad+i*((h-2*pad)/3);svg+=`<line x1="${pad}" y1="${y}" x2="${w-pad}" y2="${y}" stroke="var(--s3)" stroke-width="0.5"/>`}
   // Target reference lines — dashed, per lift, in each lift's hue
-  [['Squat',tgts.squat],['Bench',tgts.bench],['Deadlift',tgts.dead]].forEach(([name,t])=>{
+  [['Squat',tgts.squat],['Bench',tgts.bench],['Trap Bar DL',tgts.dead]].forEach(([name,t])=>{
     if(t>0&&lifts[name])svg+=`<line x1="${pad}" y1="${sy(t)}" x2="${w-pad}" y2="${sy(t)}" stroke="${lifts[name].color}" stroke-width="0.75" stroke-dasharray="4 3" opacity="0.55"/>`;
   });
 
@@ -7448,7 +7451,7 @@ function buildWeekWrappedData(weekDates){
   let volume=0;
   wk.forEach(s=>(s.exercises||[]).forEach(e=>(e.performed||[]).filter(p=>(p.type==='working'||p.type==='warmup')&&!p.skipped).forEach(p=>{volume+=(p.weightKg||0)*(p.reps||0);})));
   // Big-3: best set this week + e1RM delta vs the best BEFORE this week.
-  const lifts=['Back Squat','Bench Press','Deadlift'].map(name=>{
+  const lifts=['Back Squat','Bench Press','Trap Bar Deadlift'].map(name=>{
     let best=null,bestE=0;
     wk.forEach(s=>(s.exercises||[]).forEach(e=>{
       if(canonName(e.name)!==name)return;

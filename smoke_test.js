@@ -272,6 +272,29 @@ assert(canonName('Seated Row') === 'Cable Low Row', 'canonName: Seated Row → C
 assert(canonName('Low Row') === 'Cable Low Row', 'canonName: Low Row → Cable Low Row');
 assert(canonName('Bench Press') === 'Bench Press', 'canonName: pass-through unknowns');
 
+// ---- K1 (v12 chain): Deadlift → Trap Bar Deadlift, history continuity ----
+console.log('[K1 TrapBar]');
+assert(canonName('Deadlift')==='Trap Bar Deadlift', 'K1: alias maps the old name forward');
+assert(EX_META['Trap Bar Deadlift']&&EX_META['Trap Bar Deadlift'].eq.includes('trap-bar')&&EX_META['Trap Bar Deadlift'].incrementKg===5, 'K1: renamed EX_META entry on the trap bar');
+assert(EX_META['Deadlift (Barbell)']&&EX_META['Deadlift (Barbell)'].eq.includes('barbell')&&!EX_META['Deadlift (Barbell)'].avoid, 'K1: barbell deadlift parked as its own un-avoided lift (2027 re-peak)');
+assert(!EX_META['Deadlift'], 'K1: no bare Deadlift key remains (alias owns the old name)');
+assert(exerciseBarKg({name:'Deadlift'})===36&&exerciseBarKg({name:'Trap Bar Deadlift'})===36, 'K1: 36 kg bar resolves under BOTH names');
+// Big-3 continuity: a mixed-name history (pre-rename record + post-rename
+// record) must produce one continuous dead leg — the silent-zero hazard.
+(function(){
+  const _ss=S.sessions;S.sessions=[
+    {date:'2026-08-22',dayLabel:'DL',blockName:'x',exercises:[{name:'Deadlift',prescribed:{sets:1,reps:'5',loadKg:120,unit:'kg'},performed:[{type:'working',weightKg:120,reps:5,logged:true}]}]},
+    {date:'2026-09-05',dayLabel:'DL',blockName:'x',exercises:[{name:'Trap Bar Deadlift',prescribed:{sets:1,reps:'5',loadKg:128.5,unit:'kg'},performed:[{type:'working',weightKg:128.5,reps:5,logged:true}]}]}
+  ];
+  const b3=getBig3E1rm();
+  assert(Math.abs(b3.dead-e1rm(128.5,5))<0.1, 'K1: dead leg continuous across the rename (best of both eras). Got: '+b3.dead);
+  S.sessions=[{date:'2026-08-22',dayLabel:'DL',blockName:'x',exercises:[{name:'Deadlift',prescribed:{sets:1,reps:'5',loadKg:120,unit:'kg'},performed:[{type:'working',weightKg:120,reps:5,logged:true}]}]}];
+  assert(Math.abs(getBig3E1rm().dead-e1rm(120,5))<0.1, 'K1: a purely legacy history still feeds the dead leg (never zero). Got: '+getBig3E1rm().dead);
+  S.sessions=_ss;
+})();
+// load()-time rewrite: stored names migrate in place
+assert(/ex\.name=canonName\(ex\.name\)/.test(html), 'K1: load() rewrites stored names through the alias map');
+
 // ===== PROGRAM: Sep 2 Block 6 W3 structure (7 days Mon-Sun, recomp) =====
 assert(DEF_PROGRAM.name === 'Sep 2 Block 6 W3', 'Program name is Sep 2 Block 6 W3: got ' + DEF_PROGRAM.name);
 assert(DEF_PROGRAM.version === 11, 'W3: program version 11. Got ' + DEF_PROGRAM.version);
@@ -326,7 +349,7 @@ assert(!d3.exercises.some(e=>e.name==='Sled Push'), 'W3: Sled Push off the squat
 assert(d3.exercises.find(e=>e.name==='Cable Crunch').loadKg===36, 'W3: cable crunch 36');
 assert(d3.exercises.find(e=>e.name==='Suitcase Carry').tags.includes('one hand'), 'W3: suitcase carry one-handed');
 // Deadlift Saturday
-const b6dl=d6.exercises.find(e=>e.name==='Deadlift');
+const b6dl=d6.exercises.find(e=>e.name==='Trap Bar Deadlift');
 assert(b6dl.setScheme[0].loadKg===128.5&&b6dl.setScheme[1].loadKg===118.5&&b6dl.setScheme.length===4&&b6dl.barKg===36, 'W3: DL 1x5@128.5 + 3x5@118.5 on the 36 bar');
 assert(['RPE-8-hard-cap','reset-every-rep','NO-AMRAP'].every(tg=>b6dl.tags.includes(tg)), 'W3: DL tags');
 assert(!b6dl.warmup, 'W3: DL warm-ups come from the bar-aware generator (no authored array)');
@@ -785,7 +808,7 @@ assert(pa_d1.exercises.length===5&&pa_d1.exercises.every(e=>e.section==='warmup'
 })();
 // Deadlift: Glute Bridge → Dead Bug → Deadlift
 (()=>{
-  const mainI=pa_d6.exercises.findIndex(e=>e.name==='Deadlift');
+  const mainI=pa_d6.exercises.findIndex(e=>e.name==='Trap Bar Deadlift');
   assert(/glute bridge/i.test(pa_d6.exercises[0].name)&&mainI===2, 'Phase A: DL day activates then pulls. main@'+mainI);
 })();
 
@@ -796,7 +819,7 @@ assert(metaLP.pat === 'vpull', 'Phase B: Lat Pulldown pat = vpull');
 assert(metaLP.slot === 'vpull', 'Phase B: Lat Pulldown slot = vpull');
 assert(Array.isArray(metaLP.prim) && metaLP.prim.includes('lat'), 'Phase B: Lat Pulldown prim includes lat');
 const metaDL = getMeta('Deadlift');
-assert(metaDL.pat === 'hinge' && metaDL.fat === 'heavy-compound', 'Phase B: Deadlift pat=hinge, fat=heavy-compound');
+assert(metaDL.pat === 'hinge' && metaDL.fat === 'heavy-compound', 'Phase B: Trap Bar Deadlift pat=hinge, fat=heavy-compound');
 const metaBench = getMeta('Bench Press');
 assert(metaBench.sh === 'activation-first', 'Phase B: Bench Press sh=activation-first');
 
@@ -935,7 +958,7 @@ assert(!subsBenchPress.some(s => /lat pulldown|cable low row/i.test(s.name)), 'S
 assert(typeof VARIANTS === 'object', 'Phase C: VARIANTS library defined');
 assert(Array.isArray(VARIANTS.vpull) && VARIANTS.vpull.length >= 3, 'Phase C: vpull variants >=3');
 assert(Array.isArray(VARIANTS.hpull) && VARIANTS.hpull.length >= 4, 'Phase C: hpull variants >=4');
-assert(Array.isArray(FIXED_MAINS) && FIXED_MAINS.includes('Back Squat') && FIXED_MAINS.includes('Bench Press') && FIXED_MAINS.includes('Deadlift'), 'Phase C: FIXED_MAINS protects Big 3');
+assert(Array.isArray(FIXED_MAINS) && FIXED_MAINS.includes('Back Squat') && FIXED_MAINS.includes('Bench Press') && FIXED_MAINS.includes('Trap Bar Deadlift'), 'Phase C: FIXED_MAINS protects Big 3 (trap-bar pull renamed, never weakened)');
 assert(typeof rotateAccessories === 'function', 'Phase C: rotateAccessories() defined');
 assert(typeof getEligibleVariantsForSlot === 'function', 'Phase C: getEligibleVariantsForSlot() defined');
 
@@ -945,12 +968,12 @@ S.program = JSON.parse(JSON.stringify(DEF_PROGRAM));
 S.block = {sessionsSinceRotate:14, variantCursor:{}};
 const hasEx=(id,name)=>S.program.days.find(d=>d.id===id).exercises.some(e=>e.name===name);
 assert(hasEx(3,'Back Squat'), 'Phase C: Pre-rotate D3 contains Back Squat');
-assert(hasEx(6,'Deadlift'), 'Phase C: Pre-rotate D6 contains Deadlift');
+assert(hasEx(6,'Trap Bar Deadlift'), 'Phase C: Pre-rotate D6 contains Trap Bar Deadlift');
 
 const rotRes = rotateAccessories();
 assert(rotRes.rotated.length > 0, 'Phase C: Rotation swapped at least 1 accessory. Got: ' + rotRes.rotated.length);
 assert(hasEx(3,'Back Squat'), 'Phase C: Back Squat unchanged after rotation');
-assert(hasEx(6,'Deadlift'), 'Phase C: Deadlift unchanged after rotation');
+assert(hasEx(6,'Trap Bar Deadlift'), 'Phase C: Trap Bar Deadlift unchanged after rotation');
 // Bench stays fixed (Upper A has DB Incline Bench as hpush main, not flat Bench Press — so we test that rotation doesn't TOUCH 'Bench Press' if it's anywhere)
 const benchStill = S.program.days.some(d => d.exercises.some(e => e.name === 'Bench Press'));
 const benchWas = DEF_PROGRAM.days.some(d => d.exercises.some(e => e.name === 'Bench Press'));
@@ -1052,7 +1075,7 @@ assert(typeof openBig3Diagnostic === 'function', 'Diagnostic: openBig3Diagnostic
 S.sessions = [];
 const emptyData = getBig3DiagnosticData('dead');
 assert(emptyData.rows.length === 0, 'Diagnostic: no sessions → empty rows');
-assert(emptyData.label === 'Deadlift', 'Diagnostic: liftKey "dead" labels Deadlift');
+assert(emptyData.label === 'Trap Bar DL', 'Diagnostic: liftKey "dead" labels Trap Bar DL');
 assert(/No historical sessions found/.test(formatBig3Diagnostic(emptyData)), 'Diagnostic: empty render shows "no historical sessions found"');
 
 // One deadlift session with mixed sets — captures all the diagnostic counts
@@ -1069,7 +1092,7 @@ S.sessions = [{
   }]
 }];
 const dlData = getBig3DiagnosticData('dead');
-assert(dlData.rows.length === 1, 'Diagnostic: 1 row for matching deadlift session. Got: ' + dlData.rows.length);
+assert(dlData.rows.length === 1, 'Diagnostic: legacy "Deadlift" record still matches via canonName (continuity). Got: ' + dlData.rows.length);
 assert(dlData.rows[0].name === 'Deadlift', 'Diagnostic: row name preserved raw (pre-canonName)');
 assert(dlData.rows[0].performedLen === 4, 'Diagnostic: performed array len = 4');
 assert(dlData.rows[0].loggedCount === 3, 'Diagnostic: logged count = 3 (skipped set has logged:false)');
@@ -1942,7 +1965,7 @@ assert(/ lb</.test(mainTargetLine({name:'Deadlift',prescribed:{loadKg:116,unit:'
 S.settings.unit='kg';S.sessions=[];
 // dashboard sub-row shows current/target per lift + dashed chart target lines
 assert(/class="s-tgt">\/\$\{tgt\(k\)\}/.test(html), 'Targets: 1000lb sub-row renders current/target per lift');
-assert(/stroke-dasharray="4 3"/.test(html) && /tgts\.squat\],\['Bench',tgts\.bench\],\['Deadlift',tgts\.dead\]/.test(html), 'Targets: e1RM chart draws dashed per-lift target lines');
+assert(/stroke-dasharray="4 3"/.test(html) && /tgts\.squat\],\['Bench',tgts\.bench\],\['Trap Bar DL',tgts\.dead\]/.test(html), 'Targets: e1RM chart draws dashed per-lift target lines (renamed series key matches)');
 
 // ===== C8: SETTINGS RESTRUCTURE + UNIFIED IMPORT =====
 assert(typeof detectImportPayload==='function' && typeof runValidatorAuto==='function', 'Settings: unified import helpers defined');
@@ -2026,7 +2049,7 @@ S.sessions=[
 const ww=buildWeekWrappedData(wwWk);
 assert(ww.done===2, 'Wrapped: counts only this week\'s sessions. Got: '+ww.done);
 assert(ww.volume===Math.round(87.5*5+116*5), 'Wrapped: volume sums this week\'s working sets. Got: '+ww.volume);
-const wwDl=ww.lifts.find(l=>l.name==='Deadlift');
+const wwDl=ww.lifts.find(l=>l.name==='Trap Bar Deadlift'); // legacy 'Deadlift' records fold in via canonName
 assert(wwDl.top==='116×5' && wwDl.delta>0, 'Wrapped: deadlift top set + positive e1RM delta vs pre-week best. Got: '+JSON.stringify(wwDl));
 assert(typeof ww.muDone==='number' && ww.weekLabel.length>0, 'Wrapped: MU status + week label present');
 // gating: card only when week complete AND not yet seen
@@ -2296,7 +2319,7 @@ assert(/rxStr/.test(html)&&/\[\$\{schemeString\(ex\.prescribed\.setScheme/.test(
 S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.activeSession=null;
 
 // ===== E2: PER-LIFT INCREMENTS + RPE GATE =====
-assert(getMeta('Back Squat').incrementKg===5&&getMeta('Deadlift').incrementKg===5&&getMeta('Bench Press').incrementKg===2.5, 'E2: incrementKg overrides on the three mains');
+assert(getMeta('Back Squat').incrementKg===5&&getMeta('Trap Bar Deadlift').incrementKg===5&&getMeta('Deadlift').incrementKg===5&&getMeta('Bench Press').incrementKg===2.5, 'E2: incrementKg on the mains (legacy Deadlift resolves via alias)');
 const e2case=(name,cls,load,rpe)=>{
   S.activeSession={dayIndex:0,date:'2026-07-22',dayLabel:'T',sessionType:'lifting',startTime:1,exercises:[
     {name,cat:'hinge',prescribed:{sets:1,reps:'5',loadKg:load,unit:'kg'},equipmentClass:cls,
@@ -2610,11 +2633,11 @@ assert(snapToMakeable(50,60,[25,20,15,10,5,2.5])===60, 'B1: never below the empt
 (()=>{
   S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.activeSession=null;
   global.startTimer=()=>{};global.showSessionHero=global.showSessionHero||(()=>{});
-  const di=S.program.days.findIndex(d=>d.exercises&&d.exercises.some(e=>e.name==='Deadlift'));
-  const dl=S.program.days[di].exercises.find(e=>e.name==='Deadlift');
+  const di=S.program.days.findIndex(d=>d.exercises&&d.exercises.some(e=>e.name==='Trap Bar Deadlift'));
+  const dl=S.program.days[di].exercises.find(e=>e.name==='Trap Bar Deadlift');
   const bakWu=dl.warmup;delete dl.warmup;
   startDay(di);
-  const sdl=S.activeSession.exercises.find(e=>e.name==='Deadlift');
+  const sdl=S.activeSession.exercises.find(e=>e.name==='Trap Bar Deadlift');
   const gen=sdl.performed.filter(pp=>pp.type==='warmup');
   assert(gen.length>=2&&gen.every(pp=>pp.weightKg>=exerciseBarKg(sdl)), 'B1: startDay generated a bar-aware ramp when no authored warmup. Got '+JSON.stringify(gen.map(g=>g.weightKg)));
   assert(sdl.barKg===36||exerciseBarKg(sdl)===36, 'B1: barKg travels to the session exercise');
@@ -2713,17 +2736,17 @@ assert(/document\.activeElement\.id==='fNotes'\)\{renderFocusRail\(\);return;\}/
   global.startTimer=()=>{};global.showSessionHero=global.showSessionHero||(()=>{});
   const bak=S.settings.activeGymId;S.settings.activeGymId='gym-singapore';ensureGyms();
   startDay(5); // B6 Deadlift + Pull (index 5)
-  const dl=S.activeSession.exercises.find(e=>e.name==='Deadlift');
+  const dl=S.activeSession.exercises.find(e=>e.name==='Trap Bar Deadlift');
   const wu=dl.performed.filter(pp=>pp.type==='warmup').map(pp=>pp.weightKg);
   // 128.5 top on the 36 bar with the Singapore 1.25-grid: 63.5 / 96 / 116
   assert(JSON.stringify(wu)==='[63.5,96,116]', 'W3: generator DL warm-ups 63.5/96/116 on the 36 bar (Singapore rack). Got '+JSON.stringify(wu));
   assert(wu.every(w=>isMakeableTotal(w,36)), 'B6: every generated warm-up is rackable');
   window.confirm=()=>true;cancelSession();
   // generator also owns any other un-authored barbell lift
-  const dlDay=S.program.days[5].exercises.find(e=>e.name==='Deadlift');
+  const dlDay=S.program.days[5].exercises.find(e=>e.name==='Trap Bar Deadlift');
   delete dlDay.warmup;
   startDay(5);
-  const dl2=S.activeSession.exercises.find(e=>e.name==='Deadlift');
+  const dl2=S.activeSession.exercises.find(e=>e.name==='Trap Bar Deadlift');
   const wu2=dl2.performed.filter(pp=>pp.type==='warmup');
   assert(wu2.length>=2&&wu2.every(pp=>pp.weightKg>=36), 'W4+B1: generator covers un-authored barbell lifts. Got '+JSON.stringify(wu2.map(x=>x.weightKg)));
   cancelSession();
@@ -3635,7 +3658,7 @@ console.log('[K13 W3Days]');
 (function(){
   S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.activeSession=null;
   startDay(5);
-  const dl=S.activeSession.exercises.find(e=>e.name==='Deadlift');
+  const dl=S.activeSession.exercises.find(e=>e.name==='Trap Bar Deadlift');
   assert(dl.incrementKg===2.5&&dl.prescribed.setScheme[0].loadKg===128.5, 'K13: session DL carries the 2.5 override + 128.5 top');
   assert(S.activeSession.exercises.some(e=>e.name==='Sprints'&&e.entryType==='circuit'), 'K13: sprint finisher present');
   window.confirm=()=>true;cancelSession();
