@@ -1814,6 +1814,7 @@ const EX_META={
   'DB Bench Press':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['db','bench'],fat:'heavy-compound',sh:'activation-first',slot:'hpush'},
   'Machine Chest Press':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['chest-press'],fat:'heavy-compound',sh:'safe',slot:'hpush'},
   'Push-Up':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['bodyweight'],fat:'light-compound',sh:'safe',slot:'hpush'},
+  'Press-Up':{pat:'hpush',prim:['chest','front-delt','tri'],eq:['bodyweight'],fat:'light-compound',sh:'activation-first',slot:'hpush'},
   'DB Shoulder Press':{pat:'vpush',prim:['front-delt','tri'],eq:['db'],fat:'heavy-compound',sh:'activation-first',slot:'ohp',avoid:true,avoidReason:'Overhead pressing barred this block (shoulder)'},
   'Military Press':{pat:'vpush',prim:['front-delt','tri','upper-chest'],eq:['barbell'],fat:'heavy-compound',sh:'warn',slot:'ohp',avoid:true,avoidReason:'Overhead pressing barred this block (shoulder)'},
   'Machine Shoulder Press':{pat:'vpush',prim:['front-delt','tri'],eq:['machine'],fat:'heavy-compound',sh:'activation-first',slot:'ohp',avoid:true,avoidReason:'Overhead pressing barred this block (shoulder)'},
@@ -2091,88 +2092,51 @@ function recommendSupersets(exList){
 // F1: version is the block's ORDER. The banner offers a sync only when the
 // shipped version is NEWER than the installed one — a stale cached HTML can
 // never re-offer an old block ("Jul 27 W2" over "Aug 3 W3").
-const DEF_PROGRAM={name:"Sep 2 Block 6 W3",version:11,active:true,startDate:"2026-09-02",days:[
-{id:1,label:"KB + Mobility",defaultDay:"Monday",dayOfWeek:"Monday",sessionType:"kb",dur:45,exercises:[
-  {id:"w3d1e1",name:"Cat-Camel",cat:"rehab",section:"warmup",sets:1,reps:"8",loadKg:0,unit:"bw",rest:20,tags:[],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"w3d1e2",name:"Wall Slide",cat:"rehab",section:"warmup",sets:1,reps:"10",loadKg:0,unit:"bw",rest:20,tags:[],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"w3d1e3",name:"Scap Push-Up",cat:"rehab",section:"warmup",sets:1,reps:"10",loadKg:0,unit:"bw",rest:20,tags:[],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"w3d1e4",name:"Band External Rotation",cat:"rehab",section:"warmup",sets:2,reps:"15",loadKg:0,unit:"bw",rest:30,tags:[],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"w3d1e5",name:"Pec Doorway Stretch",cat:"rehab",section:"warmup",sets:1,reps:"60s",loadKg:0,unit:"bw",rest:20,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"}
-],note:"Freeform KB \u2014 36-min EMOM, user-programmed. Log duration, bells, and what you did."},
-{id:2,label:"Swim",defaultDay:"Tuesday",dayOfWeek:"Tuesday",sessionType:"swim",dur:45,exercises:[],
-  note:"CONTINUOUS freestyle \u2014 one unbroken effort, any pace. Distance optional \u2014 tick off if untracked."},
-{id:3,label:"Squat",defaultDay:"Wednesday",dayOfWeek:"Wednesday",sessionType:"lifting",dur:65,exercises:[
-  {id:"w3d3e1",name:"Bird Dog",cat:"core",section:"warmup",sets:2,reps:"8",loadKg:0,unit:"bw",rest:30,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"w3d3e2",name:"World's Greatest Stretch",cat:"rehab",section:"warmup",sets:1,reps:"5",loadKg:0,unit:"bw",rest:30,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"w3d3e3",name:"Back Squat",cat:"squat",sets:4,reps:"5",loadKg:115,unit:"kg",rest:180,
-    setScheme:[{loadKg:115,reps:5,tag:"top"},{loadKg:97.5,reps:5},{loadKg:97.5,reps:5},{loadKg:97.5,reps:5}],
-    tags:["RPE-8-cap","full-depth-standard","paused-2sec-backoffs"],
-    frozen:true,cue:"Hold \u2014 pending depth verification",
-    warmup:[{w:60,reps:5},{w:85,reps:3},{w:100,reps:1}],
-    incrementKg:2.5,
-    role:"strength-driver",target:{type:"load",unit:"e1rm",value:166},
-    angle:null,grip:null,equipmentClass:"barbell"},
-  {id:"w3d3e4",name:"Bulgarian Split Squat",cat:"squat",sets:3,reps:"10",loadKg:15,unit:"kg",rest:90,tags:["per hand","weak-leg-first"],
-    role:"hypertrophy",target:{type:"load",unit:"kg",value:25,note:"Target 25 kg\u00d78 \u2014 standing coach target"},
-    angle:null,grip:null,equipmentClass:"db"},
-  {id:"w3d3e5",name:"DB RDL",cat:"hinge",sets:3,reps:"10",loadKg:32.5,unit:"kg",rest:90,tags:["per hand"],
-    role:"hypertrophy",target:{type:"load",unit:"kg",value:35,note:"Target 35 kg\u00d78 \u2014 standing coach target"},
-    angle:null,grip:null,equipmentClass:"db"},
-  {id:"w3d3e6",name:"Hanging Leg Raise",cat:"core",sets:3,reps:"10",loadKg:0,unit:"bw",rest:60,tags:[],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"w3d3e7",name:"Suitcase Carry",cat:"core",sets:2,reps:"30m",loadKg:27.5,unit:"kg",rest:60,tags:["one hand"],
-    role:"maintenance",target:{type:"load",unit:"kg",value:30,note:"30 kg \u00d7 30 m"},
-    angle:null,grip:null,equipmentClass:"db"},
-  {id:"w3d3e8",name:"Cable Crunch",cat:"core",sets:3,reps:"12",loadKg:36,unit:"kg",rest:60,tags:[],
-    role:"hypertrophy",target:{type:"load",unit:"kg",value:40,note:"40 kg \u00d7 12"},
-    angle:null,grip:null,equipmentClass:"cable"},
-  {id:"w3d3e9",name:"100 KB Swings",cat:"hinge",section:"finisher",entryType:"circuit",format:"AMRAP",minutes:10,
-    movements:"100 KB Swings @ 24 kg \u2014 cap 10 min, sets as needed. Result = time taken.",
-    sets:0,reps:"",loadKg:24,unit:"kg",rest:0,tags:[],angle:null,grip:null,equipmentClass:"kb"}
-]},
+const DEF_PROGRAM={name:"Sep 7 Recomp W1",version:12,active:true,startDate:"2026-09-07",phase:"maintain",days:[
+{id:1,label:"Swim",defaultDay:"Monday",dayOfWeek:"Monday",sessionType:"swim",dur:45,exercises:[],
+  note:"Swim \u2014 distance optional, tick off if untracked."},
+{id:2,label:"KB Class",defaultDay:"Tuesday",dayOfWeek:"Tuesday",sessionType:"kb",dur:45,exercises:[],
+  note:"KB class \u2014 log duration, bells, and what you did (tick-friendly)."},
+{id:3,label:"Pilates",defaultDay:"Wednesday",dayOfWeek:"Wednesday",sessionType:"pilates",dur:50,exercises:[],
+  note:"Pilates \u2014 time it and take notes."},
 {id:4,label:"Swim",defaultDay:"Thursday",dayOfWeek:"Thursday",sessionType:"swim",dur:45,exercises:[],
-  note:"Technique + volume \u2014 mixed strokes fine."},
-{id:5,label:"KB + Mobility",defaultDay:"Friday",dayOfWeek:"Friday",sessionType:"kb",dur:45,exercises:[
-  {id:"w3d5e1",name:"90/90",cat:"rehab",section:"warmup",sets:1,reps:"8",loadKg:0,unit:"bw",rest:20,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"w3d5e2",name:"Frog Pose",cat:"rehab",section:"warmup",sets:1,reps:"90s",loadKg:0,unit:"bw",rest:20,tags:[],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"w3d5e3",name:"Wall Slide",cat:"rehab",section:"warmup",sets:1,reps:"10",loadKg:0,unit:"bw",rest:20,tags:[],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"w3d5e4",name:"Band External Rotation",cat:"rehab",section:"warmup",sets:2,reps:"15",loadKg:0,unit:"bw",rest:30,tags:[],angle:null,grip:null,equipmentClass:"bw"}
-],note:"Freeform KB \u2014 36-min EMOM, user-programmed. Log duration, bells, and what you did."},
-{id:6,label:"Deadlift + Pull",defaultDay:"Saturday",dayOfWeek:"Saturday",sessionType:"lifting",dur:75,exercises:[
-  {id:"w3d6e1",name:"Glute Bridge",cat:"rehab",section:"warmup",sets:2,reps:"10",loadKg:0,unit:"bw",rest:30,tags:[],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"w3d6e2",name:"Dead Bug",cat:"core",section:"warmup",sets:1,reps:"8",loadKg:0,unit:"bw",rest:30,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"w3d6e3",name:"Trap Bar Deadlift",cat:"hinge",sets:4,reps:"5",loadKg:128.5,unit:"kg",rest:180,
-    setScheme:[{loadKg:128.5,reps:5,tag:"top"},{loadKg:118.5,reps:5},{loadKg:118.5,reps:5},{loadKg:118.5,reps:5}],
-    tags:["RPE-8-hard-cap","reset-every-rep","NO-AMRAP"],
-    cue:"Cap hard at 8 \u2014 every rep from a dead stop",
-    incrementKg:2.5,
-    role:"strength-driver",target:{type:"load",unit:"e1rm",value:186},
-    angle:null,grip:null,equipmentClass:"barbell",barKg:36},
-  {id:"w3d6e4",name:"Leg Press",cat:"squat",sets:3,reps:"10",loadKg:170,unit:"kg",rest:120,tags:[],
-    role:"hypertrophy",target:{type:"load",unit:"kg",value:180,note:"Cap 180 kg, then maintain"},
-    angle:null,grip:null,equipmentClass:"machine"},
-  {id:"w3d6e5",name:"Cable Low Row",cat:"pull",sets:4,reps:"10",loadKg:68,unit:"kg",rest:120,tags:["narrow-grip","single-pulley"],
-    role:"hypertrophy",angle:null,grip:"narrow",equipmentClass:"cable",variant:{pulley:"single",grip:"narrow",angle:null,machine:null,attachment:null}},
-  {id:"w3d6e6",name:"Hip Adduction Machine",cat:"isolation",sets:2,reps:"12",loadKg:37.5,unit:"kg",rest:45,tags:[],
-    role:"hypertrophy",target:{type:"none",note:"+2.5 when 2\u00d712 is clean"},
-    angle:null,grip:null,equipmentClass:"machine"},
-  {id:"w3d6e7",name:"Hip Abduction Machine",cat:"isolation",sets:2,reps:"12",loadKg:30,unit:"kg",rest:45,tags:[],
-    role:"hypertrophy",target:{type:"none",note:"+2.5 when 2\u00d712 is clean"},
-    angle:null,grip:null,equipmentClass:"machine"},
-  {id:"w3d6e8",name:"Side Extension",cat:"core",sets:2,reps:"10",loadKg:0,unit:"bw",rest:45,tags:["per side"],
-    role:"hypertrophy",target:{type:"reps",unit:"reps",value:15,note:"BW 2\u00d715, then add load"},
-    angle:null,grip:null,equipmentClass:"bw"},
-  {id:"w3d6e9",name:"Back Extension",cat:"hinge",sets:3,reps:"12",loadKg:10,unit:"kg",rest:90,tags:["weight-held"],
-    frozen:true,cue:"Depth + contraction first",
-    angle:null,grip:null,equipmentClass:"bw"},
-  {id:"w3d6e10",name:"Standing Calf Raise (DB)",cat:"isolation",sets:3,reps:"12",loadKg:30,unit:"kg",rest:60,tags:[],
-    role:"maintenance",angle:null,grip:null,equipmentClass:"db"},
-  {id:"w3d6e11",name:"Hanging Knee Raise",cat:"core",sets:2,reps:"10",loadKg:0,unit:"bw",rest:60,tags:[],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"w3d6e12",name:"Sprints",cat:"cardio",section:"finisher",entryType:"circuit",format:"Intervals",minutes:8,
-    movements:"Row or treadmill \u2014 5\u00d730s hard / 90s easy",
+  note:"Swim \u2014 distance optional, tick off if untracked."},
+{id:5,label:"Rest",defaultDay:"Friday",dayOfWeek:"Friday",sessionType:"rest",dur:0,exercises:[],
+  note:"Scheduled rest \u2014 recovery is training."},
+{id:6,label:"Gym",defaultDay:"Saturday",dayOfWeek:"Saturday",sessionType:"lifting",dur:75,alternating:true,
+  variantLabels:{A:"Squat emphasis",B:"Deadlift emphasis"},exercises:[
+  {id:"r1d6e1",name:"90/90 Hip Switch",cat:"rehab",section:"warmup",sets:1,reps:"8",loadKg:0,unit:"bw",rest:20,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"r1d6e2",name:"Couch Stretch",cat:"rehab",section:"warmup",sets:1,reps:"45s",loadKg:0,unit:"bw",rest:20,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"r1d6e3",name:"Glute Bridge",cat:"rehab",section:"warmup",sets:2,reps:"10",loadKg:0,unit:"bw",rest:30,tags:[],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"r1d6e4",name:"Frog Pose",cat:"rehab",section:"warmup",sets:1,reps:"60s",loadKg:0,unit:"bw",rest:20,tags:[],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"r1d6e5",name:"Bird Dog",cat:"core",section:"warmup",sets:2,reps:"8",loadKg:0,unit:"bw",rest:30,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"r1d6e6",name:"Band Pull-Apart",cat:"rehab",section:"warmup",sets:2,reps:"15",loadKg:0,unit:"bw",rest:30,tags:[],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"r1d6e7",name:"Back Squat",cat:"squat",week:"A",sets:4,reps:"8-10",loadKg:100,unit:"kg",rest:150,
+    tags:["RPE-7-8","full-depth-standard"],angle:null,grip:null,equipmentClass:"barbell"},
+  {id:"r1d6e8",name:"Trap Bar Deadlift",cat:"hinge",week:"A",sets:2,reps:"5",loadKg:100,unit:"kg",rest:180,
+    tags:["reset-every-rep","5s-max"],angle:null,grip:null,equipmentClass:"barbell",barKg:36},
+  {id:"r1d6e9",name:"Trap Bar Deadlift",cat:"hinge",week:"B",sets:4,reps:"5",loadKg:100,unit:"kg",rest:180,
+    tags:["5s-max-forever","reset-every-rep"],angle:null,grip:null,equipmentClass:"barbell",barKg:36},
+  {id:"r1d6e10",name:"Back Squat",cat:"squat",week:"B",sets:2,reps:"8",loadKg:90,unit:"kg",rest:150,
+    tags:["full-depth-standard"],angle:null,grip:null,equipmentClass:"barbell"},
+  {id:"r1d6e11",name:"Bulgarian Split Squat",cat:"squat",week:"B",sets:2,reps:"8",loadKg:15,unit:"kg",rest:90,tags:["per hand"],angle:null,grip:null,equipmentClass:"db"},
+  {id:"r1d6e12",name:"Strict Pull-Up",cat:"pull",sets:3,reps:"6-8",loadKg:0,unit:"bw",rest:120,tags:["straight-sets"],supersetNext:true,angle:null,grip:null,equipmentClass:"bw"},
+  {id:"r1d6e13",name:"Press-Up",cat:"push",sets:3,reps:"10-12",loadKg:0,unit:"bw",rest:90,tags:["twinge-gate"],
+    cue:"Stop on any twinge \u2014 Dip is the substitute, not the default",angle:null,grip:null,equipmentClass:"bw"},
+  {id:"r1d6e14",name:"Cable Low Row",cat:"pull",sets:3,reps:"10",loadKg:55,unit:"kg",rest:120,tags:["single-pulley"],supersetNext:true,
+    angle:null,grip:null,equipmentClass:"cable",variant:{pulley:"single",grip:null,angle:null,machine:null,attachment:null}},
+  {id:"r1d6e15",name:"DB Curl",cat:"isolation",sets:2,reps:"10",loadKg:12.5,unit:"kg",rest:60,tags:["per hand"],angle:null,grip:null,equipmentClass:"db"},
+  {id:"r1d6e16",name:"Hanging Leg Raise",cat:"core",sets:3,reps:"10",loadKg:0,unit:"bw",rest:60,tags:[],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"r1d6e17",name:"Suitcase Carry",cat:"core",sets:2,reps:"30m",loadKg:27.5,unit:"kg",rest:60,tags:["one hand"],angle:null,grip:null,equipmentClass:"db"},
+  {id:"r1d6e18",name:"Side Extension",cat:"core",sets:2,reps:"12",loadKg:0,unit:"bw",rest:45,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"r1d6e19",name:"Back Extension",cat:"hinge",sets:2,reps:"12",loadKg:0,unit:"bw",rest:60,tags:["neutral-only","no-hyperextension"],
+    frozen:true,cue:"Neutral spine only \u2014 no hyperextension",angle:null,grip:null,equipmentClass:"bw"},
+  {id:"r1d6e20",name:"Sprints",cat:"cardio",section:"finisher",entryType:"circuit",format:"Intervals",minutes:8,
+    movements:"Row or treadmill sprints \u2014 5\u00d730s hard / 90s easy",
     sets:0,reps:"",loadKg:0,unit:"bw",rest:0,tags:[],angle:null,grip:null,equipmentClass:"bw"}
 ]},
-{id:7,label:"Conditioning",defaultDay:"Sunday",dayOfWeek:"Sunday",sessionType:"conditioning",dur:20,exercises:[],
-  note:"20 min \u2014 row intervals or incline walk."}
+{id:7,label:"KB",defaultDay:"Sunday",dayOfWeek:"Sunday",sessionType:"kb",dur:45,exercises:[],
+  note:"Freeform KB \u2014 user-programmed. Log duration, bells, and what you did."}
 ]};
 
 // ===== EXTRAS LIBRARY =====
@@ -2796,7 +2760,7 @@ function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse
   // stale (the 24-exercise W2 "Mobility" day) — remove it once, sweep its
   // skips. User-authored permanent days with other labels are untouched.
   try{
-    if(S.program&&S.program.version===11&&!S.program.startDate)S.program.startDate=DEF_PROGRAM.startDate;
+    if(S.program&&S.program.version===11&&!S.program.startDate)S.program.startDate='2026-09-02'; // v11's OWN start, not the shipped block's
     if(!S.settings._staleMobilityRemovedB6&&DEF_PROGRAM.version>=10){
       S.settings._staleMobilityRemovedB6=true;
       const stale=(S.program.days||[]).filter(d=>d.permanent===true&&!d.userAuthored&&!DEF_PROGRAM.days.some(nd=>nd.label===d.label));
@@ -3688,7 +3652,11 @@ function unskipDay(dayIdx){
 // regardless of which days carry sessions.
 function blockDisplayName(name){
   const m=/\bBlock\s+(\d+)\s+W(\d+)\s*$/i.exec(name||'');
-  return m?('Block '+m[1]+' \u00b7 Week '+m[2]):(name||'Training Block');
+  if(m)return 'Block '+m[1]+' \u00b7 Week '+m[2];
+  // 'Sep 7 Recomp W1' → 'Recomp · Week 1' (leading date lives in the header range)
+  const m2=/^(?:[A-Z][a-z]{2} \d{1,2} )?(.+?)\s+W(\d+)\s*$/.exec(name||'');
+  if(m2)return m2[1]+' \u00b7 Week '+m2[2];
+  return name||'Training Block';
 }
 function blockDateRange(){
   const dates=weekDatesFor(weekAnchor());
