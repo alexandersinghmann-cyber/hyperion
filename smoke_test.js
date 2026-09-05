@@ -524,7 +524,7 @@ assert(/class="goal-card cond"/.test(html), 'K7: Condition card in the dashboard
   rows=habitRowsHTML();
   assert(!/wkc-tick/.test(rows)&&/rest today/.test(rows), 'K7: tight/flare hides the tick (rest is the assignment)');
   // checklist embeds the habit rows
-  assert(/\$\{habitRowsHTML\(\)\}/.test(html), 'K7: habit rows live inside the weekly checklist card (both mounts)');
+  assert(/const _hab=habitRowsHTML\(\);/.test(html)&&/\$\{_hab\}/.test(html), 'K7: habit rows live inside the weekly checklist card (and survive an all-pre-block week)');
   // report condition line
   const rpt=buildCoachReport([{date:todayStr(),dayLabel:'Gym',blockName:S.program.name,duration:60,rpe:7,status:'complete',exercises:[],painEvents:[]}],S.program,weekDatesFor(todayStr()));
   assert(/### CONDITION/.test(rpt)&&/Weight: 83\.4 kg \(-0\.6 kg \/ 7d\)/.test(rpt)&&/BF 23%/.test(rpt), 'K7: Dispatch carries the weight trend. Got: '+(rpt.match(/Weight:[^\n]*/)||['none'])[0]);
@@ -4089,7 +4089,8 @@ assert(/const from=\(sd&&sd>dates\[0\]&&sd<=dates\[6\]\)\?sd:dates\[0\];/.test(h
   const wd=weekDatesFor(todayStr());
   assert(S.program.days.every(d=>dayWeekStatus(d,wd)==='preblock'), 'K16b: whole current week pre-block when the start is next Monday');
   assert(isWeekComplete(wd)===false, 'K16b: an all-pre-block week is NOT complete (no spurious banner)');
-  assert(weekChecklistHTML()===''||!/wkc-lbl/.test(weekChecklistHTML().replace(/100 KB Swings[^<]*/,'')), 'K16b: no day rows owed this week');
+  const _chk=weekChecklistHTML();
+  assert(!/>Gym</.test(_chk)&&!/>Swim</.test(_chk), 'K16b: no DAY rows owed this week (daily habit may still render)');
   const pick=getNextAvailableDayIdx();
   assert(pick===1, 'K16b: Start picker skips pre-block days and leads with next Monday. Got: '+pick);
   S.program=_sp;

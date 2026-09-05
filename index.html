@@ -7610,14 +7610,15 @@ function isWeekComplete(weekDates){
 function weekChecklistHTML(){
   const wd=weekDatesFor(todayStr());
   const rows=(S.program.days||[]).map(d=>({d,st:dayWeekStatus(d,wd)})).filter(o=>o.st!=='removed'&&o.st!=='rest'&&o.st!=='preblock');
-  if(!rows.length)return '';
+  const _hab=habitRowsHTML();
+  if(!rows.length&&!_hab)return '';
   const doneN=rows.filter(o=>o.st==='done'||o.st==='ticked'||o.st==='skipped').length;
-  return `<div class="goal-card wk-check"><div class="goal-head"><span class="t-h2">${t('check.title')}</span><span class="t-meta tnum">${doneN} / ${rows.length}</span></div>
+  return `<div class="goal-card wk-check"><div class="goal-head"><span class="t-h2">${t('check.title')}</span><span class="t-meta tnum">${rows.length?doneN+' / '+rows.length:''}</span></div>
     ${rows.map(o=>{
       const missed=o.st==='pending'&&dayEffectiveDate(o.d,wd[0])<todayStr();
       return `<div class="wkc-row${o.st==='pending'?(missed?' is-missed':''):' is-done'}"><span class="wkc-mark">${missed?'\u2013':o.st==='pending'?'\u25cb':o.st==='ticked'?'\u2713\u00b7':'\u2713'}</span><span class="wkc-lbl">${esc(o.d.label)}</span><span class="t-meta">${dowOf(dayEffectiveDate(o.d,wd[0])).slice(0,3)}${missed?' \u00b7 missed':o.st==='ticked'?' \u00b7 ticked':o.st==='skipped'?' \u00b7 skipped':''}</span></div>`;
     }).join('')}
-    ${habitRowsHTML()}
+    ${_hab}
   </div>`;
 }
 function buildCoachReport(sessions,program,weekDates){
