@@ -2847,6 +2847,13 @@ function migrateV3(){
   }
   // --- Recurring activities ---
   if(!Array.isArray(S.recurringActivities))S.recurringActivities=JSON.parse(JSON.stringify(DEFAULT_RECURRING));
+  // --- Recomp W1 (K5): condition metrics, back-status log, daily habits ---
+  // Same !Array.isArray guard: user deletions/edits persist, no per-entry respawn.
+  if(!Array.isArray(S.bodyMetrics))S.bodyMetrics=[];
+  if(!Array.isArray(S.backLog))S.backLog=[];
+  if(!Array.isArray(S.habits))S.habits=[{id:'h1',name:'100 KB Swings @ 24',type:'daily',gate:'back',ticks:{}}];
+  // E4: the backup nudge counts from ship, not from the epoch.
+  if(!S.settings.lastExportAt)S.settings.lastExportAt=todayStr();
   // --- Program days: sessionType + defaultDay alias; exercises: angle/grip/equipmentClass ---
   const fixDay=(d)=>{
     if(!d.sessionType)d.sessionType='lifting';
@@ -4900,6 +4907,48 @@ function rowPlateText(ex,weightKg){
   let out=w+' = '+r.plates.join(' + ')+' /side';
   if(r.remainder>0.01)out+=' \u00b7 +'+r.remainder+' over';
   return out;
+}
+// K5 (Recomp W1): condition/habit/back helpers — pure, testable.
+function bodyLatest(){const a=S.bodyMetrics||[];return a.length?a[a.length-1]:null;}
+function weightTrend7d(){
+  const a=S.bodyMetrics||[];if(!a.length)return null;
+  const last=a[a.length-1];
+  const cut=dateAddDays(last.date,-6);
+  let base=null;
+  for(let i=a.length-2;i>=0;i--){if(a[i].date<=cut){base=a[i];break;}}
+  return {kg:last.weightKg,delta:base!=null?Math.round((last.weightKg-base.weightKg)*10)/10:null,date:last.date};
+}
+function latestBf(){const a=S.bodyMetrics||[];for(let i=a.length-1;i>=0;i--){if(a[i].bfPct!=null)return a[i].bfPct;}return null;}
+function logBodyMetric(kg,bf,muscle){
+  if(!(kg>0))return false;
+  const d=todayStr();
+  S.bodyMetrics=(S.bodyMetrics||[]).filter(m=>m.date!==d); // one entry per day, last wins
+  S.bodyMetrics.push({date:d,weightKg:Math.round(kg*10)/10,bfPct:(bf>0?Math.round(bf*10)/10:null),muscleKg:(muscle>0?Math.round(muscle*10)/10:null)});
+  S.bodyMetrics.sort((x,y)=>x.date<y.date?-1:1);
+  save();return true;
+}
+function habitStreak(h){
+  if(!h)return 0;const ticks=h.ticks||{};
+  let d=todayStr();if(!ticks[d])d=dateAddDays(d,-1);
+  let n=0;while(ticks[d]){n++;d=dateAddDays(d,-1);}
+  return n;
+}
+function tickHabit(id){
+  const h=(S.habits||[]).find(x=>x.id===id);if(!h)return;
+  h.ticks=h.ticks||{};
+  const d=todayStr();
+  if(h.ticks[d])delete h.ticks[d];else h.ticks[d]=true; // tap toggles (mis-taps happen)
+  save();
+}
+function todayBackStatus(){
+  const lb=S.settings.lastBackCheckin;
+  return (lb&&lb.date===todayStr())?lb.status:null;
+}
+function goodDayStreak(){
+  const by={};(S.backLog||[]).forEach(e=>{by[e.date]=e.status;}); // last write per day wins
+  let d=todayStr();if(by[d]==null)d=dateAddDays(d,-1);
+  let n=0;while(by[d]==='good'){n++;d=dateAddDays(d,-1);}
+  return n;
 }
 function heldLoadRpeSeries(name,vKey,loadKg,n){
   const out=[];

@@ -415,6 +415,44 @@ console.log('[K4 RpeTrend]');
   assert(/### RPE AT HELD LOAD/.test(rpt)&&/~ Back Squat @ 100 kg: RPE 8\.3 \u2192 7 over 3 sessions/.test(rpt), 'K4: Dispatch carries the held-load RPE line. Got: '+(rpt.match(/~ Back Squat[^\n]*/)||['none'])[0]);
   S.program=_sp;S.sessions=_ss;S.settings.activeGymId=_g;
 })();
+
+// ---- K5 (v12 chain): persistent state layer ----
+console.log('[K5 Stores]');
+assert(Array.isArray(S.bodyMetrics)&&Array.isArray(S.backLog)&&Array.isArray(S.habits), 'K5: new stores seeded top-level (weekRemovals precedent)');
+assert(S.habits.some(h=>h.id==='h1'&&/100 KB Swings @ 24/.test(h.name)&&h.gate==='back'), 'K5: daily swings habit seeded as DATA');
+assert(typeof S.settings.lastExportAt==='string'&&S.settings.lastExportAt.length===10, 'K5: export stamp backfilled so the nudge counts from ship');
+(function(){
+  const _bm=S.bodyMetrics,_bl=S.backLog,_h=JSON.parse(JSON.stringify(S.habits));
+  // trend math: latest vs the closest entry >= 6 days older
+  S.bodyMetrics=[{date:'2026-08-25',weightKg:84.0},{date:'2026-08-29',weightKg:83.6},{date:dateAddDays(todayStr(),-7),weightKg:83.2},{date:todayStr(),weightKg:82.8}];
+  const tr=weightTrend7d();
+  assert(tr.kg===82.8&&tr.delta===-0.4, 'K5: 7-day trend = latest vs ~7d-old base. Got: '+JSON.stringify(tr));
+  S.bodyMetrics=[{date:'2026-09-01',weightKg:84,bfPct:22.5},{date:'2026-09-04',weightKg:83.5}];
+  assert(latestBf()===22.5, 'K5: latest BF% skips entries without one');
+  assert(logBodyMetric(83.1,22.1,null)===true&&bodyLatest().weightKg===83.1&&bodyLatest().bfPct===22.1, 'K5: quick-log appends today');
+  assert(logBodyMetric(83.0,null,null)===true&&S.bodyMetrics.filter(m=>m.date===todayStr()).length===1, 'K5: same-day re-log replaces (one entry per day)');
+  // habit streak + toggle
+  const h=S.habits.find(x=>x.id==='h1');h.ticks={};
+  h.ticks[dateAddDays(todayStr(),-2)]=true;h.ticks[dateAddDays(todayStr(),-1)]=true;
+  assert(habitStreak(h)===2, 'K5: streak counts back from yesterday when today unticked. Got: '+habitStreak(h));
+  tickHabit('h1');
+  assert(h.ticks[todayStr()]===true&&habitStreak(h)===3, 'K5: tick today extends the streak');
+  tickHabit('h1');
+  assert(!h.ticks[todayStr()], 'K5: second tap untoggles (mis-tap recovery)');
+  // back streak
+  S.backLog=[{date:dateAddDays(todayStr(),-3),status:'good'},{date:dateAddDays(todayStr(),-2),status:'good'},{date:dateAddDays(todayStr(),-1),status:'tight'}];
+  assert(goodDayStreak()===0, 'K5: a tight day breaks the streak');
+  S.backLog.push({date:todayStr(),status:'good'});
+  assert(goodDayStreak()===1, 'K5: streak restarts on today\'s good');
+  S.settings.lastBackCheckin={date:todayStr(),status:'tight'};
+  assert(todayBackStatus()==='tight', 'K5: today\'s check-in readable pre-session');
+  S.settings.lastBackCheckin={date:dateAddDays(todayStr(),-1),status:'flare'};
+  assert(todayBackStatus()===null, 'K5: yesterday\'s status never gates today');
+  // export round-trip carries the stores
+  const blob=JSON.parse(buildExportPayload('2026-09-05T00:00:00Z'));
+  assert(Array.isArray(blob.bodyMetrics)&&Array.isArray(blob.backLog)&&Array.isArray(blob.habits), 'K5: full-state export includes the new stores');
+  S.bodyMetrics=_bm;S.backLog=_bl;S.habits=_h;S.settings.lastBackCheckin=null;
+})();
 assert(/\.ab-badge\{/.test(html)&&/<span class="ab-badge">\$\{ex\.week\}/.test(html), 'K2: preview badges A/B rows');
 
 // ===== PROGRAM: Sep 2 Block 6 W3 structure (7 days Mon-Sun, recomp) =====
