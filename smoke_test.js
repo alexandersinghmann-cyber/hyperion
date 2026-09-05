@@ -547,6 +547,24 @@ console.log('[K8 Dormant]');
 assert(/'HOLDING':paceLabel/.test(html)&&/goal\.holding/.test(html), 'K8: dormant card renders HOLDING + the re-peak line');
 assert(STRINGS.plain['goal.holding']==='Holding \u2014 re-peak begins January', 'K8: holding copy');
 assert((html.match(/'2026-12-31'/g)||[]).length===1&&/g-mu[^\n]*2026-12-31/.test(html), 'K8: the only Dec-31 left is the MU goal\'s own deadline (unchanged by spec)');
+
+// ---- K9 (v12 chain): weekly backup nudge ----
+console.log('[K9 Nudge]');
+assert(/S\.settings\.lastExportAt=todayStr\(\);save\(\); \/\/ E4/.test(html), 'K9: syncData stamps the export date (buildExportPayload stays pure)');
+assert(/nudge\.backup/.test(html)&&/exportNudgeSnooze/.test(html), 'K9: banner + snooze wired');
+(function(){
+  const _lx=S.settings.lastExportAt,_sn=S.settings.exportNudgeSnooze;
+  // the banner condition is inline in renderTrain — assert the predicate directly
+  const due=(lx,sn)=>!!(lx&&todayStr()>=dateAddDays(lx,7)&&sn!==weekOfDate(todayStr()));
+  assert(due(dateAddDays(todayStr(),-8),null)===true, 'K9: 8-day-old stamp → nudge due');
+  assert(due(dateAddDays(todayStr(),-3),null)===false, 'K9: fresh export → quiet');
+  assert(due(dateAddDays(todayStr(),-8),weekOfDate(todayStr()))===false, 'K9: snoozed this week → quiet');
+  // payload purity: fixed ts in, byte-stable out (no stamping inside)
+  const a=buildExportPayload('2026-09-05T00:00:00Z');
+  const b=buildExportPayload('2026-09-05T00:00:00Z');
+  assert(a===b, 'K9: buildExportPayload byte-identical for a fixed timestamp');
+  S.settings.lastExportAt=_lx;S.settings.exportNudgeSnooze=_sn;
+})();
 assert(/\.ab-badge\{/.test(html)&&/<span class="ab-badge">\$\{ex\.week\}/.test(html), 'K2: preview badges A/B rows');
 
 // ===== PROGRAM: Sep 2 Block 6 W3 structure (7 days Mon-Sun, recomp) =====

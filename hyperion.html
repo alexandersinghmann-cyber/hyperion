@@ -1539,6 +1539,7 @@ STRINGS.plain['valid.clean']='validator clean';STRINGS.gothic['valid.clean']='Th
 STRINGS.plain['sheet.tick']='Tick off';STRINGS.gothic['sheet.tick']='Attest';
 STRINGS.plain['sheet.ticked']='Ticked off';STRINGS.gothic['sheet.ticked']='So attested.';
 STRINGS.plain['check.title']='This week';STRINGS.gothic['check.title']='The Week\u2019s Rites';
+STRINGS.plain['nudge.backup']='Back up your data \u2014 a week since the last export';STRINGS.gothic['nudge.backup']='Commit the record to the Archive \u2014 a week has passed';
 STRINGS.plain['goal.holding']='Holding \u2014 re-peak begins January';STRINGS.gothic['goal.holding']='The tally stands banked \u2014 the great push resumes in January';
 STRINGS.plain['cond.card']='Condition';STRINGS.gothic['cond.card']='The Vessel';
 STRINGS.plain['cond.title']='Log condition';STRINGS.gothic['cond.title']='Assay the vessel';
@@ -3833,6 +3834,15 @@ function renderTrain(){
     chronicSkips().forEach(cs=>{
       html+=`<div class="conflict-banner" style="align-items:center"><div style="flex:1"><div class="t-meta" style="color:var(--warn)">Skipped ${cs.count}×</div><div style="font:600 14px var(--sans);color:var(--tx);margin-top:2px">${cs.name}</div></div><div style="display:flex;gap:5px;flex-shrink:0"><button class="btn btn-sm btn-g" onclick="event.stopPropagation();chronicMoveEarlier('${cs.name.replace(/'/g,"\\'")}')">Move earlier</button><button class="btn btn-sm btn-g" onclick="event.stopPropagation();chronicDropFromBlock('${cs.name.replace(/'/g,"\\'")}')">Drop</button><button class="btn btn-sm btn-g" onclick="event.stopPropagation();chronicDismiss('${cs.name.replace(/'/g,"\\'")}')">Keep</button></div></div>`;
     });
+  }catch(e){}
+  // E4: weekly backup nudge — 7+ days since the last export, dismiss snoozes
+  // until next week. One tap runs the existing export (which clears it).
+  try{
+    const _lx=S.settings.lastExportAt;
+    const _wkMon2=weekOfDate(todayStr());
+    if(_lx&&todayStr()>=dateAddDays(_lx,7)&&S.settings.exportNudgeSnooze!==_wkMon2){
+      html+=`<div class="block-banner"><div><div class="t-meta" style="color:var(--tx2)">${t('nudge.backup')}</div><div style="font:600 14px var(--sans);margin-top:2px">Last export ${_lx}</div></div><div style="display:flex;gap:6px"><button class="btn btn-sm btn-p" onclick="event.stopPropagation();syncData();renderTrain()">Export</button><button class="btn btn-sm btn-g" onclick="event.stopPropagation();S.settings.exportNudgeSnooze='${_wkMon2}';save();renderTrain()">Later</button></div></div>`;
+    }
   }catch(e){}
   // Gold start button — the soonest session in the planning week (startIdx
   // computed above; it's the gold CTA and is excluded from the Up-next list).
@@ -7824,6 +7834,7 @@ function buildExportPayload(ts){
 }
 function syncData(){
   const json=buildExportPayload(new Date().toISOString());
+  S.settings.lastExportAt=todayStr();save(); // E4: the nudge counts from here
   const b=new Blob([json],{type:'application/json'});
   const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='hyperion_data.json';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);
   toast('Exported hyperion_data.json');
