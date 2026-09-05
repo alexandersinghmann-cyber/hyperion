@@ -5029,9 +5029,9 @@ function renderRecurringList(){
   if(!ra.length){el.innerHTML='<div class="t-meta" style="padding:4px 0">None. Create one via Compose week.</div>';return;}
   const DOWS=['','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
   el.innerHTML=ra.map((r,i)=>`<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--s2)">
-    <div style="flex:1;min-width:0"><div style="font:600 13px var(--sans)">${esc(r.label||r.type)}${r.locked?' <span class="t-meta">\u00b7 locked</span>':''}</div><div class="t-meta">${r.type}</div></div>
-    <select onchange="setRecurringDay(${i},this.value)" aria-label="Day for ${esc(r.label||r.type)}" style="padding:5px 6px;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx);font:600 11px var(--mono)">${DOWS.map(d2=>`<option value="${d2}" ${(r.defaultDay||'')===d2?'selected':''}>${d2||'\u2014'}</option>`).join('')}</select>
-    <button class="btn btn-sm btn-g" onclick="deleteRecurring(${i})" aria-label="Delete ${esc(r.label||r.type)}">\u00d7</button>
+    <div style="flex:1;min-width:0"><div style="font:600 13px var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.label||r.type)}</div><div class="t-meta" style="white-space:nowrap">${r.type}${r.locked?' \u00b7 locked':''}</div></div>
+    <select onchange="setRecurringDay(${i},this.value)" aria-label="Day for ${esc(r.label||r.type)}" style="flex:none;width:74px;padding:5px 4px;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx);font:600 11px var(--mono)">${DOWS.map(d2=>`<option value="${d2}" ${(r.defaultDay||'')===d2?'selected':''}>${d2?d2.slice(0,3):'\u2014'}</option>`).join('')}</select>
+    <button class="btn btn-sm btn-g" style="flex:none" onclick="deleteRecurring(${i})" aria-label="Delete ${esc(r.label||r.type)}">\u00d7</button>
   </div>`).join('');
 }
 function setRecurringDay(i,dow){
