@@ -502,6 +502,33 @@ assert(STRINGS.plain['back.title']&&STRINGS.gothic['back.flare']==='Aflame', 'K6
   assert(/back good/.test(rpt2), 'K6: activity line carries back status');
   S.program=_sp;S.sessions=_ss;S.backLog=_bl;S.activeSession=null;S.settings.lastBackCheckin=null;
 })();
+
+// ---- K7 (v12 chain): Condition card + habit row UI ----
+console.log('[K7 Condition]');
+assert(/id="condModal"/.test(html)&&/onclick="openCondLog\(\)"/.test(html)&&/onclick="saveCondLog\(\)"/.test(html), 'K7: two-tap quick-log (card button → modal save)');
+assert(/class="goal-card cond"/.test(html), 'K7: Condition card in the dashboard (goal-card class first — paused re-tag convention)');
+(function(){
+  const _bm=S.bodyMetrics,_bl=S.backLog,_lb=S.settings.lastBackCheckin,_h=JSON.parse(JSON.stringify(S.habits));
+  S.bodyMetrics=[{date:dateAddDays(todayStr(),-7),weightKg:84.0,bfPct:23.0},{date:todayStr(),weightKg:83.4}];
+  S.backLog=[{date:dateAddDays(todayStr(),-1),status:'good'},{date:todayStr(),status:'good'}];
+  S.settings.lastBackCheckin={date:todayStr(),status:'good'};
+  // habit row: visible + tickable under good
+  const h=S.habits.find(x=>x.id==='h1');h.ticks={};
+  let rows=habitRowsHTML();
+  assert(/100 KB Swings @ 24/.test(rows)&&/wkc-tick/.test(rows)&&/\u25cb/.test(rows), 'K7: habit row renders with an open tick under good');
+  tickHabit('h1');rows=habitRowsHTML();
+  assert(/is-done/.test(rows)&&/1d/.test(rows), 'K7: ticked habit shows done + streak');
+  // gate: tight hides the tick
+  S.settings.lastBackCheckin={date:todayStr(),status:'tight'};
+  rows=habitRowsHTML();
+  assert(!/wkc-tick/.test(rows)&&/rest today/.test(rows), 'K7: tight/flare hides the tick (rest is the assignment)');
+  // checklist embeds the habit rows
+  assert(/\$\{habitRowsHTML\(\)\}/.test(html), 'K7: habit rows live inside the weekly checklist card (both mounts)');
+  // report condition line
+  const rpt=buildCoachReport([{date:todayStr(),dayLabel:'Gym',blockName:S.program.name,duration:60,rpe:7,status:'complete',exercises:[],painEvents:[]}],S.program,weekDatesFor(todayStr()));
+  assert(/### CONDITION/.test(rpt)&&/Weight: 83\.4 kg \(-0\.6 kg \/ 7d\)/.test(rpt)&&/BF 23%/.test(rpt), 'K7: Dispatch carries the weight trend. Got: '+(rpt.match(/Weight:[^\n]*/)||['none'])[0]);
+  S.bodyMetrics=_bm;S.backLog=_bl;S.settings.lastBackCheckin=_lb;S.habits=_h;
+})();
 assert(/\.ab-badge\{/.test(html)&&/<span class="ab-badge">\$\{ex\.week\}/.test(html), 'K2: preview badges A/B rows');
 
 // ===== PROGRAM: Sep 2 Block 6 W3 structure (7 days Mon-Sun, recomp) =====
@@ -3146,7 +3173,7 @@ assert(typeof resumeGoal==='function'&&typeof togglePausedGoals==='function', 'V
   // restore paused state for the ship default
   S.goals.find(g=>g.id==='g-mu').paused=true;
 })();
-assert(/const activeCards=\[weekChecklistHTML\(\), card1000, _pausedIds\.has\('g-mu'\)\?null:cardMU, _pausedIds\.has\('g-run'\)\?null:cardRun\]/.test(html), 'V4/K2/K5: dashboard = checklist + 1000lb (+unpaused MU/Run)');
+assert(/const activeCards=\[weekChecklistHTML\(\), cardCond, card1000, _pausedIds\.has\('g-mu'\)\?null:cardMU, _pausedIds\.has\('g-run'\)\?null:cardRun\]/.test(html), 'V4/K2/K5/K7: dashboard = checklist + Condition + 1000lb (+unpaused MU/Run)');
 assert(/id="pausedWrap"/.test(html)&&/Resume Muscle-Up</.test(html)&&/Resume Running</.test(html), 'V4: Paused expander + resume actions');
 assert(/if\(!_muPaused\)celebrateMilestone\('mu_'/.test(html), 'V4: paused milestones stay silent (data still updates)');
 assert(!/kb.*goal|goal.*kettlebell/i.test((html.match(/migrateV3[\s\S]{0,3000}/)||[''])[0]), 'V4: no KB goal invented');
@@ -3947,7 +3974,8 @@ assert(DEF_PROGRAM.startDate==='2026-09-02', 'K16: W3 carries its start date (ev
   // checklist renders 5 rows, no missed labels for pre-block days
   if(weekDatesFor(todayStr())[0]===wd[0]){ // only assertable while it IS the transition week
     const chk=weekChecklistHTML();
-    assert((chk.match(/wkc-row/g)||[]).length===5, 'K16: checklist shows 5 rows this week. Got: '+(chk.match(/wkc-row/g)||[]).length);
+    const _habitN=(S.habits||[]).filter(h=>h&&h.type==='daily').length;
+    assert((chk.match(/wkc-row/g)||[]).length===5+_habitN, 'K16/K7: checklist shows 5 day rows + habit rows. Got: '+(chk.match(/wkc-row/g)||[]).length+' (habits '+_habitN+')');
     assert(/0 \/ 5/.test(chk.replace(/<[^>]*>/g,' ').replace(/\s+/g,' '))||/>0 \/ 5</.test(chk), 'K16: denominator is 5');
     // Date-robust: pre-block days never read as missed; in-block past days
     // legitimately do. Expected missed = pending in-block days before today.

@@ -799,6 +799,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .goal-card.wk-check{margin-bottom:10px}
 .wkc-row{display:flex;align-items:center;gap:8px;padding:5px 0;font:500 13px var(--sans);color:var(--tx)}
 .wkc-row.is-missed{opacity:.5}
+.wkc-tick{cursor:pointer;min-width:28px;min-height:28px;display:inline-flex;align-items:center;justify-content:center}
 .ab-badge{display:inline-block;min-width:16px;text-align:center;font:700 10px var(--mono);color:var(--brand);border:1px solid var(--brand-dim);border-radius:4px;padding:1px 3px;vertical-align:1px}
 .wkc-row.is-done{color:var(--tx3)}
 .wkc-row.is-done .wkc-lbl{text-decoration:line-through;text-decoration-color:var(--tx3)}
@@ -1346,6 +1347,16 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   </div>
 </div>
 
+<div class="overlay" id="condModal">
+  <div class="modal">
+    <div class="modal-t" data-t="cond.title">Log condition</div>
+    <div class="field"><label>Weight (kg)</label><input type="number" step="0.1" id="cndW" placeholder="e.g. 83.4"></div>
+    <div class="field"><label>Body fat % (optional)</label><input type="number" step="0.1" id="cndBf" placeholder="e.g. 22.0"></div>
+    <div class="field"><label>Muscle (kg, optional)</label><input type="number" step="0.1" id="cndMu" placeholder="optional"></div>
+    <button class="btn btn-p btn-w" style="margin-top:8px" onclick="saveCondLog()">Save</button>
+    <button class="btn btn-s btn-w" style="margin-top:8px" onclick="hideModal('condModal')">Cancel</button>
+  </div>
+</div>
 <div class="overlay" id="quickLogModal">
   <div class="modal">
     <div class="modal-t" id="qlTitle">Log activity</div>
@@ -1528,6 +1539,8 @@ STRINGS.plain['valid.clean']='validator clean';STRINGS.gothic['valid.clean']='Th
 STRINGS.plain['sheet.tick']='Tick off';STRINGS.gothic['sheet.tick']='Attest';
 STRINGS.plain['sheet.ticked']='Ticked off';STRINGS.gothic['sheet.ticked']='So attested.';
 STRINGS.plain['check.title']='This week';STRINGS.gothic['check.title']='The Week\u2019s Rites';
+STRINGS.plain['cond.card']='Condition';STRINGS.gothic['cond.card']='The Vessel';
+STRINGS.plain['cond.title']='Log condition';STRINGS.gothic['cond.title']='Assay the vessel';
 STRINGS.plain['back.title']='Back check \u2014 how is it today?';STRINGS.gothic['back.title']='The spine \u2014 report its temper';
 STRINGS.plain['back.good']='Good';STRINGS.gothic['back.good']='Sound';
 STRINGS.plain['back.tight']='Tight';STRINGS.gothic['back.tight']='Strained';
@@ -5013,6 +5026,33 @@ function goodDayStreak(){
   let n=0;while(by[d]==='good'){n++;d=dateAddDays(d,-1);}
   return n;
 }
+function openCondLog(){
+  try{['cndW','cndBf','cndMu'].forEach(id2=>{const el=document.getElementById(id2);if(el)el.value='';});}catch(e){}
+  showModal('condModal');
+}
+function saveCondLog(){
+  const g2=id2=>{const el=document.getElementById(id2);return el?parseFloat(el.value):NaN;};
+  const kg=g2('cndW');
+  if(!(kg>0)){toast('Weight (kg) required');return;}
+  logBodyMetric(kg,g2('cndBf'),g2('cndMu'));
+  hideModal('condModal');
+  toast('Condition logged');
+  try{renderGoalsDashboard();}catch(e){}
+  try{renderTrain();}catch(e){}
+}
+// E2: daily habit rows on the weekly checklist — habits are DATA; the back
+// gate hides the tick on a Tight/Flare day (rest is the assignment).
+function habitRowsHTML(){
+  const hs=(S.habits||[]).filter(h=>h&&h.type==='daily');
+  if(!hs.length)return'';
+  return hs.map(h=>{
+    const gated=h.gate==='back'&&['tight','flare'].indexOf(todayBackStatus()||'')>=0;
+    if(gated)return `<div class="wkc-row is-missed"><span class="wkc-mark">\u2013</span><span class="wkc-lbl">${esc(h.name)}</span><span class="t-meta">back \u00b7 rest today</span></div>`;
+    const done=!!((h.ticks||{})[todayStr()]);
+    const st=habitStreak(h);
+    return `<div class="wkc-row${done?' is-done':''}"><span class="wkc-mark wkc-tick" role="button" aria-label="Tick ${esc(h.name)}" onclick="tickHabit('${h.id}');try{renderTrain();}catch(e){}try{renderGoalsDashboard();}catch(e){}">${done?'\u2713':'\u25cb'}</span><span class="wkc-lbl">${esc(h.name)}</span><span class="t-meta">daily${st?' \u00b7 '+st+'d':''}</span></div>`;
+  }).join('');
+}
 function heldLoadRpeSeries(name,vKey,loadKg,n){
   const out=[];
   if(!(loadKg>0))return out;
@@ -7065,6 +7105,19 @@ function renderGoalsDashboard(){
   };
   const orb=[ringFor(78,'squat',cSquat),ringFor(63,'bench',cBench),ringFor(48,'dead',cDead)];
   const rings=orb.map(o=>o.ring).join('')+orb.map(o=>o.label).join('');
+  // E1 (Recomp W1): Condition card — weight trend, BF%, back streak, 2-tap log.
+  const cardCond=(()=>{
+    const tr=weightTrend7d();
+    const bf=latestBf();
+    const gs=goodDayStreak();
+    const kpi=tr?`<span class="big tnum">${tr.kg}</span><span class="bigu">kg</span>`:`<span class="big tnum">\u2013</span><span class="bigu">kg</span>`;
+    const dir=tr&&tr.delta!=null?`<span style="color:${tr.delta<0?'var(--grn)':tr.delta>0?'var(--warn)':'var(--tx3)'}">${tr.delta>0?'\u2191 +':tr.delta<0?'\u2193 ':'\u2192 '}${Math.abs(tr.delta)} kg \u00b7 7d</span>`:'<span style="color:var(--tx3)">no 7-day base yet</span>';
+    return `<div class="goal-card cond">
+      <div class="goal-head"><span class="t-h2">${t('cond.card')}</span><button class="qlog" onclick="openCondLog()" aria-label="Log condition">+ Log</button></div>
+      <div class="bigrow">${kpi}<span class="t-meta" style="margin-left:8px">${dir}</span></div>
+      <div class="t-meta">${bf!=null?'BF '+bf+'%':'BF \u2014'} \u00b7 back streak ${gs}d${(S.settings.lastBackCheckin&&S.settings.lastBackCheckin.date===todayStr())?' \u00b7 today: '+S.settings.lastBackCheckin.status:''}</div>
+    </div>`;
+  })();
   const card1000=`<div class="goal-card lift tap" onclick="goToLiftDetail('squat')">
     <div class="goal-head"><span class="t-h2">${t('goal.g1')}</span><span class="pace2" style="color:var(--${pace})">${paceLabel}</span></div>
     <div class="club2"><svg viewBox="0 0 190 190" width="190" height="190" aria-hidden="true">
@@ -7115,7 +7168,7 @@ function renderGoalsDashboard(){
   // W4-D: dashboard order = active goals first (1000 lb, Freestyle); paused
   // goals live behind a collapsed expander, data retained, one-tap resume.
   const _pausedIds=new Set((S.goals||[]).filter(g=>g.paused).map(g=>g.id));
-  const activeCards=[weekChecklistHTML(), card1000, _pausedIds.has('g-mu')?null:cardMU, _pausedIds.has('g-run')?null:cardRun].filter(Boolean).join('');
+  const activeCards=[weekChecklistHTML(), cardCond, card1000, _pausedIds.has('g-mu')?null:cardMU, _pausedIds.has('g-run')?null:cardRun].filter(Boolean).join('');
   const pausedCards=[_pausedIds.has('g-mu')?cardMU:null, _pausedIds.has('g-run')?cardRun:null].filter(Boolean);
   const pausedBlock=pausedCards.length?`<div class="paused-wrap${_pausedOpen?' open':''}" id="pausedWrap">
     <div class="paused-toggle" onclick="togglePausedGoals()">${t('goal.paused')} <span class="sec-count">${pausedCards.length}</span><span class="sec-chev">${_pausedOpen?'\u2304':'\u203a'}</span></div>
@@ -7533,6 +7586,7 @@ function weekChecklistHTML(){
       const missed=o.st==='pending'&&dayEffectiveDate(o.d,wd[0])<todayStr();
       return `<div class="wkc-row${o.st==='pending'?(missed?' is-missed':''):' is-done'}"><span class="wkc-mark">${missed?'\u2013':o.st==='pending'?'\u25cb':o.st==='ticked'?'\u2713\u00b7':'\u2713'}</span><span class="wkc-lbl">${esc(o.d.label)}</span><span class="t-meta">${dowOf(dayEffectiveDate(o.d,wd[0])).slice(0,3)}${missed?' \u00b7 missed':o.st==='ticked'?' \u00b7 ticked':o.st==='skipped'?' \u00b7 skipped':''}</span></div>`;
     }).join('')}
+    ${habitRowsHTML()}
   </div>`;
 }
 function buildCoachReport(sessions,program,weekDates){
@@ -7599,6 +7653,10 @@ function buildCoachReport(sessions,program,weekDates){
   });
 
   // Progression summary (lifting/cali only — activities have no exercises)
+  (function(){
+    const _wt=weightTrend7d();
+    if(_wt)r+=`### CONDITION\n  Weight: ${_wt.kg} kg${_wt.delta!=null?' ('+(_wt.delta>0?'+':'')+_wt.delta+' kg / 7d)':''}${latestBf()!=null?' \u00b7 BF '+latestBf()+'%':''}\n\n`;
+  })();
   if(program&&program.phase==='maintain'){
     let rl='';
     (typeof FIXED_MAINS!=='undefined'?FIXED_MAINS:[]).forEach(nm=>{
