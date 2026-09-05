@@ -799,6 +799,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .goal-card.wk-check{margin-bottom:10px}
 .wkc-row{display:flex;align-items:center;gap:8px;padding:5px 0;font:500 13px var(--sans);color:var(--tx)}
 .wkc-row.is-missed{opacity:.5}
+.ab-badge{display:inline-block;min-width:16px;text-align:center;font:700 10px var(--mono);color:var(--brand);border:1px solid var(--brand-dim);border-radius:4px;padding:1px 3px;vertical-align:1px}
 .wkc-row.is-done{color:var(--tx3)}
 .wkc-row.is-done .wkc-lbl{text-decoration:line-through;text-decoration-color:var(--tx3)}
 .wkc-mark{width:18px;text-align:center;color:var(--grn);font:600 13px var(--mono)}
@@ -2588,8 +2589,10 @@ function validateProgram(){
   if(!S.program||!S.program.days)return [];
   const report=[];
   S.program.days.forEach(d=>{
-    const warns=validateSession(d.exercises||[],{sessionType:d.sessionType||'lifting',targetDur:d.dur});
-    if(warns.length){report.push({day:d.label||('Day '+d.id),warnings:warns});}
+    (d.alternating?['A','B']:[null]).forEach(v=>{
+      const warns=validateSession(dayExercises(d,v||undefined),{sessionType:d.sessionType||'lifting',targetDur:d.dur});
+      if(warns.length){report.push({day:(d.label||('Day '+d.id))+(v?' (Week '+v+')':''),warnings:warns});}
+    });
   });
   if(report.length){
     console.group('[Hyperion] Session validator warnings');
@@ -2606,7 +2609,7 @@ function dayCompoundPats(daySessions){
   (daySessions||[]).forEach(s=>{
     if(s.source!=='program'||s.dayIndex==null)return;
     const day=S.program.days[s.dayIndex];if(!day)return;
-    (day.exercises||[]).forEach(ex=>{
+    dayExercises(day).forEach(ex=>{
       const m=getMeta(ex.name);
       if(/compound/.test(m.fat||'')&&m.pat)pats[m.pat]=ex.name;
     });
@@ -3714,8 +3717,9 @@ function renderTrain(){
     } else if(day.sessionType==='swim'){
       subtitle='Log your longest continuous freestyle.';
     } else {
-      const mainEx=day.exercises[0];
-      const secondEx=day.exercises.length>1?day.exercises[1]:null;
+      const _dex=dayExercises(day);
+      const mainEx=_dex[0];
+      const secondEx=_dex.length>1?_dex[1]:null;
       subtitle=mainEx?`${mainEx.name} ${fmtW(mainEx.loadKg,mainEx.unit)}${secondEx?', '+secondEx.name+' '+fmtW(secondEx.loadKg,secondEx.unit):''}`:'';
     }
 
@@ -3730,7 +3734,7 @@ function renderTrain(){
     const isActivity=isActivityType(day.sessionType);
     const meta=isActivity
       ?`${dow} · ${day.sessionType}${metaTail}`
-      :`${dow} · ${day.exercises.length} exercises${metaTail}`;
+      :`${dow} · ${dayExercises(day).length} exercises${metaTail}${day.alternating?' · '+dayVariantLabel(day):''}`;
     const card=`<div class="day-card ${cls}" onclick="showDayPreview(${i})">
       <div class="day-row">
         <div class="day-num">${numGlyph}</div>
@@ -3804,7 +3808,7 @@ function renderTrain(){
     html+=`<button class="start-btn" onclick="showDayPreview(${startIdx})">${label}</button>`;
     // Train's second (and final) gradient surface: the top-set chip.
     try{
-      const _main=(sDay.exercises||[]).find(ex=>typeof FIXED_MAINS!=='undefined'&&FIXED_MAINS.includes(ex.name));
+      const _main=dayExercises(sDay).find(ex=>typeof FIXED_MAINS!=='undefined'&&FIXED_MAINS.includes(ex.name));
       const _top=_main?(schemeTop(_main.setScheme)||{loadKg:_main.loadKg,reps:parseInt(_main.reps)||5}):null;
       if(_top&&_top.loadKg)html+=`<div class="topset-chip tnum">TOP ${fmtW(_top.loadKg,S.settings.unit)} × ${_top.reps}</div>`;
     }catch(e){}
@@ -3832,6 +3836,30 @@ function weekAnchor(todayD){
 // Effective calendar date a program day next occurs on within the planning week
 // (for Up-next sorting + week-rank). Anchored at weekAnchor(), so on Sunday a
 // Sunday session resolves to NEXT Sunday, not today.
+// C (Week A/B): parity is anchored to the BLOCK's startDate, not raw ISO
+// weeks — week 0 (the week containing startDate) is A, so the "first
+// Saturday = Week A" contract survives year boundaries and any block that
+// begins on an odd ISO week. Untagged exercises run every week.
+function weekVariantFor(dateStr){
+  const sd=S.program&&S.program.startDate;
+  if(!sd)return 'A';
+  const wm=weekOfDate(dateStr||todayStr()),base=weekOfDate(sd);
+  const wks=Math.round((new Date(wm+'T12:00:00')-new Date(base+'T12:00:00'))/(7*86400000));
+  return (((wks%2)+2)%2===0)?'A':'B';
+}
+function dayExercises(day,variant){
+  if(!day)return[];
+  const list=day.exercises||[];
+  if(!day.alternating)return list;
+  const v=variant||weekVariantFor(dayEffectiveDate(day));
+  return list.filter(e=>!e.week||e.week===v);
+}
+function dayVariantLabel(day,variant){
+  if(!day||!day.alternating)return'';
+  const v=variant||weekVariantFor(dayEffectiveDate(day));
+  const lbl=(day.variantLabels||{})[v];
+  return 'Week '+v+(lbl?' \u2014 '+lbl:'');
+}
 function dayEffectiveDate(day,todayD){
   const anchor=weekAnchor(todayD);
   if(day.oneOff)return day.scheduledDate||anchor; // one-offs pin to their date
@@ -3853,7 +3881,7 @@ function showDayPreview(i){
 
   document.getElementById('pvDayLbl').textContent='Day '+(i+1)+' · '+day.dayOfWeek;
   document.getElementById('pvTitle').textContent=day.label;
-  document.getElementById('pvMeta').textContent=day.sessionType==='rest'?'Rest day — recovery':isActivityType(day.sessionType)?(day.sessionType==='kb'?'Kettlebell session':day.sessionType)+' · ~'+day.dur+' min':(day.exercises||[]).length+' exercises · ~'+day.dur+' min';
+  document.getElementById('pvMeta').textContent=day.sessionType==='rest'?'Rest day — recovery':isActivityType(day.sessionType)?(day.sessionType==='kb'?'Kettlebell session':day.sessionType)+' · ~'+day.dur+' min':dayExercises(day).length+' exercises · ~'+day.dur+' min'+(day.alternating?' · '+dayVariantLabel(day):'');
   try{const pn=document.getElementById('pvNote');if(pn){pn.textContent=day.note||'';pn.style.display=day.note?'block':'none';}}catch(e){}
 
   // Done info
@@ -3895,7 +3923,7 @@ function showDayPreview(i){
           <button class="pe-move" ${downDisabled} onclick="event.stopPropagation();moveExercise(${i},${ei},1)" title="Move down">▼</button>
         </div>
         <div style="flex:1;cursor:pointer" onclick="showEditEx(${i},${ei})">
-          <div class="pe-name">${ex.name}${ex.tags?.includes('per side')?' <span class="td" style="font-size:11px">/side</span>':''}${ex.tags?.includes('per hand')?' <span class="td" style="font-size:11px">/hand</span>':''}</div>
+          <div class="pe-name">${ex.week?`<span class="ab-badge">${ex.week}</span> `:''}${ex.name}${ex.tags?.includes('per side')?' <span class="td" style="font-size:11px">/side</span>':''}${ex.tags?.includes('per hand')?' <span class="td" style="font-size:11px">/hand</span>':''}</div>
           <div class="pe-detail">${ex.entryType==='circuit'?`${ex.format||'Circuit'} ${ex.minutes||'?'} min${ex.loadKg?' @ '+fmtW(ex.loadKg,'kg'):''}`:`${ex.sets}×${ex.reps} @ ${fmtW(ex.loadKg,ex.unit)}`}</div>
         </div>
         <div class="pe-arrow" onclick="showEditEx(${i},${ei})">›</div>
@@ -4014,6 +4042,7 @@ let _orderOffer=null;
 function applyOrderOffer(){
   if(!_orderOffer)return;
   const day=S.program.days[_orderOffer.dayIndex];
+  if(day&&day.alternating){_orderOffer=null;return;} // K2: never whole-array-replace an A/B day
   if(day&&Array.isArray(_orderOffer.exercises)&&_orderOffer.exercises.length)day.exercises=_orderOffer.exercises;
   _orderOffer=null;save();
   try{const el=document.getElementById('sumOrderRow');if(el)el.innerHTML='<div class="t-meta" style="color:var(--grn);padding:8px 0">Order saved to the program</div>';}catch(e){}
@@ -4162,7 +4191,10 @@ function startDay(i){
   // dayId is the day's immutable identity — dayLabel alone is ambiguous when
   // two days share a label (the deload has two "Swim" days).
   S.activeSession={dayIndex:i,dayId:day.id,blockName:S.program.name,date:todayStr(),dayLabel:day.label,sessionType:st,startTime:Date.now(),exercises:[],notes:'',order:[],gymId:(S.settings&&S.settings.activeGymId)||null};
-  const _hybrid=isActivityType(st)&&(day.exercises||[]).length>0;
+  const _variant=day.alternating?weekVariantFor(dayEffectiveDate(day)):null;
+  const _resolved=dayExercises(day,_variant||undefined);
+  if(_variant)S.activeSession.weekVariant=_variant;
+  const _hybrid=isActivityType(st)&&_resolved.length>0;
   if(isActivityType(st)){
     // Activity-log session: the form — plus warm-up cards when authored (K7).
     S.activeSession.activity={durationMin:day.dur||0,distance:day.defaultDistance||0,effort:null,notes:''};
@@ -4172,12 +4204,13 @@ function startDay(i){
   }
   if(!isActivityType(st)||_hybrid){
     // Lifting + calisthenics (and kb-hybrid warm-ups): exercise cards.
-    S.activeSession.exercises=(day.exercises||[]).map(ex=>({
+    S.activeSession.exercises=_resolved.map(ex=>({
       name:ex.name,cat:ex.cat,cue:ex.cue||null,
       prescribed:{sets:ex.sets,reps:ex.reps,loadKg:ex.loadKg,unit:ex.unit||'kg',setScheme:Array.isArray(ex.setScheme)?JSON.parse(JSON.stringify(ex.setScheme)):null},
       warmup:Array.isArray(ex.warmup)?JSON.parse(JSON.stringify(ex.warmup)):null,
       barKg:(typeof ex.barKg==='number')?ex.barKg:undefined,
       incrementKg:(typeof ex.incrementKg==='number')?ex.incrementKg:undefined,
+      supersetNext:ex.supersetNext||undefined,week:ex.week||undefined,
       section:ex.section||'main',
       role:ex.role||undefined,target:ex.target?JSON.parse(JSON.stringify(ex.target)):undefined,frozen:ex.frozen||undefined,
       entryType:ex.entryType||undefined,format:ex.format||undefined,minutes:ex.minutes||undefined,movements:ex.movements||undefined,loadKg:ex.entryType==='circuit'?(ex.loadKg||null):undefined,result:null,
@@ -4233,7 +4266,7 @@ function showSessionHero(day){
   if(typeof requestAnimationFrame!=='function')return;
   if(typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches)return;
   const h=document.getElementById('sessionHero');if(!h||!h.classList)return;
-  const main=(day.exercises||[]).find(e=>FIXED_MAINS.includes(canonName(e.name)));
+  const main=dayExercises(day).find(e=>FIXED_MAINS.includes(canonName(e.name)));
   const lbl=document.getElementById('shLabel');if(lbl)lbl.textContent=day.label;
   const tgt=document.getElementById('shTarget');
   if(tgt)tgt.textContent=main?`${main.name} ${main.loadKg} kg${(main.tags||[]).some(t=>/RPE-8/.test(t))?' · RPE 8 cap':''}`:(day.sessionType==='calisthenics'?'RPE 7 cap — quality reps':'');
@@ -6319,7 +6352,8 @@ function confirmRpe(){
   if(rec.retro)S.sessions.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
 
   // Update program loads by day index + exercise index (skip bonus exercises)
-  const dayExs=S.program.days[sess.dayIndex]?.exercises||[];
+  const _wbDay=S.program.days[sess.dayIndex];
+  const dayExs=_wbDay?dayExercises(_wbDay,sess.weekVariant||undefined):[];
   sess.exercises.forEach((rx,ei)=>{
     if(rx.progression==='increase'&&!(rx.tags||[]).includes('bonus')&&ei<dayExs.length&&dayExs[ei].name===rx.name){
       if(rx.nextLoad){
@@ -6342,7 +6376,7 @@ function confirmRpe(){
   // Focus-mode reorder (S4): capture the offer AFTER write-back — the mapped
   // array reuses the SAME program objects, so the bumps above travel with it.
   // Applied only from the summary row, never here.
-  try{_orderOffer=sessOrderDiffers(sess)?{dayIndex:sess.dayIndex,exercises:mapSessionOrderToProgram(sessOrder(sess),sess.exercises,S.program.days[sess.dayIndex]?.exercises||[])}:null;}catch(e){_orderOffer=null;}
+  try{_orderOffer=(!_wbDay||_wbDay.alternating)?null:(sessOrderDiffers(sess)?{dayIndex:sess.dayIndex,exercises:mapSessionOrderToProgram(sessOrder(sess),sess.exercises,_wbDay.exercises||[])}:null);}catch(e){_orderOffer=null;}
 
   S.activeSession=null;save();
   // Phase C: increment rotation counter

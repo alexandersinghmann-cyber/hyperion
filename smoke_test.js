@@ -295,6 +295,61 @@ assert(exerciseBarKg({name:'Deadlift'})===36&&exerciseBarKg({name:'Trap Bar Dead
 // load()-time rewrite: stored names migrate in place
 assert(/ex\.name=canonName\(ex\.name\)/.test(html), 'K1: load() rewrites stored names through the alias map');
 
+// ---- K2 (v12 chain): Week A/B alternation infra (synthetic — v11 has no alternating day) ----
+console.log('[K2 WeekAB]');
+(function(){
+  const _sp=S.program;
+  S.program={name:'ABTest',active:true,version:99,startDate:'2026-09-07',days:[
+    {id:1,label:'Gym',defaultDay:'Saturday',dayOfWeek:'Saturday',sessionType:'lifting',dur:75,alternating:true,
+     variantLabels:{A:'Squat emphasis',B:'Deadlift emphasis'},
+     exercises:[
+       {name:'Bird Dog',cat:'core',section:'warmup',sets:2,reps:'8',loadKg:0,unit:'bw',rest:30,tags:[],equipmentClass:'bw'},
+       {name:'Back Squat',cat:'squat',week:'A',sets:4,reps:'8-10',loadKg:100,unit:'kg',rest:150,tags:[],equipmentClass:'barbell'},
+       {name:'Trap Bar Deadlift',cat:'hinge',week:'A',sets:2,reps:'5',loadKg:100,unit:'kg',rest:180,tags:[],equipmentClass:'barbell',barKg:36},
+       {name:'Trap Bar Deadlift',cat:'hinge',week:'B',sets:4,reps:'5',loadKg:100,unit:'kg',rest:180,tags:[],equipmentClass:'barbell',barKg:36},
+       {name:'Back Squat',cat:'squat',week:'B',sets:2,reps:'8',loadKg:90,unit:'kg',rest:150,tags:[],equipmentClass:'barbell'},
+       {name:'Strict Pull-Up',cat:'pull',sets:3,reps:'6-8',loadKg:0,unit:'bw',rest:120,tags:[],equipmentClass:'bw',supersetNext:true},
+       {name:'Push-Up',cat:'push',sets:3,reps:'10-12',loadKg:0,unit:'bw',rest:90,tags:[],equipmentClass:'bw'}
+     ]}
+  ]};
+  // parity contract: startDate week (Sep 7-13, holds Sat Sep 12) = A; next = B
+  assert(weekVariantFor('2026-09-12')==='A'&&weekVariantFor('2026-09-07')==='A', 'K2: startDate week is Week A (Sep 12 contract)');
+  assert(weekVariantFor('2026-09-19')==='B'&&weekVariantFor('2026-09-14')==='B', 'K2: following week is B');
+  assert(weekVariantFor('2026-09-26')==='A'&&weekVariantFor('2027-01-02')==='A'&&weekVariantFor('2027-01-09')==='B', 'K2: parity is week-count math, stable across the year boundary (wk16=A, wk17=B)');
+  const d=S.program.days[0];
+  const A=dayExercises(d,'A'),B=dayExercises(d,'B');
+  assert(A.length===5&&B.length===5, 'K2: resolver keeps shared + own-week rows. A='+A.length+' B='+B.length);
+  assert(A.some(e=>e.week==='A'&&e.name==='Back Squat'&&e.sets===4)&&!A.some(e=>e.week==='B'), 'K2: A-week list has no B rows');
+  assert(B.some(e=>e.name==='Back Squat'&&e.sets===2&&e.loadKg===90), 'K2: B-week back-off squat resolves');
+  assert(dayVariantLabel(d,'A')==='Week A \u2014 Squat emphasis', 'K2: variant label renders. Got: '+dayVariantLabel(d,'A'));
+  // startDay resolves + stamps + preserves supersetNext
+  S.sessions=[];S.activeSession=null;global.startTimer=()=>{};global.showSessionHero=global.showSessionHero||(()=>{});
+  startDay(0);
+  const sess=S.activeSession;
+  const v=weekVariantFor(dayEffectiveDate(d));
+  assert(sess.weekVariant===v, 'K2: session stamps its resolved variant. Got: '+sess.weekVariant);
+  assert(sess.exercises.length===5&&sess.exercises.every(e=>!e.week||e.week===v), 'K2: session carries only the resolved subset');
+  assert(sess.exercises.find(e=>e.name==='Strict Pull-Up').supersetNext===true, 'K2: supersetNext now survives the startDay mapper');
+  // write-back round-trip: progression lands on the CORRECT tagged entry
+  const sqi=sess.exercises.findIndex(e=>e.name==='Back Squat');
+  sess.exercises.forEach(ex=>{(ex.performed||[]).forEach(p2=>{p2.logged=true;if(p2.type==='working')p2.rpe=7;});});
+  sess.exercises[sqi].nextLoad=(v==='A')?102.5:92.5;sess.exercises[sqi].progression='increase';
+  const resolved=dayExercises(d,sess.weekVariant);
+  const rx=sess.exercises[sqi];
+  if(sqi<resolved.length&&resolved[sqi].name===rx.name){resolved[sqi].loadKg=rx.nextLoad;}
+  const aSq=d.exercises.find(e=>e.week==='A'&&e.name==='Back Squat');
+  const bSq=d.exercises.find(e=>e.week==='B'&&e.name==='Back Squat');
+  if(v==='A'){assert(aSq.loadKg===102.5&&bSq.loadKg===90, 'K2: A-week write hits ONLY the A entry');}
+  else{assert(bSq.loadKg===92.5&&aSq.loadKg===100, 'K2: B-week write hits ONLY the B entry');}
+  global.confirm=window.confirm=()=>true;cancelSession();
+  // validator covers BOTH parities
+  const rep2=validateProgram();
+  assert(Array.isArray(rep2), 'K2: validateProgram runs over alternating days without throwing');
+  S.program=_sp;S.sessions=[];
+})();
+assert(/if\(day&&day\.alternating\)\{_orderOffer=null;return;\}/.test(html), 'K2: applyOrderOffer refuses alternating days');
+assert(/\.ab-badge\{/.test(html)&&/<span class="ab-badge">\$\{ex\.week\}/.test(html), 'K2: preview badges A/B rows');
+
 // ===== PROGRAM: Sep 2 Block 6 W3 structure (7 days Mon-Sun, recomp) =====
 assert(DEF_PROGRAM.name === 'Sep 2 Block 6 W3', 'Program name is Sep 2 Block 6 W3: got ' + DEF_PROGRAM.name);
 assert(DEF_PROGRAM.version === 11, 'W3: program version 11. Got ' + DEF_PROGRAM.version);
@@ -2486,7 +2541,7 @@ assert(S.settings.sessionView==='focus'||S.settings.sessionView==='list', 'S4: s
 (()=>{const was=S.settings.sessionView;toggleSessionView();assert(S.settings.sessionView!==was, 'S4: toggleSessionView flips');toggleSessionView();assert(S.settings.sessionView===was, 'S4: and flips back');})();
 assert(/if\(!S\.settings\.sessionView\)S\.settings\.sessionView='focus';/.test(html), 'S4: load() backfills sessionView');
 assert(/id="sViewBtn"/.test(html)&&/Session view</.test(html), 'S4: Settings row present');
-assert(/_orderOffer=sessOrderDiffers\(sess\)/.test(html), 'S4: offer captured in confirmRpe after write-back');
+assert(/_orderOffer=\(!_wbDay\|\|_wbDay\.alternating\)\?null:\(sessOrderDiffers\(sess\)/.test(html), 'S4/K2: offer captured after write-back — suppressed for alternating days (array replace would clobber the sibling variant)');
 
 // ===== S5: FOCUS VIEW SHELL =====
 assert(typeof renderFocus==='function'&&typeof renderExList==='function'&&typeof focusUnits==='function'&&typeof focusCardHTML==='function'&&typeof renderFocusRail==='function'&&typeof focusGoTo==='function', 'S5: focus render API defined');
