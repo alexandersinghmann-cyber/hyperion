@@ -195,6 +195,8 @@
 .ex-card.sec-warmup .ex-name{font-size:14px;color:var(--tx2)}
 #exList.wu-collapsed .ex-card.sec-warmup{display:none}
 .ex-card.sec-finisher{background:color-mix(in srgb,var(--brand) 4%,var(--s1))}
+.ex-card.sec-warmup{background:color-mix(in srgb,var(--blu) 5%,var(--s1))}
+.sec-hdr{border-bottom:1px solid var(--s2);padding-bottom:4px}
 .fcard.fc-sec-warmup .fc-name{font-size:16px;color:var(--tx2)}
 .fcard.fc-sec-finisher{background:color-mix(in srgb,var(--brand) 4%,transparent)}
 .rail-chip.fin-sec{border-color:color-mix(in srgb,var(--brand) 40%,var(--s3))}
@@ -807,6 +809,8 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .wkc-row:not(.is-done) .wkc-mark{color:var(--tx3)}
 .wkc-lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .imperium #vSession.on .act-save{background:var(--bg-mech)}
+.imperium #vSession.on .ex-card.sec-warmup{background:color-mix(in srgb,var(--phos) 3%,var(--bg-mech))}
+.imperium #vSession.on .ex-card.sec-finisher{background:color-mix(in srgb,var(--phos) 6%,var(--bg-mech))}
 </style>
 </head>
 <body>
@@ -4670,14 +4674,14 @@ function renderExList(){
   const _secAll=sess.exercises;
   const _wuAll=_secAll.filter(e=>sectionOf(e)==='warmup');
   const _wuDone=_wuAll.length>0&&_wuAll.every(e=>(e.performed||[]).every(s2=>s2.logged||s2.skipped));
-  const _collapsed=(_wuCollapsed===null)?_wuDone:_wuCollapsed;
+  const _collapsed=(_wuCollapsed===null)?(_secAll.some(e=>sectionOf(e)!=='warmup')&&_wuAll.length>0):_wuCollapsed;
   try{list.classList.toggle('wu-collapsed',!!_collapsed);}catch(e){}
   let _lastSec=null;
   const _secHdr=(ex)=>{
     const sec=sectionOf(ex);
     if(sec===_lastSec)return'';
     _lastSec=sec;
-    if(sec==='warmup')return`<div class="sec-hdr sec-hdr-wu" onclick="toggleWuSection()">Warm-up <span class="sec-count">${_wuAll.filter(e=>(e.performed||[]).every(s2=>s2.logged||s2.skipped)).length}/${_wuAll.length}</span><span class="sec-chev">${_collapsed?'\u203a':'\u2304'}</span></div>`;
+    if(sec==='warmup')return`<div class="sec-hdr sec-hdr-wu" onclick="toggleWuSection()">Mobility / Warm-up <span class="sec-count">${_wuAll.filter(e=>(e.performed||[]).every(s2=>s2.logged||s2.skipped)).length}/${_wuAll.length}</span><span class="sec-chev">${_collapsed?'\u203a':'\u2304'}</span></div>`;
     if(sec==='finisher')return`<div class="sec-hdr sec-hdr-fin">Finisher</div>`;
     return _lastSec!==null&&_secAll.some(e=>sectionOf(e)!=='main')?`<div class="sec-hdr">Main</div>`:'';
   };

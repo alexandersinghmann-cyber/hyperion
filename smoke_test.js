@@ -587,6 +587,14 @@ assert(/id="recurList"/.test(html)&&typeof renderRecurringList==='function'&&typ
   assert(!rows.some(r=>r.sessions.some(x=>x.type==='run'&&x.source==='recurring')), 'K10: no run session appears next week');
   S.recurringActivities=_ra;save();
 })();
+
+// ---- K11 (v12 chain): section bands ----
+console.log('[K11 Bands]');
+assert(/Mobility \/ Warm-up <span class="sec-count">/.test(html), 'K11: warm-up band header relabeled');
+assert(/\.ex-card\.sec-warmup\{background:color-mix\(in srgb,var\(--blu\) 5%,var\(--s1\)\)\}/.test(html), 'K11: warm-up band FLAT token tint');
+assert(/\.ex-card\.sec-finisher\{background:color-mix\(in srgb,var\(--brand\) 4%/.test(html), 'K11: pinned finisher tint untouched');
+assert(/\.imperium #vSession\.on \.ex-card\.sec-warmup\{background:color-mix\(in srgb,var\(--phos\)/.test(html)&&/\.imperium #vSession\.on \.ex-card\.sec-finisher\{/.test(html), 'K11: imperium band twins at the sheet end');
+assert(/const _collapsed=\(_wuCollapsed===null\)\?\(_secAll\.some\(e=>sectionOf\(e\)!=='warmup'\)&&_wuAll\.length>0\):_wuCollapsed;/.test(html), 'K11: warm-ups collapsed BY DEFAULT when main work exists (kb-hybrid all-warmup lists stay open)');
 assert(/\.ab-badge\{/.test(html)&&/<span class="ab-badge">\$\{ex\.week\}/.test(html), 'K2: preview badges A/B rows');
 
 // ===== PROGRAM: Sep 2 Block 6 W3 structure (7 days Mon-Sun, recomp) =====
