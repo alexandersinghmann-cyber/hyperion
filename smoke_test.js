@@ -3121,12 +3121,16 @@ assert(/\.filter\(o=>!isDayDone\(o\.i\)&&!isDaySkipped\(o\.i\)&&isStartableDay\(
     {id:2,label:'Wed Lift',defaultDay:'Wednesday',dayOfWeek:'Wednesday',sessionType:'lifting',dur:60,exercises:[{name:'Deadlift',cat:'hinge',sets:3,reps:'5',loadKg:120,unit:'kg'}]}
   ]};
   const wk=weekDatesFor(weekAnchor(todayStr()));
-  // E3: move Mon → Fri; the Start picker and the Week grid agree instantly.
-  assert(rescheduleDay(0,wk[4])===true, 'G5: reschedule writes');
-  assert(dayEffectiveDate(S.program.days[0])===wk[4], 'G5: effective date follows the move');
+  // E3: move Mon → the LAST planning day (always >= the anchor, whatever
+  // weekday the suite runs on — wk[4] was a Friday literal that sat in the
+  // past from Saturday onward). Start picker and Week grid agree instantly.
+  assert(rescheduleDay(0,wk[6])===true, 'G5: reschedule writes');
+  assert(dayEffectiveDate(S.program.days[0])===wk[6], 'G5: effective date follows the move');
   const rows=buildWeek(wk,todayStr());
-  assert(rows[4].sessions.some(x=>x.dayIndex===0)&&!rows[0].sessions.some(x=>x.dayIndex===0), 'G5: Week grid places the moved day on Friday (same rule as Start)');
-  assert(getNextAvailableDayIdx()===1, 'G5: Start picker now leads with Wednesday. Got: '+getNextAvailableDayIdx());
+  assert(rows[6].sessions.some(x=>x.dayIndex===0)&&!rows[0].sessions.some(x=>x.dayIndex===0), 'G5: Week grid places the moved day on its new slot (same rule as Start)');
+  // Date-robust picker expectation: soonest effective date wins, ties → lower index.
+  const _e0=dayEffectiveDate(S.program.days[0]),_e1=dayEffectiveDate(S.program.days[1]);
+  assert(getNextAvailableDayIdx()===(_e1<=_e0?1:0), 'G5: Start picker leads with the soonest effective date. e0='+_e0+' e1='+_e1+' got '+getNextAvailableDayIdx());
   // out-of-week scheduledDate no longer vanishes — it falls back to the dow slot
   S.program.days[0].scheduledDate='2020-01-01';
   const rows2=buildWeek(wk,todayStr());
@@ -3142,7 +3146,17 @@ assert(/\.filter\(o=>!isDayDone\(o\.i\)&&!isDaySkipped\(o\.i\)&&isStartableDay\(
   assert(S.weekRemovals.length===1&&S.weekRemovals[0].dayId===1, 'G5: removal recorded as {dayId,weekOf}');
   const rows3=buildWeek(wk,todayStr());
   assert(!rows3.some(r=>r.sessions.some(x=>x.dayIndex===0)), 'G5: removed day gone from the Week grid');
-  assert(getNextAvailableDayIdx()===1, 'G5: removed day never wins the Start slot');
+  // Date-robust invariant: whatever the picker returns, it is never a day
+  // that is removed for the week its effective date falls in. (The old
+  // `===1` literal assumed the removed Monday's next occurrence stayed in
+  // the planning week — false from Saturday onward, when it rolls forward
+  // into a week the removal never touched.)
+  (function(){
+    const pick=getNextAvailableDayIdx();
+    assert(pick!==-1&&pick!=null, 'G5: picker still finds a startable day');
+    const pd=S.program.days[pick];
+    assert(!dayRemovedForWeek(pd,weekOfDate(dayEffectiveDate(pd))), 'G5: picked day is not removed for its own effective week. Got idx '+pick);
+  })();
   // completeness + scheduled count respect a removal keyed to the CALENDAR week
   const cwk=weekDatesFor(todayStr());
   S.weekRemovals=[{dayId:1,weekOf:cwk[0]}];
@@ -3696,7 +3710,13 @@ assert(DEF_PROGRAM.startDate==='2026-09-02', 'K16: W3 carries its start date (ev
     const chk=weekChecklistHTML();
     assert((chk.match(/wkc-row/g)||[]).length===5, 'K16: checklist shows 5 rows this week. Got: '+(chk.match(/wkc-row/g)||[]).length);
     assert(/0 \/ 5/.test(chk.replace(/<[^>]*>/g,' ').replace(/\s+/g,' '))||/>0 \/ 5</.test(chk), 'K16: denominator is 5');
-    assert(!/missed/.test(chk), 'K16: nothing reads as missed — Mon/Tue were never owed');
+    // Date-robust: pre-block days never read as missed; in-block past days
+    // legitimately do. Expected missed = pending in-block days before today.
+    const _expMissed=S.program.days.filter(d=>{
+      const st=dayWeekStatus(d,wd);
+      return st==='pending'&&dayEffectiveDate(d,wd[0])<todayStr();
+    }).length;
+    assert((chk.match(/\u00b7 missed/g)||[]).length===_expMissed, 'K16: missed labels only on owed in-block days. Expected '+_expMissed);
   }
 })();
 assert(blockDisplayName('Sep 2 Block 6 W3')==='Block 6 \u00b7 Week 3', 'K16: block header humanized. Got: '+blockDisplayName('Sep 2 Block 6 W3'));
