@@ -52,6 +52,8 @@ const patched = js
   .replace(/\blet _notesT\s*=/g, 'var _notesT =')
   .replace(/\blet _variantSheetEi\s*=/g, 'var _variantSheetEi =')
   .replace(/\blet _exSheetEi\s*=/g, 'var _exSheetEi =')
+  .replace(/\blet _backPending\s*=/g, 'var _backPending =')
+  .replace(/\blet _backStartIdx\s*=/g, 'var _backStartIdx =')
   .replace(/\bconst ACTIVITY_TYPES\s*=/g, 'var ACTIVITY_TYPES =')
   .replace(/\bconst MODALITY_TYPES\s*=/g, 'var MODALITY_TYPES =')
   .replace(/\blet _reachCache\s*=/g, 'var _reachCache =')
@@ -452,6 +454,53 @@ assert(typeof S.settings.lastExportAt==='string'&&S.settings.lastExportAt.length
   const blob=JSON.parse(buildExportPayload('2026-09-05T00:00:00Z'));
   assert(Array.isArray(blob.bodyMetrics)&&Array.isArray(blob.backLog)&&Array.isArray(blob.habits), 'K5: full-state export includes the new stores');
   S.bodyMetrics=_bm;S.backLog=_bl;S.habits=_h;S.settings.lastBackCheckin=null;
+})();
+
+// ---- K6 (v12 chain): back-status check-in flow ----
+console.log('[K6 BackCheckin]');
+assert(/id="backModal"/.test(html)&&/setBackStatus\('good'\)/.test(html)&&/setBackStatus\('tight'\)/.test(html)&&/setBackStatus\('flare'\)/.test(html), 'K6: static check-in modal with three options');
+assert(/onclick="openBackCheckin\(previewDayI\)"/.test(html)&&/openBackCheckin\(\$\{dayIdx\}\)/.test(html), 'K6: BOTH user entry points route through the check-in (startDay stays synchronous)');
+assert(STRINGS.plain['back.title']&&STRINGS.gothic['back.flare']==='Aflame', 'K6: check-in strings in both registers');
+(function(){
+  const _sp=JSON.parse(JSON.stringify(S.program));const _ss=S.sessions,_bl=S.backLog;
+  S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.backLog=[];S.activeSession=null;
+  global.startTimer=()=>{};global.showSessionHero=global.showSessionHero||(()=>{});global.confirm=window.confirm=()=>true;
+  // GOOD → session starts synchronously, status stamped
+  _backStartIdx=2;setBackStatus('good');
+  assert(S.activeSession&&S.activeSession.backStatus==='good', 'K6: good → planned session starts with status stamped');
+  assert(S.settings.lastBackCheckin.status==='good'&&S.backLog.some(e=>e.date===todayStr()&&e.status==='good'), 'K6: daily store + log written');
+  assert(!S.activeSession.exercises.some(ex=>(ex.tags||[]).includes('back-addon')), 'K6: good injects nothing');
+  cancelSession();
+  // TIGHT → hip-release opener prepended, session-only
+  const _progLen=S.program.days[2].exercises.length;
+  _backStartIdx=2;setBackStatus('tight');
+  assert(S.activeSession.backStatus==='tight', 'K6: tight status stamped');
+  assert(S.activeSession.exercises[0].name==='Couch Stretch'&&S.activeSession.exercises[1].name==='90/90 Hip Switch'&&S.activeSession.exercises[0].section==='warmup'&&(S.activeSession.exercises[0].tags||[]).includes('back-addon'), 'K6: tight prepends the hip-release opener');
+  assert(S.program.days[2].exercises.length===_progLen, 'K6: the add-on is session-only — program untouched');
+  cancelSession();
+  // FLARE → recovery day minted + started; original day untouched and pending
+  const _daysN=S.program.days.length;
+  _backStartIdx=2;setBackStatus('flare');
+  assert(S.program.days.length===_daysN+1, 'K6: flare mints a one-off Recovery day');
+  const rd=S.program.days[S.program.days.length-1];
+  assert(rd.label==='Recovery'&&rd.sessionType==='mobility'&&rd.oneOff===true&&rd.scheduledDate===todayStr(), 'K6: recovery day shape');
+  assert(rd.exercises.every(ex=>getMeta(ex.name).pat!=='squat'&&getMeta(ex.name).pat!=='hinge'&&(ex.equipmentClass!=='barbell')), 'K6: recovery day carries NO axial loading');
+  assert(S.activeSession&&S.activeSession.dayLabel==='Recovery'&&S.activeSession.backStatus==='flare', 'K6: the recovery session is the one started');
+  assert(S.activeSession.activity&&S.activeSession.exercises.length===5, 'K6: mobility hybrid — cards + walk-duration form');
+  assert(isDayDone(2)===false&&!S.program.days[2].scheduledDate, 'K6: the planned day stays pending and reschedulable (no failure state)');
+  // record persistence: activity path
+  S.activeSession.activity.durationMin=25;
+  const rec=makeActivitySession(S.activeSession);
+  assert(rec.backStatus==='flare', 'K6: activity record carries backStatus');
+  cancelSession();
+  // record persistence: lifting path via the confirmRpe literal
+  assert(/rpe:selRpe,status:'complete',backStatus:sess\.backStatus\|\|null,/.test(html), 'K6: lifting record literal carries backStatus');
+  // report lines
+  const rpt=buildCoachReport([{date:'2026-09-12',dayLabel:'Gym',blockName:S.program.name,duration:60,rpe:7,status:'complete',backStatus:'tight',exercises:[],painEvents:[]}],S.program,weekDatesFor('2026-09-12'));
+  assert(/  Back: tight\n/.test(rpt), 'K6: Dispatch carries the per-session Back line');
+  const rpt2=buildCoachReport([makeActivitySession({startTime:1,date:'2026-09-12',dayId:null,blockName:S.program.name,dayLabel:'KB',sessionType:'kb',backStatus:'good',activity:{durationMin:30,distance:0,effort:6,notes:''}})],S.program,weekDatesFor('2026-09-12'));
+  assert(/back good/.test(rpt2), 'K6: activity line carries back status');
+  S.program=_sp;S.sessions=_ss;S.backLog=_bl;S.activeSession=null;S.settings.lastBackCheckin=null;
 })();
 assert(/\.ab-badge\{/.test(html)&&/<span class="ab-badge">\$\{ex\.week\}/.test(html), 'K2: preview badges A/B rows');
 

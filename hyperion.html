@@ -868,7 +868,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <div id="pvSkipInfo" style="display:none;background:rgba(255,255,255,.02);border:1px solid var(--s3);border-radius:var(--rs);padding:12px;margin-bottom:12px;font-size:13px;color:var(--tx3)"></div>
     <div id="pvExercises"></div>
     <div style="display:flex;gap:8px;margin-top:12px">
-      <button class="start-btn" id="pvStartBtn" onclick="startDay(previewDayI)">Start Session</button>
+      <button class="start-btn" id="pvStartBtn" onclick="openBackCheckin(previewDayI)">Start Session</button>
     </div>
     <button class="btn btn-s btn-w" id="pvSkipBtn" style="margin-top:8px;display:none" onclick="openSkipDay(previewDayI)">Skip this day</button>
     <button class="btn btn-g btn-w" id="pvUnskipBtn" style="margin-top:8px;display:none" onclick="unskipDay(previewDayI)">Unskip this day</button>
@@ -1065,6 +1065,15 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 </div>
 
 <!-- ===== MODALS ===== -->
+<div class="overlay" id="backModal">
+  <div class="modal">
+    <div class="modal-t" data-t="back.title">Back check — how is it today?</div>
+    <div class="pain-opt pain-clear" onclick="setBackStatus('good')"><div style="font-weight:700;color:var(--grn)" data-t="back.good">Good</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">Train as planned.</div></div>
+    <div class="pain-opt pain-mild" onclick="setBackStatus('tight')"><div style="font-weight:700;color:var(--warn)" data-t="back.tight">Tight</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">Session opens with a hip-release round first.</div></div>
+    <div class="pain-opt pain-sharp" onclick="setBackStatus('flare')"><div style="font-weight:700;color:var(--red)" data-t="back.flare">Flare</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">Today becomes a recovery session — walk, hip release, light carries. The planned session stays available to reschedule.</div></div>
+    <button class="btn btn-s btn-w" style="margin-top:8px" onclick="hideModal('backModal')">Cancel</button>
+  </div>
+</div>
 <div class="overlay" id="painModal">
   <div class="modal">
     <div class="modal-t"><span data-t="pain.title">Pain check —</span> <span id="painExName"></span></div>
@@ -1519,6 +1528,10 @@ STRINGS.plain['valid.clean']='validator clean';STRINGS.gothic['valid.clean']='Th
 STRINGS.plain['sheet.tick']='Tick off';STRINGS.gothic['sheet.tick']='Attest';
 STRINGS.plain['sheet.ticked']='Ticked off';STRINGS.gothic['sheet.ticked']='So attested.';
 STRINGS.plain['check.title']='This week';STRINGS.gothic['check.title']='The Week\u2019s Rites';
+STRINGS.plain['back.title']='Back check \u2014 how is it today?';STRINGS.gothic['back.title']='The spine \u2014 report its temper';
+STRINGS.plain['back.good']='Good';STRINGS.gothic['back.good']='Sound';
+STRINGS.plain['back.tight']='Tight';STRINGS.gothic['back.tight']='Strained';
+STRINGS.plain['back.flare']='Flare';STRINGS.gothic['back.flare']='Aflame';
 // The four canonical protection sites — and ONLY these four (asserted).
 STRINGS.gothic['readout.top']='THE EMPEROR PROTECTS';
 STRINGS.gothic['pain.confirm']='Wound sustained. The Emperor protects.';
@@ -1796,6 +1809,7 @@ const EX_META={
   'Thoracic Extension':{pat:'t-spine-mob',prim:['t-spine'],eq:['foam-roller'],fat:'light',sh:'safe',slot:null},
   'Wall Slide':{pat:'scap-mob',prim:['scap','serratus'],eq:['bodyweight'],fat:'light',sh:'safe',slot:null},
   'Pec Doorway Stretch':{pat:'pec-mob',prim:['chest'],eq:['bodyweight'],fat:'light',sh:'safe',slot:null,hold:true},
+  'Couch Stretch':{pat:'hip-mob',prim:['hip-flexor','quad'],eq:['bodyweight'],fat:'light',sh:'safe',slot:null,hold:true},
   '90/90 Hip Switch':{pat:'hip-mob',prim:['hip'],eq:['bodyweight'],fat:'light',sh:'safe',slot:null},
   'Frog Pose':{pat:'adductor-mob',prim:['adductor'],eq:['bodyweight'],fat:'light',sh:'safe',slot:null,hold:true},
   'Incline Pigeon Pose':{pat:'glute-mob',prim:['glute','hip'],eq:['bench'],fat:'light',sh:'safe',slot:null,hold:true},
@@ -3527,7 +3541,7 @@ function openSessionSheet(dayIdx){
   const body=document.getElementById('sessionSheetBody');
   document.getElementById('sessionSheetTitle').textContent=d.label;
   body.innerHTML=`
-    ${!done&&!skipped&&isStartableDay(d)?`<button class="sheet-btn" onclick="hideModal('sessionSheet');startDay(${dayIdx})">Start session</button>`:''}
+    ${!done&&!skipped&&isStartableDay(d)?`<button class="sheet-btn" onclick="hideModal('sessionSheet');openBackCheckin(${dayIdx})">Start session</button>`:''}
     ${!done&&!skipped&&isStartableDay(d)?`<button class="sheet-btn" onclick="hideModal('sessionSheet');tickOffDay(${dayIdx})">${t('sheet.tick')}</button>`:''}
     <button class="sheet-btn" onclick="openReschedule(${dayIdx})" ${d.locked?'disabled':''}>${d.locked?'Reschedule (locked — class commitment)':'Reschedule'}</button>
     ${d.scheduledDate?`<button class="sheet-btn" onclick="restoreDay(${dayIdx});hideModal('sessionSheet');renderWeek()">Restore to ${(d.defaultDay||d.dayOfWeek||'').slice(0,3)}</button>`:''}
@@ -4191,6 +4205,44 @@ function circuitCardHTML(ex,ei,mode){
 function sectionOf(ex){return (ex&&ex.section)||'main';}
 let _wuCollapsed=null; // null = auto (collapse once every warm-up exercise resolves); true/false = user override
 function toggleWuSection(){const sess=S.activeSession;const wu=(sess&&sess.exercises||[]).filter(e=>sectionOf(e)==='warmup');const wuDone=wu.length>0&&wu.every(e=>(e.performed||[]).every(s2=>s2.logged||s2.skipped));const cur=(_wuCollapsed===null)?wuDone:_wuCollapsed;_wuCollapsed=!cur;try{renderEx();}catch(e){}}
+// B (Recomp W1): one-tap back check-in gates the two USER entry points.
+// startDay itself stays synchronous — retro/ad-hoc/test paths skip the modal.
+let _backPending=null;
+let _backStartIdx=null;
+function openBackCheckin(i){
+  _backStartIdx=i;
+  showModal('backModal');
+}
+function setBackStatus(status){
+  hideModal('backModal');
+  const d=todayStr();
+  S.backLog=(S.backLog||[]).filter(e=>e.date!==d);
+  S.backLog.push({date:d,status});
+  S.settings.lastBackCheckin={date:d,status};
+  save();
+  const i=_backStartIdx;_backStartIdx=null;
+  if(status==='flare'){startRecoverySession();return;}
+  _backPending=status;
+  if(i!=null)startDay(i);
+}
+// Flare: NO failure state — mint a one-off Recovery day (walk + hip release +
+// light carries, no axial loading) and start it. The planned day stays
+// pending and reschedulable via its session sheet.
+function startRecoverySession(){
+  const nid=Math.max(0,...S.program.days.map(d2=>+d2.id||0))+1;
+  const day={id:nid,label:'Recovery',sessionType:'mobility',dur:35,oneOff:true,userAuthored:true,scheduledDate:todayStr(),
+    note:'Back flare \u2014 walk 20\u201330 min, hip release, light carries. No axial loading.',
+    exercises:[
+      {name:'90/90 Hip Switch',cat:'rehab',section:'main',sets:1,reps:'8',loadKg:0,unit:'bw',rest:20,tags:['per side'],equipmentClass:'bw'},
+      {name:'Couch Stretch',cat:'rehab',section:'main',sets:1,reps:'45s',loadKg:0,unit:'bw',rest:20,tags:['per side'],equipmentClass:'bw'},
+      {name:'Frog Pose',cat:'rehab',section:'main',sets:1,reps:'60s',loadKg:0,unit:'bw',rest:20,tags:[],equipmentClass:'bw'},
+      {name:'Glute Bridge',cat:'rehab',section:'main',sets:2,reps:'10',loadKg:0,unit:'bw',rest:30,tags:[],equipmentClass:'bw'},
+      {name:'Suitcase Carry',cat:'core',section:'main',sets:2,reps:'20m',loadKg:12.5,unit:'kg',rest:60,tags:['one hand'],equipmentClass:'db'}
+    ],bonus:[]};
+  S.program.days.push(day);save();
+  _backPending='flare';
+  startDay(S.program.days.length-1);
+}
 function startDay(i){
   const day=S.program.days[i];if(!day)return;
   viewDayI=i;
@@ -4255,7 +4307,18 @@ function startDay(i){
       }
     });
     // Focus-mode display order: identity permutation at start (S4).
-    S.activeSession.order=S.activeSession.exercises.map((_,i)=>i);
+    // B: carry the check-in onto the session; a Tight back extends the opener.
+  if(_backPending){
+    S.activeSession.backStatus=_backPending;
+    if(_backPending==='tight'&&S.activeSession.exercises.length){
+      S.activeSession.exercises.unshift(
+        {name:'Couch Stretch',cat:'rehab',section:'warmup',prescribed:{sets:1,reps:'45s',loadKg:0,unit:'bw',setScheme:null},warmup:null,barKg:undefined,incrementKg:undefined,supersetNext:undefined,week:undefined,role:undefined,target:undefined,frozen:undefined,entryType:undefined,format:undefined,minutes:undefined,movements:undefined,result:null,equipmentClass:'bw',variant:null,performed:[{type:'working',weightKg:0,reps:45,rpe:null,logged:false}],notes:'',progression:null,nextLoad:null,painEvent:null,tags:['per side','back-addon'],rest:20},
+        {name:'90/90 Hip Switch',cat:'rehab',section:'warmup',prescribed:{sets:1,reps:'8',loadKg:0,unit:'bw',setScheme:null},warmup:null,barKg:undefined,incrementKg:undefined,supersetNext:undefined,week:undefined,role:undefined,target:undefined,frozen:undefined,entryType:undefined,format:undefined,minutes:undefined,movements:undefined,result:null,equipmentClass:'bw',variant:null,performed:[{type:'working',weightKg:0,reps:8,rpe:null,logged:false}],notes:'',progression:null,nextLoad:null,painEvent:null,tags:['per side','back-addon'],rest:20}
+      );
+    }
+    _backPending=null;
+  }
+  S.activeSession.order=S.activeSession.exercises.map((_,i)=>i);
     _wuCollapsed=null;
     _userOpened=new Set();_userClosed=new Set();
   }
@@ -4307,7 +4370,7 @@ function setActivityField(field,val){
 // Pure: build a completed session record from an active activity session (testable).
 function makeActivitySession(sess){
   const a=sess.activity||{};
-  return {id:'s_'+(sess.startTime||0),date:sess.date,dayLabel:sess.dayLabel,dayId:sess.dayId!=null?sess.dayId:null,blockName:sess.blockName||null,sessionType:sess.sessionType,
+  return {id:'s_'+(sess.startTime||0),date:sess.date,dayLabel:sess.dayLabel,dayId:sess.dayId!=null?sess.dayId:null,blockName:sess.blockName||null,sessionType:sess.sessionType,backStatus:sess.backStatus||null,
     duration:Math.round(+a.durationMin||0),
     activity:{durationMin:+a.durationMin||0,distance:+a.distance||0,effort:a.effort!=null?+a.effort:null,notes:a.notes||'',...(sess.sessionType==='kb'?{kbWeights:a.kbWeights||'',result:a.result||''}:{}),...(sess.sessionType==='conditioning'?{modality:a.modality||''}:{}),...(sess.sessionType==='swim'?{continuous:a.continuous===true}:{})},
     exercises:(sess.exercises||[]).filter(ex=>(ex.performed||[]).some(p2=>p2.logged)).map(ex=>({name:ex.name,cat:ex.cat,section:ex.section||'main',prescribed:ex.prescribed,performed:(ex.performed||[]).filter(p2=>p2.logged),notes:ex.notes||'',progression:ex.progression||null,nextLoad:ex.nextLoad||null,variant:ex.variant||null,painEvent:ex.painEvent||null,tags:ex.tags||[]})),
@@ -6426,7 +6489,7 @@ function confirmRpe(){
   const dur=sess.retro?((S.program.days[sess.dayIndex]&&S.program.days[sess.dayIndex].dur)||0):Math.round((Date.now()-(sess.startTime||Date.now()))/60000);
   sess.exercises.forEach((ex,i)=>{if(!ex.progression&&ex.performed.some(s=>s.logged))evalProg(i)});
 
-  const rec={id:'s_'+Date.now(),date:sess.date,retro:sess.retro||undefined,dayLabel:sess.dayLabel,dayId:sess.dayId!=null?sess.dayId:null,gymId:sess.gymId||(S.settings&&S.settings.activeGymId)||null,blockName:S.program.name,duration:dur,rpe:selRpe,status:'complete',
+  const rec={id:'s_'+Date.now(),date:sess.date,retro:sess.retro||undefined,dayLabel:sess.dayLabel,dayId:sess.dayId!=null?sess.dayId:null,gymId:sess.gymId||(S.settings&&S.settings.activeGymId)||null,blockName:S.program.name,duration:dur,rpe:selRpe,status:'complete',backStatus:sess.backStatus||null,
     sessionNotes:sess.notes||'',
     exercises:sess.exercises.map(ex=>({name:ex.name,cat:ex.cat,section:ex.section||'main',...(ex.entryType==='circuit'?{entryType:'circuit',format:ex.format,minutes:ex.minutes,movements:ex.movements||'',result:ex.result||null,loadKg:ex.prescribed&&ex.prescribed.loadKg||ex.loadKg||null}:{}),prescribed:ex.prescribed,performed:ex.performed.filter(s=>s.logged),notes:ex.notes,progression:ex.progression,progressionReason:ex.progressionReason||null,role:ex.role||null,target:ex.target||null,frozen:ex.frozen||undefined,nextLoad:ex.nextLoad,nextTarget:ex.nextTarget||null,variant:ex.variant||null,painEvent:ex.painEvent,tags:ex.tags})),
     painEvents:sess.exercises.filter(e=>e.painEvent&&e.painEvent.severity!=='none').map(e=>({exercise:e.name,...e.painEvent}))
@@ -7486,7 +7549,7 @@ function buildCoachReport(sessions,program,weekDates){
   blockSessions.forEach(s=>{
     if(s.activity||isActivityType(s.sessionType)){
       const a=s.activity||{};
-      const bits=[(a.durationMin?a.durationMin+' min':null),(a.modality||null),(a.kbWeights?'bells '+a.kbWeights:null),(a.result?'result: '+a.result:null),(a.distance?a.distance+(s.sessionType==='swim'?' m':' km'):null),(a.effort?'effort '+a.effort:null),(a.notes||null)].filter(Boolean).join(' · ');
+      const bits=[(a.durationMin?a.durationMin+' min':null),(s.backStatus?'back '+s.backStatus:null),(a.modality||null),(a.kbWeights?'bells '+a.kbWeights:null),(a.result?'result: '+a.result:null),(a.distance?a.distance+(s.sessionType==='swim'?' m':' km'):null),(a.effort?'effort '+a.effort:null),(a.notes||null)].filter(Boolean).join(' · ');
       r+=`### ${s.dayLabel||s.sessionType} (${s.sessionType}) — ${fmtDate(s.date)}${s.ticked?' — (ticked)':''}${bits?' — '+bits:''}\n\n`;
       return;
     }
@@ -7530,6 +7593,7 @@ function buildCoachReport(sessions,program,weekDates){
       if(ex.notes)r+=`    Note: ${ex.notes}\n`;
     });
     if(s.painEvents&&s.painEvents.length>0)r+=`  ⚠ Pain: ${s.painEvents.map(p=>p.exercise+' — '+(p.bodyArea?p.bodyArea+' ':'')+(typeof p.severity==='number'?'('+p.severity+'/3)':'('+p.severity+')')).join(', ')}\n`;
+    if(s.backStatus)r+=`  Back: ${s.backStatus}\n`;
     if(s.sessionNotes)r+=`  Notes: ${s.sessionNotes}\n`;
     r+=`  Volume: ${Math.round(vol)} kg${skippedN?' (skipped: '+skippedN+' set'+(skippedN===1?'':'s')+')':''}\n\n`;
   });
