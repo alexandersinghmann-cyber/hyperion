@@ -388,6 +388,33 @@ console.log('[K3 Maintain]');
   assert(ex.progression==='increase'&&ex.nextLoad===105, 'K3: phaseless program keeps the build path. Got: '+ex.progression+' '+ex.nextLoad);
   S.program=_sp;S.sessions=[];S.activeSession=null;
 })();
+
+// ---- K4 (v12 chain): RPE-at-held-load ----
+console.log('[K4 RpeTrend]');
+(function(){
+  const _sp=S.program,_ss=S.sessions,_g=S.settings.activeGymId;
+  S.settings.activeGymId=null; // gym-agnostic fixture
+  S.program={name:'MaintTest',active:true,version:98,phase:'maintain',startDate:'2026-09-07',days:[]};
+  const rec=(date,rpes,load)=>({date,dayLabel:'Gym',exercises:[{name:'Back Squat',prescribed:{sets:rpes.length,reps:'8',loadKg:load,unit:'kg'},performed:rpes.map(r2=>({type:'working',weightKg:load,reps:8,rpe:r2,logged:true})).concat([{type:'warmup',weightKg:60,reps:5,rpe:9,logged:true}]),variant:null}]});
+  S.sessions=[rec('2026-09-12',[8,8,9],100),rec('2026-09-26',[8,7,8],100),rec('2026-10-10',[7,7,7],100),rec('2026-10-24',[6,7],90)];
+  const ser=heldLoadRpeSeries('Back Squat','',100);
+  assert(ser.length===3, 'K4: only sessions AT the held load count (the 90 kg one drops). Got: '+ser.length);
+  assert(ser[0].avg===8.3&&ser[2].avg===7, 'K4: per-session averages (warmups excluded). Got: '+JSON.stringify(ser.map(x=>x.avg)));
+  // sheet trend renders for a main at the held load in maintain
+  const exFix={name:'Back Squat',variant:null,prescribed:{sets:3,reps:'8',loadKg:100,unit:'kg'},tags:[]};
+  const htmlT=rpeTrendHTML(exFix);
+  assert(/RPE @ 100 kg/.test(htmlT)&&/class="spark"/.test(htmlT)&&/8\.3 \u2192 7/.test(htmlT)&&/easing/.test(htmlT), 'K4: detail-sheet sparkline + falling-RPE direction. Got: '+htmlT.slice(0,120));
+  assert(rpeTrendHTML({name:'DB Curl',variant:null,prescribed:{loadKg:12.5,sets:2,reps:'10'},tags:[]})==='', 'K4: non-mains carry no trend row');
+  S.program.phase=undefined;
+  assert(rpeTrendHTML(exFix)==='', 'K4: trend row is a maintain-phase surface');
+  S.program.phase='maintain';
+  // report line — reference load is the LATEST session's top, so trim the
+  // 90 kg outlier for this call (it exists above to prove series filtering)
+  S.sessions=S.sessions.slice(0,3);
+  const rpt=buildCoachReport(S.sessions.slice(0,1),S.program,weekDatesFor('2026-09-12'));
+  assert(/### RPE AT HELD LOAD/.test(rpt)&&/~ Back Squat @ 100 kg: RPE 8\.3 \u2192 7 over 3 sessions/.test(rpt), 'K4: Dispatch carries the held-load RPE line. Got: '+(rpt.match(/~ Back Squat[^\n]*/)||['none'])[0]);
+  S.program=_sp;S.sessions=_ss;S.settings.activeGymId=_g;
+})();
 assert(/\.ab-badge\{/.test(html)&&/<span class="ab-badge">\$\{ex\.week\}/.test(html), 'K2: preview badges A/B rows');
 
 // ===== PROGRAM: Sep 2 Block 6 W3 structure (7 days Mon-Sun, recomp) =====

@@ -4901,6 +4901,33 @@ function rowPlateText(ex,weightKg){
   if(r.remainder>0.01)out+=' \u00b7 +'+r.remainder+' over';
   return out;
 }
+function heldLoadRpeSeries(name,vKey,loadKg,n){
+  const out=[];
+  if(!(loadKg>0))return out;
+  (trackSessions(name,vKey)||[]).forEach(sx=>{
+    const e=sx.exercises.find(e2=>histMatch(e2,name,vKey));if(!e)return;
+    const r=(e.performed||[]).filter(p=>p.type==='working'&&p.logged!==false&&!p.skipped&&p.weightKg===loadKg&&p.rpe!=null).map(p=>p.rpe);
+    if(r.length)out.push({date:sx.date,avg:Math.round(r.reduce((a,b)=>a+b,0)/r.length*10)/10});
+  });
+  return out.slice(-(n||8));
+}
+function heldLoadTop(ex){
+  const t2=ex.prescribed&&ex.prescribed.setScheme?schemeTop(ex.prescribed.setScheme):null;
+  return (t2&&t2.loadKg)||(ex.prescribed&&ex.prescribed.loadKg)||0;
+}
+function rpeTrendHTML(ex){
+  if(!(S.program&&S.program.phase==='maintain'))return'';
+  if(typeof FIXED_MAINS==='undefined'||!FIXED_MAINS.includes(canonName(ex.name)))return'';
+  const L=heldLoadTop(ex);
+  const ser=heldLoadRpeSeries(ex.name,variantKey(ex.variant),L);
+  if(ser.length<2)return'';
+  const vals=ser.map(p2=>p2.avg);
+  const mn=Math.min(...vals),mx=Math.max(...vals),rg=(mx-mn)||1;
+  const sw=64,sh=22;
+  const pts=vals.map((v,i2)=>`${(i2/(vals.length-1)*sw).toFixed(1)},${(sh-2-(v-mn)/rg*(sh-4)).toFixed(1)}`).join(' ');
+  const dir=vals[vals.length-1]<vals[0]?'\u2193 easing':vals[vals.length-1]>vals[0]?'\u2191 harder':'\u2192 steady';
+  return `<div class="fc-detail-row"><span class="t-meta">RPE @ ${L} kg (held)</span><div class="tm"><svg class="spark" width="${sw}" height="${sh}" viewBox="0 0 ${sw} ${sh}"><polyline points="${pts}" stroke="var(--acc)" /></svg> ${vals[0]} \u2192 ${vals[vals.length-1]} ${dir}</div></div>`;
+}
 function openFcDetail(ei){
   const sess=S.activeSession;if(!sess)return;
   const ex=sess.exercises[ei];if(!ex)return;
@@ -4912,6 +4939,7 @@ function openFcDetail(ei){
       <div class="fc-detail-row"><span class="t-meta">Prescription</span><div class="tm">${rx}</div></div>
       ${bits.map(b=>`<div class="fc-detail-row"><div class="tm">${b}</div></div>`).join('')}
       ${ex.cue?`<div class="fc-detail-row"><span class="t-meta">Cue</span><div>${esc(ex.cue)}</div></div>`:''}
+      ${rpeTrendHTML(ex)}
       ${getLastHint(ex)||'<div class="t-meta">No prior sessions on this track</div>'}`;
   }
   showModal('fcDetailSheet');
@@ -7458,6 +7486,20 @@ function buildCoachReport(sessions,program,weekDates){
   });
 
   // Progression summary (lifting/cali only — activities have no exercises)
+  if(program&&program.phase==='maintain'){
+    let rl='';
+    (typeof FIXED_MAINS!=='undefined'?FIXED_MAINS:[]).forEach(nm=>{
+      // reference load = the most recent session's top working load for the lift
+      let ref=0;
+      for(let i2=(S.sessions||[]).length-1;i2>=0&&!ref;i2--){
+        const e=(S.sessions[i2].exercises||[]).find(e2=>canonName(e2.name)===nm);
+        if(e){const w=(e.performed||[]).filter(p2=>p2.type==='working'&&p2.logged!==false&&!p2.skipped);if(w.length)ref=w.reduce((m,x)=>x.weightKg>m?x.weightKg:m,0);}
+      }
+      const ser=heldLoadRpeSeries(nm,'',ref);
+      if(ser.length>=2)rl+=`  ~ ${nm} @ ${ref} kg: RPE ${ser[0].avg} \u2192 ${ser[ser.length-1].avg} over ${ser.length} sessions\n`;
+    });
+    if(rl)r+=`### RPE AT HELD LOAD\n`+rl+`\n`;
+  }
   r+=`### PROGRESSION SUMMARY\n`;
   const exProg={};
   blockSessions.forEach(s=>{(s.exercises||[]).forEach(ex=>{
