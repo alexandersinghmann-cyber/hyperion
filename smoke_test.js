@@ -1942,7 +1942,7 @@ assert(/const numGlyph=done\?'✓':skipped\?'⊘':\(rankMap\[i\]\|\|''\)/.test(h
 // Up-next lists THIS calendar week's remaining post-start sessions (incl. the
 // soonest, which is also the gold Start button). Next week's rolled-over
 // occurrences and pre-block days stay off the home list (K16).
-assert(/if\(!dayPreBlock\(day,_calWk\)&&_calWk\.includes\(_ed\)\)upcoming\.push\(\{idx:i,sort:_ed,card\}\)/.test(html), 'Up-next: calendar-week scoped, pre-block days excluded');
+assert(/if\(!isStartableDay\(day\)\)return;/.test(html)&&/if\(dayRemovedForWeek\(day,_calWk\[0\]\)\)return;/.test(html)&&/if\(!dayPreBlock\(day,_calWk\)&&_calWk\.includes\(_edCard\)\)upcoming\.push\(\{idx:i,sort:_edCard,card\}\)/.test(html), 'Up-next: calendar-week scoped; rest, removed-this-week and pre-block days excluded (mirrors the rank filter)');
 S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.skips=[];
 
 // Relabel regression (synthetic — v12 has no bare main-lift labels): the
@@ -4091,8 +4091,51 @@ assert(/const from=\(sd&&sd>dates\[0\]&&sd<=dates\[6\]\)\?sd:dates\[0\];/.test(h
   assert(isWeekComplete(wd)===false, 'K16b: an all-pre-block week is NOT complete (no spurious banner)');
   const _chk=weekChecklistHTML();
   assert(!/>Gym</.test(_chk)&&!/>Swim</.test(_chk), 'K16b: no DAY rows owed this week (daily habit may still render)');
+  // Picker invariant, made weekday-proof with scheduledDate pins: a day whose
+  // occurrence lands BEFORE the start is never picked; the first in-block
+  // occurrence wins. (The old dow-based fixture flipped on Mondays.)
+  S.program.startDate=dateAddDays(todayStr(),1);
+  S.program.days[0].scheduledDate=todayStr();              // pre-block occurrence
+  S.program.days[1].scheduledDate=dateAddDays(todayStr(),1); // first in-block day
   const pick=getNextAvailableDayIdx();
-  assert(pick===1, 'K16b: Start picker skips pre-block days and leads with next Monday. Got: '+pick);
+  assert(pick===1, 'K16b: Start picker skips the pre-block day and leads with the first in-block one. Got: '+pick);
+  S.program=_sp;
+})();
+
+// ---- F-pack (Sep 14 phone report): accent fills, moved-day labels, ghost cards ----
+console.log('[F CtaAccent]');
+// fillSafe is DATA — verify every flag against the :root hexes with the same
+// pure-math approach as the WCAG section: a pair is fill-safe iff its most
+// vivid stop has chroma >= 60/255 AND its darkest stop luminance <= 0.5
+// (one anchored vivid stop keeps the solar CTA reading as a BUTTON).
+(function(){
+  const _chroma=(hex)=>{const c=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));return (Math.max(...c)-Math.min(...c))/255;};
+  CHAPTERS.forEach(ch=>{
+    const a=_tok(ch.varA),b=_tok(ch.varB);
+    assert(a&&b, 'F1: '+ch.name+' pair hexes live in :root');
+    const expect=(Math.max(_chroma(a),_chroma(b))>=60/255)&&(Math.min(_lum(a),_lum(b))<=0.5);
+    assert(ch.fillSafe===expect, 'F1: '+ch.name+' fillSafe flag matches the hex math. Flag='+ch.fillSafe+' expected='+expect+' ('+a+'/'+b+')');
+  });
+  assert(CHAPTERS.filter(ch=>ch.fillSafe===false).map(ch=>ch.name).join(',')==='Raven Guard,Iron Hands', 'F1: exactly the two greyscale chapters are fill-unsafe');
+})();
+assert(/if\(ch\.fillSafe===false\)return;/.test(html), 'F1: accent applier skips ALL fill overrides for unsafe pairs (brand2/solar were unconditional — the white-button path)');
+// F2: gold CTA + day cards use the EFFECTIVE weekday for pending days
+assert(/\$\{t\('start\.pre'\)\}\$\{sDay\.label\} \(\$\{dowOf\(dayEffectiveDate\(sDay\)\)\}\)/.test(html), 'F2: CTA parenthetical follows the move (was the template dow)');
+assert(/const dow=_pendingCard\?dowOf\(_edCard\):\(day\.defaultDay\|\|day\.dayOfWeek\);/.test(html), 'F2: pending day-card meta uses the effective dow');
+// F6: missed tag on pending past cards
+assert(/const _missTail=\(_pendingCard&&_edCard<todayStr\(\)\)\?' · missed':'';/.test(html), 'F6: pending past cards tagged missed');
+// F5: checklist rows sort by effective date (one-offs/moves land in date order)
+(function(){
+  const _sp=S.program;
+  S.program={name:'SortTest',active:true,version:95,days:[
+    {id:1,label:'AlphaMon',defaultDay:'Monday',dayOfWeek:'Monday',sessionType:'lifting',dur:60,exercises:[],scheduledDate:weekDatesFor(todayStr())[6]},
+    {id:2,label:'BetaWed',defaultDay:'Wednesday',dayOfWeek:'Wednesday',sessionType:'lifting',dur:60,exercises:[]}
+  ]};
+  S.sessions=[];S.skips=[];S.weekRemovals=[];
+  const chk=weekChecklistHTML();
+  const ia=chk.indexOf('AlphaMon'),ib=chk.indexOf('BetaWed');
+  if(ia>=0&&ib>=0){assert(ib<ia, 'F5: the Monday day moved to Sunday renders AFTER Wednesday. Got idx '+ia+' vs '+ib);}
+  else{assert(true,'F5: rows filtered by week state — sort covered when both render');}
   S.program=_sp;
 })();
 

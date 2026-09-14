@@ -3087,14 +3087,14 @@ function getMaxim(){
 // verified against recomputed WCAG contrast in the smoke suite. A pair that
 // fails as text falls back to gold; fills/borders always use the true pair.
 const CHAPTERS=[
- {name:'Ultramarines',motto:'Discipline is the truest honour.',varA:'--ch1a',varB:'--ch1b',textSafe:false},
- {name:'Blood Angels',motto:'Nobility, even in fury.',varA:'--ch2a',varB:'--ch2b',textSafe:false},
- {name:'Imperial Fists',motto:'The wall does not yield.',varA:'--ch3a',varB:'--ch3b',textSafe:true},
- {name:'Salamanders',motto:'Into the fire, for the people.',varA:'--ch4a',varB:'--ch4b',textSafe:true},
- {name:'Raven Guard',motto:'Strike unseen; endure unbroken.',varA:'--ch5a',varB:'--ch5b',textSafe:true},
- {name:'Iron Hands',motto:'The flesh is weak; the work is not.',varA:'--ch6a',varB:'--ch6b',textSafe:true},
- {name:'White Scars',motto:'Swiftness is its own strength.',varA:'--ch7a',varB:'--ch7b',textSafe:true},
- {name:'Dark Angels',motto:'Duty, kept in silence.',varA:'--ch8a',varB:'--ch8b',textSafe:false}
+ {name:'Ultramarines',motto:'Discipline is the truest honour.',varA:'--ch1a',varB:'--ch1b',textSafe:false,fillSafe:true},
+ {name:'Blood Angels',motto:'Nobility, even in fury.',varA:'--ch2a',varB:'--ch2b',textSafe:false,fillSafe:true},
+ {name:'Imperial Fists',motto:'The wall does not yield.',varA:'--ch3a',varB:'--ch3b',textSafe:true,fillSafe:true},
+ {name:'Salamanders',motto:'Into the fire, for the people.',varA:'--ch4a',varB:'--ch4b',textSafe:true,fillSafe:true},
+ {name:'Raven Guard',motto:'Strike unseen; endure unbroken.',varA:'--ch5a',varB:'--ch5b',textSafe:true,fillSafe:false},
+ {name:'Iron Hands',motto:'The flesh is weak; the work is not.',varA:'--ch6a',varB:'--ch6b',textSafe:true,fillSafe:false},
+ {name:'White Scars',motto:'Swiftness is its own strength.',varA:'--ch7a',varB:'--ch7b',textSafe:true,fillSafe:true},
+ {name:'Dark Angels',motto:'Duty, kept in silence.',varA:'--ch8a',varB:'--ch8b',textSafe:false,fillSafe:true}
 ];
 function isoWeekNum(ds){
   const d=new Date(ds+'T12:00:00');
@@ -3114,6 +3114,11 @@ function applyImperiumAccent(){
   if(typeof document==='undefined'||!document.documentElement||!document.documentElement.style||!document.documentElement.style.setProperty)return;
   if(!imperiumOn())return;
   const ch=chapterOfWeek(todayStr());
+  // fillSafe is DATA (verified against the :root hexes in smoke, same
+  // pattern as textSafe). A near-greyscale pair (Raven Guard, Iron Hands)
+  // makes the solar CTA read as a DISABLED white button — those weeks keep
+  // the rotating brand pair on fills; the chapter stays on the vigil shield.
+  if(ch.fillSafe===false)return;
   const textA=ch.textSafe?('var('+ch.varA+')'):'var(--imp-gold)';
   document.documentElement.style.setProperty('--brand',textA);
   document.documentElement.style.setProperty('--brand2','var('+ch.varB+')');
@@ -3751,11 +3756,16 @@ function renderTrain(){
     const arrowGlyph=isToday?'→':'›';
 
     // (Reorder arrows removed — scheduling lives in the Week tab.)
-    const dow=day.defaultDay||day.dayOfWeek;
+    // Moved days show their EFFECTIVE weekday (the checklist already does);
+    // a pending day whose date has passed is tagged missed.
+    const _edCard=dayEffectiveDate(day,_calWk[0]);
+    const _pendingCard=!done&&!skipped;
+    const dow=_pendingCard?dowOf(_edCard):(day.defaultDay||day.dayOfWeek);
+    const _missTail=(_pendingCard&&_edCard<todayStr())?' · missed':'';
     const isActivity=isActivityType(day.sessionType);
     const meta=isActivity
-      ?`${dow} · ${day.sessionType}${metaTail}`
-      :`${dow} · ${dayExercises(day).length} exercises${metaTail}${day.alternating?' · '+dayVariantLabel(day):''}`;
+      ?`${dow} · ${day.sessionType}${metaTail}${_missTail}`
+      :`${dow} · ${dayExercises(day).length} exercises${metaTail}${_missTail}${day.alternating?' · '+dayVariantLabel(day):''}`;
     const card=`<div class="day-card ${cls}" onclick="showDayPreview(${i})">
       <div class="day-row">
         <div class="day-num">${numGlyph}</div>
@@ -3769,10 +3779,13 @@ function renderTrain(){
     </div>`;
     if(done||skipped)completed.push(card);
     else {
-      // Up-next lists THIS calendar week's remaining, post-start sessions;
-      // next week's rolled-over occurrences live in the Week tab.
-      const _ed=dayEffectiveDate(day,_calWk[0]);
-      if(!dayPreBlock(day,_calWk)&&_calWk.includes(_ed))upcoming.push({idx:i,sort:_ed,card});
+      // Up-next lists THIS calendar week's remaining, startable, post-start,
+      // not-removed sessions; rest days and next week's rolled-over
+      // occurrences live in the Week tab. (The removed-day check mirrors the
+      // rank filter — they diverged and produced blank-badged ghost cards.)
+      if(!isStartableDay(day))return;
+      if(dayRemovedForWeek(day,_calWk[0]))return;
+      if(!dayPreBlock(day,_calWk)&&_calWk.includes(_edCard))upcoming.push({idx:i,sort:_edCard,card});
     }
   });
 
@@ -3833,7 +3846,7 @@ function renderTrain(){
   if(startIdx>=0){
     const sDay=S.program.days[startIdx];
     const isTodayStart=startIdx===todayIdx;
-    const label=isTodayStart?`${t('start.pre')}${sDay.label}`:`${t('start.pre')}${sDay.label} (${sDay.defaultDay||sDay.dayOfWeek})`;
+    const label=isTodayStart?`${t('start.pre')}${sDay.label}`:`${t('start.pre')}${sDay.label} (${dowOf(dayEffectiveDate(sDay))})`;
     html+=weekChecklistHTML();
     html+=`<button class="start-btn" onclick="showDayPreview(${startIdx})">${label}</button>`;
     // Train's second (and final) gradient surface: the top-set chip.
@@ -7609,7 +7622,8 @@ function isWeekComplete(weekDates){
 // That is the whole card.
 function weekChecklistHTML(){
   const wd=weekDatesFor(todayStr());
-  const rows=(S.program.days||[]).map(d=>({d,st:dayWeekStatus(d,wd)})).filter(o=>o.st!=='removed'&&o.st!=='rest'&&o.st!=='preblock');
+  const rows=(S.program.days||[]).map(d=>({d,st:dayWeekStatus(d,wd),ed:dayEffectiveDate(d,wd[0])})).filter(o=>o.st!=='removed'&&o.st!=='rest'&&o.st!=='preblock')
+    .sort((a,b)=>a.ed<b.ed?-1:a.ed>b.ed?1:0); // one-offs/moves land in date order, not array order
   const _hab=habitRowsHTML();
   if(!rows.length&&!_hab)return '';
   const doneN=rows.filter(o=>o.st==='done'||o.st==='ticked'||o.st==='skipped').length;
