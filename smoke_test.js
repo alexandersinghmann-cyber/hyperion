@@ -1554,7 +1554,9 @@ assert(typeof ICONS === 'object' && ICONS, 'v3 icons: ICONS map defined');
 assert(typeof icon === 'function', 'v3 icons: icon() helper defined');
 assert(/^<svg /.test(icon('check')) && /viewBox/.test(icon('check')), 'v3 icons: icon() returns an <svg> string');
 assert(/width="28"/.test(icon('swim',28)), 'v3 icons: icon() honors size arg');
-assert(typeof APP_VERSION === 'string' && APP_VERSION === 'v7', 'v7: APP_VERSION bumped for the W3 recomp ship');
+assert(typeof APP_VERSION === 'string' && APP_VERSION === 'v8', 'v8: APP_VERSION bumped for the leftovers + boot-guard ship');
+assert(/function _bootPanic\(msg\)/.test(html)&&/dataset\.booted==='1'/.test(html)&&/Reload \(bypass cache\)/.test(html)&&/Export data backup/.test(html), 'Boot guard: pre-paint failures render an error panel with cache-bust reload + export (never a silent blank)');
+assert(!/_bootPanic[\s\S]{0,900}#[0-9A-Fa-f]{3,6}/.test(html.slice(html.indexOf('function _bootPanic'),html.indexOf('function _bootPanic')+1200)), 'Boot guard: token colours only (hex scan stays clean)');
 
 // ===== TRACK A: SCHEMA MIGRATION + LOAD SNAPPING (Commit 2) =====
 // snapLoadToEquipment

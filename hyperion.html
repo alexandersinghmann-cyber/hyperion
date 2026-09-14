@@ -1517,7 +1517,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 
 
 const K2L=2.20462,L2K=0.453592,STORE='hyperion_v2';
-const APP_VERSION='v7'; // Sep 2 Block 6 W3 — recomp program + card redesign
+const APP_VERSION='v8'; // Recomp W1 leftovers + boot guard
 const COMPOUNDS=['squat','hinge','push'];
 
 // ===== ICON LIBRARY (inline SVG, stroke-based, 20px default) =====
@@ -8076,7 +8076,32 @@ function init(){
   }
   showOnboardingIfNeeded();
 }
-init();
+// Boot guard: a failure before first paint must NEVER be a silent blank —
+// paint the error, offer a cache-busting reload and a data export. localStorage
+// is untouched by a failed page load, so the training record is always safe.
+function _bootPanic(msg){
+  try{
+    if(document.body&&document.body.dataset&&document.body.dataset.booted==='1')return; // post-boot errors stay non-fatal
+    const d=document.createElement('div');
+    d.setAttribute('style','position:fixed;inset:0;z-index:9999;background:var(--bg);color:var(--tx);padding:28px 20px;font:500 14px var(--sans)');
+    d.innerHTML='<div style="font:700 18px var(--sans);margin-bottom:8px">Hyperion failed to load</div>'
+      +'<div style="color:var(--tx2);margin-bottom:14px">Your training data is safe. This screen replaces a blank page so the cause is visible.</div>'
+      +'<div style="font:500 11px var(--mono);color:var(--warn);word-break:break-word;margin-bottom:18px">'+String(msg||'Unknown error').replace(/[<>]/g,'')+'</div>'
+      +'<button style="display:block;width:100%;min-height:48px;margin-bottom:8px;background:var(--brand);color:var(--on-brand);border:none;border-radius:var(--rs);font:700 14px var(--sans)" onclick="location.href=location.pathname+\'?v=\'+Date.now()">Reload (bypass cache)</button>'
+      +'<button style="display:block;width:100%;min-height:48px;background:var(--s2);color:var(--tx);border:1px solid var(--s3);border-radius:var(--rs);font:600 14px var(--sans)" onclick="try{syncData()}catch(e){alert(\'Export unavailable: \'+e.message)}">Export data backup</button>';
+    (document.body||document.documentElement).appendChild(d);
+  }catch(e){}
+}
+try{
+  if(typeof window!=='undefined'&&window.addEventListener)window.addEventListener('error',function(ev){_bootPanic((ev&&ev.message||'Script error')+(ev&&ev.lineno?(' @ line '+ev.lineno):''));});
+}catch(e){}
+try{
+  init();
+  if(typeof document!=='undefined'&&document.body&&document.body.dataset)document.body.dataset.booted='1';
+}catch(e){
+  _bootPanic(e&&(e.message||e)+'' );
+  throw e;
+}
 </script>
 </body>
 </html>
