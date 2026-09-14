@@ -1106,6 +1106,8 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <div class="pain-opt pain-clear" onclick="setBackStatus('good')"><div style="font-weight:700;color:var(--grn)" data-t="back.good">Good</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">Train as planned.</div></div>
     <div class="pain-opt pain-mild" onclick="setBackStatus('tight')"><div style="font-weight:700;color:var(--warn)" data-t="back.tight">Tight</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">Session opens with a hip-release round first.</div></div>
     <div class="pain-opt pain-sharp" onclick="setBackStatus('flare')"><div style="font-weight:700;color:var(--red)" data-t="back.flare">Flare</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">Today becomes a recovery session — walk, hip release, light carries. The planned session stays available to reschedule.</div></div>
+    <div class="field" style="margin-top:10px"><label for="backReadiness">Readiness (Oura) — optional</label><input type="number" id="backReadiness" min="0" max="100" placeholder="0–100"></div>
+    <div style="font:10px var(--mono);color:var(--tx3);margin-top:2px">Below 70 → treat as a Tight day.</div>
     <button class="btn btn-s btn-w" style="margin-top:8px" onclick="hideModal('backModal')">Cancel</button>
   </div>
 </div>
@@ -4278,16 +4280,21 @@ function toggleWuSection(){const sess=S.activeSession;const wu=(sess&&sess.exerc
 // startDay itself stays synchronous — retro/ad-hoc/test paths skip the modal.
 let _backPending=null;
 let _backStartIdx=null;
+let _backReadiness=null;
 function openBackCheckin(i){
   _backStartIdx=i;
+  try{const r=document.getElementById('backReadiness');if(r)r.value='';}catch(e){}
   showModal('backModal');
 }
 function setBackStatus(status){
   hideModal('backModal');
+  let rd=null;
+  try{const el=document.getElementById('backReadiness');const v=parseFloat(el&&el.value);if(v>=0&&v<=100)rd=Math.round(v);}catch(e){}
+  _backReadiness=rd;
   const d=todayStr();
   S.backLog=(S.backLog||[]).filter(e=>e.date!==d);
-  S.backLog.push({date:d,status});
-  S.settings.lastBackCheckin={date:d,status};
+  S.backLog.push({date:d,status,...(rd!=null?{readiness:rd}:{})});
+  S.settings.lastBackCheckin={date:d,status,...(rd!=null?{readiness:rd}:{})};
   save();
   const i=_backStartIdx;_backStartIdx=null;
   if(status==='flare'){startRecoverySession();return;}
@@ -4379,6 +4386,7 @@ function startDay(i){
     // B: carry the check-in onto the session; a Tight back extends the opener.
   if(_backPending){
     S.activeSession.backStatus=_backPending;
+    if(_backReadiness!=null){S.activeSession.readiness=_backReadiness;_backReadiness=null;}
     if(_backPending==='tight'&&S.activeSession.exercises.length){
       S.activeSession.exercises.unshift(
         {name:'Couch Stretch',cat:'rehab',section:'warmup',prescribed:{sets:1,reps:'45s',loadKg:0,unit:'bw',setScheme:null},warmup:null,barKg:undefined,incrementKg:undefined,supersetNext:undefined,week:undefined,role:undefined,target:undefined,frozen:undefined,entryType:undefined,format:undefined,minutes:undefined,movements:undefined,result:null,equipmentClass:'bw',variant:null,performed:[{type:'working',weightKg:0,reps:45,rpe:null,logged:false}],notes:'',progression:null,nextLoad:null,painEvent:null,tags:['per side','back-addon'],rest:20},
@@ -4439,7 +4447,7 @@ function setActivityField(field,val){
 // Pure: build a completed session record from an active activity session (testable).
 function makeActivitySession(sess){
   const a=sess.activity||{};
-  return {id:'s_'+(sess.startTime||0),date:sess.date,dayLabel:sess.dayLabel,dayId:sess.dayId!=null?sess.dayId:null,blockName:sess.blockName||null,sessionType:sess.sessionType,backStatus:sess.backStatus||null,
+  return {id:'s_'+(sess.startTime||0),date:sess.date,dayLabel:sess.dayLabel,dayId:sess.dayId!=null?sess.dayId:null,blockName:sess.blockName||null,sessionType:sess.sessionType,backStatus:sess.backStatus||null,readiness:sess.readiness!=null?sess.readiness:null,
     duration:Math.round(+a.durationMin||0),
     activity:{durationMin:+a.durationMin||0,distance:+a.distance||0,effort:a.effort!=null?+a.effort:null,notes:a.notes||'',...(sess.sessionType==='kb'?{kbWeights:a.kbWeights||'',result:a.result||''}:{}),...(sess.sessionType==='conditioning'?{modality:a.modality||''}:{}),...(sess.sessionType==='swim'?{continuous:a.continuous===true}:{})},
     exercises:(sess.exercises||[]).filter(ex=>(ex.performed||[]).some(p2=>p2.logged)).map(ex=>({name:ex.name,cat:ex.cat,section:ex.section||'main',prescribed:ex.prescribed,performed:(ex.performed||[]).filter(p2=>p2.logged),notes:ex.notes||'',progression:ex.progression||null,nextLoad:ex.nextLoad||null,variant:ex.variant||null,painEvent:ex.painEvent||null,tags:ex.tags||[]})),
@@ -6703,7 +6711,7 @@ function confirmRpe(){
   const dur=sess.retro?((S.program.days[sess.dayIndex]&&S.program.days[sess.dayIndex].dur)||0):Math.round((Date.now()-(sess.startTime||Date.now()))/60000);
   sess.exercises.forEach((ex,i)=>{if(!ex.progression&&ex.performed.some(s=>s.logged))evalProg(i)});
 
-  const rec={id:'s_'+Date.now(),date:sess.date,retro:sess.retro||undefined,dayLabel:sess.dayLabel,dayId:sess.dayId!=null?sess.dayId:null,gymId:sess.gymId||(S.settings&&S.settings.activeGymId)||null,blockName:S.program.name,duration:dur,rpe:selRpe,status:'complete',backStatus:sess.backStatus||null,
+  const rec={id:'s_'+Date.now(),date:sess.date,retro:sess.retro||undefined,dayLabel:sess.dayLabel,dayId:sess.dayId!=null?sess.dayId:null,gymId:sess.gymId||(S.settings&&S.settings.activeGymId)||null,blockName:S.program.name,duration:dur,rpe:selRpe,status:'complete',backStatus:sess.backStatus||null,readiness:sess.readiness!=null?sess.readiness:null,
     sessionNotes:sess.notes||'',
     exercises:sess.exercises.map(ex=>({name:ex.name,cat:ex.cat,section:ex.section||'main',...(ex.entryType==='circuit'?{entryType:'circuit',format:ex.format,minutes:ex.minutes,movements:ex.movements||'',result:ex.result||null,loadKg:ex.prescribed&&ex.prescribed.loadKg||ex.loadKg||null}:{}),prescribed:ex.prescribed,performed:ex.performed.filter(s=>s.logged),notes:ex.notes,progression:ex.progression,progressionReason:ex.progressionReason||null,role:ex.role||null,target:ex.target||null,frozen:ex.frozen||undefined,nextLoad:ex.nextLoad,nextTarget:ex.nextTarget||null,variant:ex.variant||null,painEvent:ex.painEvent,tags:ex.tags})),
     painEvents:sess.exercises.filter(e=>e.painEvent&&e.painEvent.severity!=='none').map(e=>({exercise:e.name,...e.painEvent}))
@@ -7287,6 +7295,13 @@ function renderGoalsDashboard(){
     const gs=goodDayStreak();
     const kpi=tr?`<span class="big tnum">${tr.kg}</span><span class="bigu">kg</span>`:`<span class="big tnum">\u2013</span><span class="bigu">kg</span>`;
     const dir=tr&&tr.delta!=null?`<span style="color:${tr.delta<0?'var(--grn)':tr.delta>0?'var(--warn)':'var(--tx3)'}">${tr.delta>0?'\u2191 +':tr.delta<0?'\u2193 ':'\u2192 '}${Math.abs(tr.delta)} kg \u00b7 7d</span>`:'<span style="color:var(--tx3)">no 7-day base yet</span>';
+    if(!(S.bodyMetrics||[]).length){
+      // E1: zero entries → one-line CTA; disappears after the first weigh-in.
+      return `<div class="goal-card cond">
+      <div class="goal-head"><span class="t-h2">${t('cond.card')}</span></div>
+      <button class="sheet-btn" onclick="openCondLog()" aria-label="Log your first weigh-in">Log your first weigh-in</button>
+    </div>`;
+    }
     return `<div class="goal-card cond">
       <div class="goal-head"><span class="t-h2">${t('cond.card')}</span><button class="qlog" onclick="openCondLog()" aria-label="Log condition">+ Log</button></div>
       <div class="bigrow">${kpi}<span class="t-meta" style="margin-left:8px">${dir}</span></div>
@@ -7792,7 +7807,7 @@ function buildCoachReport(sessions,program,weekDates){
   blockSessions.forEach(s=>{
     if(s.activity||isActivityType(s.sessionType)){
       const a=s.activity||{};
-      const bits=[(a.durationMin?a.durationMin+' min':null),(s.backStatus?'back '+s.backStatus:null),(a.modality||null),(a.kbWeights?'bells '+a.kbWeights:null),(a.result?'result: '+a.result:null),(a.distance?a.distance+(s.sessionType==='swim'?' m':' km'):null),(a.effort?'effort '+a.effort:null),(a.notes||null)].filter(Boolean).join(' · ');
+      const bits=[(a.durationMin?a.durationMin+' min':null),(s.backStatus?'back '+s.backStatus+(s.readiness!=null?' ('+s.readiness+')':''):null),(a.modality||null),(a.kbWeights?'bells '+a.kbWeights:null),(a.result?'result: '+a.result:null),(a.distance?a.distance+(s.sessionType==='swim'?' m':' km'):null),(a.effort?'effort '+a.effort:null),(a.notes||null)].filter(Boolean).join(' · ');
       r+=`### ${s.dayLabel||s.sessionType} (${s.sessionType}) — ${fmtDate(s.date)}${s.ticked?' — (ticked)':''}${bits?' — '+bits:''}\n\n`;
       return;
     }
@@ -7837,7 +7852,7 @@ function buildCoachReport(sessions,program,weekDates){
     });
     if(s.painEvents&&s.painEvents.length>0)r+=`  ⚠ Pain: ${s.painEvents.map(p=>p.exercise+' — '+(p.bodyArea?p.bodyArea+' ':'')+(typeof p.severity==='number'?'('+p.severity+'/3)':'('+p.severity+')')).join(', ')}\n`;
     if(s.addenda&&s.addenda.length)r+=`  completed later in week: ${s.addenda.map(a=>a.name+' '+(a.performed||[]).filter(p2=>p2.type==='working').map(p2=>(p2.weightKg?p2.weightKg+'kg\u00d7':'\u00d7')+p2.reps).join(', ')+(a.completedDate?' ('+fmtDate(a.completedDate)+')':'')).join('; ')}\n`;
-    if(s.backStatus)r+=`  Back: ${s.backStatus}\n`;
+    if(s.backStatus)r+=`  Back: ${s.backStatus}${s.readiness!=null?' \u00b7 readiness '+s.readiness:''}\n`;
     if(s.sessionNotes)r+=`  Notes: ${s.sessionNotes}\n`;
     r+=`  Volume: ${Math.round(vol)} kg${skippedN?' (skipped: '+skippedN+' set'+(skippedN===1?'':'s')+')':''}\n\n`;
   });

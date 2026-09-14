@@ -56,6 +56,7 @@ const patched = js
   .replace(/\blet _skipExCtx\s*=/g, 'var _skipExCtx =')
   .replace(/\blet _skipExLeftover\s*=/g, 'var _skipExLeftover =')
   .replace(/\blet _leftoverId\s*=/g, 'var _leftoverId =')
+  .replace(/\blet _backReadiness\s*=/g, 'var _backReadiness =')
   .replace(/\blet _backPending\s*=/g, 'var _backPending =')
   .replace(/\blet _backStartIdx\s*=/g, 'var _backStartIdx =')
   .replace(/\bconst ACTIVITY_TYPES\s*=/g, 'var ACTIVITY_TYPES =')
@@ -4199,6 +4200,38 @@ console.log('[L3 CuePress]');
 })();
 assert(/Pad at hip crease .* rise to a straight line ONLY/.test(DEF_PROGRAM.days[5].exercises.find(e=>e.name==='Back Extension').cue)&&DEF_PROGRAM.days[5].exercises.find(e=>e.name==='Back Extension').frozen===true, 'L3: DEF cue updated, FROZEN kept');
 assert(!DEF_PROGRAM.days.some(d=>(d.exercises||[]).some(e=>e.name==='KB Press')), 'L3: KB Press is picker-only — not authored into the program');
+
+// ---- L4: condition empty-state CTA + readiness ----
+console.log('[L4 Readiness]');
+(function(){
+  const _bm=S.bodyMetrics;
+  S.bodyMetrics=[];
+  assert(/Log your first weigh-in/.test(html), 'L4: empty-state CTA markup present');
+  // functional: renderGoalsDashboard is DOM-bound; assert the branch source
+  assert(/if\(!\(S\.bodyMetrics\|\|\[\]\)\.length\)\{/.test(html), 'L4: CTA branch gates on zero entries (disappears after the first weigh-in)');
+  S.bodyMetrics=_bm;
+})();
+assert(/id="backReadiness"/.test(html)&&html.indexOf('Below 70 \u2192 treat as a Tight day.')>=0, 'L4: optional Readiness (Oura) field + guidance on the check-in');
+(function(){
+  const _bl=S.backLog,_lb=S.settings.lastBackCheckin,_sp=JSON.parse(JSON.stringify(S.program));
+  S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.backLog=[];S.sessions=[];S.activeSession=null;
+  global.startTimer=()=>{};global.showSessionHero=global.showSessionHero||(()=>{});global.confirm=window.confirm=()=>true;
+  // no DOM input in the harness → simulate the parsed value via the module var
+  _backStartIdx=5;setBackStatus('good');
+  _backReadiness=64;S.activeSession=null;cancelSession&&0;
+  // restart cleanly with the readiness stash applied
+  _backPending='good';startDay(5);
+  assert(S.activeSession.readiness===64&&S.activeSession.backStatus==='good', 'L4: readiness rides the session stash');
+  const rec=makeActivitySession({startTime:1,date:todayStr(),dayId:null,blockName:S.program.name,dayLabel:'KB',sessionType:'kb',backStatus:'tight',readiness:64,activity:{durationMin:30,distance:0,effort:6,notes:''}});
+  assert(rec.readiness===64, 'L4: activity record carries readiness');
+  assert(/readiness:sess\.readiness!=null\?sess\.readiness:null,/.test(html), 'L4: lifting record literal carries readiness (after the pinned backStatus field)');
+  const rpt=buildCoachReport([{date:todayStr(),dayLabel:'Gym',blockName:S.program.name,duration:60,rpe:7,status:'complete',backStatus:'tight',readiness:64,exercises:[],painEvents:[]}],S.program,weekDatesFor(todayStr()));
+  assert(/  Back: tight \u00b7 readiness 64\n/.test(rpt), 'L4: Dispatch prints readiness beside back status');
+  const rpt2=buildCoachReport([rec],S.program,weekDatesFor(todayStr()));
+  assert(/back tight \(64\)/.test(rpt2), 'L4: activity line carries it too');
+  window.confirm=()=>true;cancelSession();
+  S.backLog=_bl;S.settings.lastBackCheckin=_lb;S.program=_sp;S.sessions=[];
+})();
 // F2: gold CTA + day cards use the EFFECTIVE weekday for pending days
 assert(/\$\{t\('start\.pre'\)\}\$\{sDay\.label\} \(\$\{dowOf\(dayEffectiveDate\(sDay\)\)\}\)/.test(html), 'F2: CTA parenthetical follows the move (was the template dow)');
 assert(/const dow=_pendingCard\?dowOf\(_edCard\):\(day\.defaultDay\|\|day\.dayOfWeek\);/.test(html), 'F2: pending day-card meta uses the effective dow');
