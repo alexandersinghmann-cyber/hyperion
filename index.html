@@ -1893,7 +1893,7 @@ const EX_META={
   'KB RDL':{pat:'hinge',prim:['hamstring','glute'],eq:['kb'],fat:'light',sh:'safe',slot:null},
   'Front-Rack Carry':{pat:'carry',prim:['core','forearm'],eq:['kb'],fat:'light',sh:'safe',slot:'carry'},
   // W4 avoid adds — overhead KB work stays barred with the shoulder rule.
-  'KB Press':{pat:'vpush',prim:['front-delt','tri'],eq:['kb'],fat:'light',sh:'activation-first',slot:'ohp',avoid:true,avoidReason:'Overhead pressing barred (shoulder rule)'},
+  'KB Press':{pat:'vpush',prim:['front-delt','tri'],eq:['kb'],fat:'light',sh:'activation-first',slot:'ohp'}, // D: shoulder re-entry — author with tag twinge-gate
   'KB Snatch':{pat:'vpush',prim:['front-delt','glute','hamstring'],eq:['kb'],fat:'light',sh:'activation-first',slot:null,avoid:true,avoidReason:'Overhead — barred with the shoulder rule'},
   'Turkish Get-Up':{pat:'vpush',prim:['front-delt','core'],eq:['kb'],fat:'light',sh:'activation-first',slot:null,avoid:true,avoidReason:'Overhead position throughout — barred with the shoulder rule'},
   'Face Pull + Overhead Raise':{pat:'rear-delt',prim:['rear-delt','mid-trap','external-rotator'],eq:['cable'],fat:'light',sh:'safe',slot:'rear-delt',avoid:true,avoidReason:'Retired from active use — rear-delt slot returns to Face Pull (history preserved)'},
@@ -2160,13 +2160,13 @@ const DEF_PROGRAM={name:"Sep 7 Recomp W1",version:12,active:true,startDate:"2026
   {id:"r1d6e17",name:"Suitcase Carry",cat:"core",sets:2,reps:"30m",loadKg:27.5,unit:"kg",rest:60,tags:["one hand"],angle:null,grip:null,equipmentClass:"db"},
   {id:"r1d6e18",name:"Side Extension",cat:"core",sets:2,reps:"12",loadKg:0,unit:"bw",rest:45,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
   {id:"r1d6e19",name:"Back Extension",cat:"hinge",sets:2,reps:"12",loadKg:0,unit:"bw",rest:60,tags:["neutral-only","no-hyperextension"],
-    frozen:true,cue:"Neutral spine only \u2014 no hyperextension",angle:null,grip:null,equipmentClass:"bw"},
+    frozen:true,cue:"Pad at hip crease \u00b7 hinge at hips \u00b7 rise to a straight line ONLY \u2014 never past",angle:null,grip:null,equipmentClass:"bw"},
   {id:"r1d6e20",name:"Sprints",cat:"cardio",section:"finisher",entryType:"circuit",format:"Intervals",minutes:8,
     movements:"Row or treadmill sprints \u2014 5\u00d730s hard / 90s easy",
     sets:0,reps:"",loadKg:0,unit:"bw",rest:0,tags:[],angle:null,grip:null,equipmentClass:"bw"}
 ]},
 {id:7,label:"KB",defaultDay:"Sunday",dayOfWeek:"Sunday",sessionType:"kb",dur:45,exercises:[],
-  note:"Freeform KB \u2014 user-programmed. Log duration, bells, and what you did."}
+  note:"Freeform KB \u2014 user-programmed. Log duration, bells, and what you did. Press re-entry: 2\u00d75/side @ 16\u201320, strict \u2014 then 48h of listening before repeating."}
 ]};
 
 // ===== EXTRAS LIBRARY =====
@@ -2892,6 +2892,17 @@ function migrateV3(){
   if(!Array.isArray(S.backLog))S.backLog=[];
   if(!Array.isArray(S.habits))S.habits=[]; // the habits SYSTEM stays; empty is fine
   if(!Array.isArray(S.leftovers))S.leftovers=[]; // B: skipped-exercise carryovers, week-keyed
+  if(!S.settings._cuePressL3){
+    // C+D are TEXT patches to the live copy — a version bump would offer a
+    // re-sync that clobbers the user's own day arrangement.
+    try{
+      (S.program.days||[]).forEach(d=>{
+        (d.exercises||[]).forEach(ex=>{if(ex.name==='Back Extension'&&ex.frozen)ex.cue='Pad at hip crease \u00b7 hinge at hips \u00b7 rise to a straight line ONLY \u2014 never past';});
+        if(d.sessionType==='kb'&&/Freeform KB/.test(d.note||'')&&!/Press re-entry/.test(d.note||''))d.note+=' Press re-entry: 2\u00d75/side @ 16\u201320, strict \u2014 then 48h of listening before repeating.';
+      });
+    }catch(e){}
+    S.settings._cuePressL3=true;
+  }
   if(!S.settings._habitSwingsRemovedL1){
     S.habits=S.habits.filter(h=>!(h&&h.id==='h1')); // daily swings retired (leftovers spec A)
     S.settings._habitSwingsRemovedL1=true;

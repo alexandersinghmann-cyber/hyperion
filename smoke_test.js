@@ -664,7 +664,8 @@ DEF_PROGRAM.days.forEach(d=>(d.exercises||[]).forEach(e=>{
   assert(e.name!=='Bench Press', 'R1: barbell bench still excluded');
   assert(!getMeta(e.name).avoid, 'R1: no avoid-listed exercise authored. Found '+e.name);
 }));
-['KB Press','KB Snatch','Turkish Get-Up'].forEach(n=>assert(EX_META[n]&&EX_META[n].avoid===true, 'R1: '+n+' avoid-listed (overhead)'));
+['KB Snatch','Turkish Get-Up'].forEach(n=>assert(EX_META[n]&&EX_META[n].avoid===true, 'R1/L3: '+n+' REMAINS avoid-listed (overhead)'));
+assert(EX_META['KB Press']&&!EX_META['KB Press'].avoid&&EX_META['KB Press'].sh==='activation-first', 'L3: KB Press ungated for re-entry (pickers may offer it; program still bans vpush AUTHORING via the scan above)');
 ['Bench Press','DB Shoulder Press','Military Press','Machine Shoulder Press','Incline Bench Press','DB Incline Bench'].forEach(n=>assert(EX_META[n].avoid===true, 'R1: existing avoid intact — '+n));
 // Rackability on the Singapore inventory. AUTHORED-DATA FLAG: Trap Bar
 // Deadlift 100 on the 36 bar needs 32/side — NOT plate-exact on the 1.25
@@ -4008,7 +4009,7 @@ console.log('[K13 R1Days]');
   const bei=sess.exercises.findIndex(e=>e.name==='Back Extension');
   sess.exercises[bei].performed.forEach(p2=>{p2.logged=true;if(p2.type==='working')p2.rpe=7;});
   evalProg(bei);
-  assert(sess.exercises[bei].progression==='hold'&&/Frozen — Neutral spine only/.test(sess.exercises[bei].progressionReason||''), 'K13: frozen Back Extension holds with the coach cue. Got: '+sess.exercises[bei].progressionReason);
+  assert(sess.exercises[bei].progression==='hold'&&/Frozen — Pad at hip crease/.test(sess.exercises[bei].progressionReason||''), 'K13/L3: frozen Back Extension holds with the SETUP cue. Got: '+sess.exercises[bei].progressionReason);
   global.confirm=window.confirm=()=>true;cancelSession();
 })();
 
@@ -4177,6 +4178,27 @@ assert(/id="leftoverModal"/.test(html)&&/id="leftoversSheet"/.test(html)&&/lefto
   assert(/dayLabel:\(l\.fromLabel\|\|'Session'\)\+' \\u2014 leftover'/.test(html)||/\u2014 leftover'/.test(html), 'L2: orphan completion falls back to a standalone record (nothing lost)');
   S.leftovers=_lo;S.sessions=_ss;S.program=_sp;
 })();
+
+// ---- L3: cue + press re-entry one-shot on the LIVE copy ----
+console.log('[L3 CuePress]');
+(function(){
+  const _sp=JSON.parse(JSON.stringify(S.program)),_fl=S.settings._cuePressL3;
+  // stale live copy (old cue, old note) → one-shot patches it in place
+  S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));
+  S.program.days[5].exercises.find(e=>e.name==='Back Extension').cue='Neutral spine only \u2014 no hyperextension';
+  S.program.days[6].note='Freeform KB \u2014 user-programmed. Log duration, bells, and what you did.';
+  S.settings._cuePressL3=false;
+  migrateV3();
+  assert(/Pad at hip crease/.test(S.program.days[5].exercises.find(e=>e.name==='Back Extension').cue), 'L3: one-shot installs the setup cue on the live copy (no version bump)');
+  assert(/Press re-entry: 2\u00d75\/side @ 16\u201320/.test(S.program.days[6].note), 'L3: Sunday KB note gains the re-entry line');
+  const _n=S.program.days[6].note;
+  migrateV3();
+  assert(S.program.days[6].note===_n, 'L3: one-shot idempotent (no double-append)');
+  assert(S.program.version===12, 'L3: program version UNTOUCHED — no re-sync banner, day arrangement preserved');
+  S.program=_sp;S.settings._cuePressL3=_fl;
+})();
+assert(/Pad at hip crease .* rise to a straight line ONLY/.test(DEF_PROGRAM.days[5].exercises.find(e=>e.name==='Back Extension').cue)&&DEF_PROGRAM.days[5].exercises.find(e=>e.name==='Back Extension').frozen===true, 'L3: DEF cue updated, FROZEN kept');
+assert(!DEF_PROGRAM.days.some(d=>(d.exercises||[]).some(e=>e.name==='KB Press')), 'L3: KB Press is picker-only — not authored into the program');
 // F2: gold CTA + day cards use the EFFECTIVE weekday for pending days
 assert(/\$\{t\('start\.pre'\)\}\$\{sDay\.label\} \(\$\{dowOf\(dayEffectiveDate\(sDay\)\)\}\)/.test(html), 'F2: CTA parenthetical follows the move (was the template dow)');
 assert(/const dow=_pendingCard\?dowOf\(_edCard\):\(day\.defaultDay\|\|day\.dayOfWeek\);/.test(html), 'F2: pending day-card meta uses the effective dow');
