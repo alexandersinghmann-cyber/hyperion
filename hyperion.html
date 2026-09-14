@@ -1072,14 +1072,14 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 <!-- ===== MODALS ===== -->
 <div class="overlay" id="skipExModal">
   <div class="modal">
-    <div class="modal-t">Skip \u2014 <span id="skipExName"></span></div>
+    <div class="modal-t">Skip — <span id="skipExName"></span></div>
     <div id="skipExList" style="display:flex;flex-direction:column;gap:6px;margin-top:8px"></div>
     <button class="btn btn-s btn-w" style="margin-top:12px" onclick="_skipExCtx=null;_skipExLeftover=false;hideModal('skipExModal')">Cancel</button>
   </div>
 </div>
 <div class="overlay" id="leftoversSheet">
   <div class="modal">
-    <div class="modal-t" data-t="lo.title">Leftovers \u2014 this week</div>
+    <div class="modal-t" data-t="lo.title">Leftovers — this week</div>
     <div id="leftoversBody"></div>
     <button class="btn btn-s btn-w" style="margin-top:10px" onclick="hideModal('leftoversSheet')">Close</button>
   </div>
@@ -1582,6 +1582,7 @@ STRINGS.plain['sheet.ticked']='Ticked off';STRINGS.gothic['sheet.ticked']='So at
 STRINGS.plain['check.title']='This week';STRINGS.gothic['check.title']='The Week\u2019s Rites';
 STRINGS.plain['nudge.backup']='Back up your data \u2014 a week since the last export';STRINGS.gothic['nudge.backup']='Commit the record to the Archive \u2014 a week has passed';
 STRINGS.plain['goal.holding']='Holding \u2014 re-peak begins January';STRINGS.gothic['goal.holding']='The tally stands banked \u2014 the great push resumes in January';
+STRINGS.plain['lo.title']='Leftovers \u2014 this week';STRINGS.gothic['lo.title']='Unfinished Rites \u2014 this week';
 STRINGS.plain['cond.card']='Condition';STRINGS.gothic['cond.card']='The Vessel';
 STRINGS.plain['cond.title']='Log condition';STRINGS.gothic['cond.title']='Assay the vessel';
 STRINGS.plain['back.title']='Back check \u2014 how is it today?';STRINGS.gothic['back.title']='The spine \u2014 report its temper';
@@ -7510,7 +7511,7 @@ function renderE1rmChart(){
     lifts.Bench.points.push({x:0, y:benchBaseline, baseline:true});
   }
 
-  const allPts=[...lifts.Squat.points,...lifts.Bench.points,...lifts.Deadlift.points];
+  const allPts=[...lifts.Squat.points,...lifts.Bench.points,...lifts['Trap Bar DL'].points];
   if(allPts.length===0){chart.innerHTML='<text x="50%" y="60" text-anchor="middle" fill="var(--tx3)" font-size="12">No big 3 data yet</text>';legend.innerHTML='';return}
 
   const maxX=S.sessions.length-1||1;

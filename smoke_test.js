@@ -4200,6 +4200,9 @@ console.log('[L3 CuePress]');
 })();
 assert(/Pad at hip crease .* rise to a straight line ONLY/.test(DEF_PROGRAM.days[5].exercises.find(e=>e.name==='Back Extension').cue)&&DEF_PROGRAM.days[5].exercises.find(e=>e.name==='Back Extension').frozen===true, 'L3: DEF cue updated, FROZEN kept');
 assert(!DEF_PROGRAM.days.some(d=>(d.exercises||[]).some(e=>e.name==='KB Press')), 'L3: KB Press is picker-only — not authored into the program');
+// L-hotfix: the K1 rename left ONE stale series-key reference in the e1RM
+// chart (lifts.Deadlift.points) — Progress crashed on render. Pin the census:
+assert(!/lifts\.Deadlift\./.test(html)&&(html.match(/lifts\['Trap Bar DL'\]/g)||[]).length>=2, 'L-hotfix: no stale lifts.Deadlift refs; renamed series key used throughout');
 
 // ---- L4: condition empty-state CTA + readiness ----
 console.log('[L4 Readiness]');
