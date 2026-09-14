@@ -1070,6 +1070,36 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 </div>
 
 <!-- ===== MODALS ===== -->
+<div class="overlay" id="skipExModal">
+  <div class="modal">
+    <div class="modal-t">Skip \u2014 <span id="skipExName"></span></div>
+    <div id="skipExList" style="display:flex;flex-direction:column;gap:6px;margin-top:8px"></div>
+    <button class="btn btn-s btn-w" style="margin-top:12px" onclick="_skipExCtx=null;_skipExLeftover=false;hideModal('skipExModal')">Cancel</button>
+  </div>
+</div>
+<div class="overlay" id="leftoversSheet">
+  <div class="modal">
+    <div class="modal-t" data-t="lo.title">Leftovers \u2014 this week</div>
+    <div id="leftoversBody"></div>
+    <button class="btn btn-s btn-w" style="margin-top:10px" onclick="hideModal('leftoversSheet')">Close</button>
+  </div>
+</div>
+<div class="overlay" id="leftoverModal">
+  <div class="modal">
+    <div class="modal-t" id="loName">Leftover</div>
+    <div class="extras-pick-hint" id="loHint"></div>
+    <div class="field-row">
+      <div class="field"><label>Sets</label><input type="number" id="loSets"></div>
+      <div class="field"><label>Reps</label><input type="number" id="loReps"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Load (kg)</label><input type="number" step="0.5" id="loLoad"></div>
+      <div class="field"><label>RPE (optional)</label><input type="number" min="6" max="10" id="loRpe"></div>
+    </div>
+    <button class="btn btn-p btn-w" style="margin-top:8px" onclick="saveLeftover()">Log leftover</button>
+    <button class="btn btn-s btn-w" style="margin-top:8px" onclick="_leftoverId=null;hideModal('leftoverModal')">Cancel</button>
+  </div>
+</div>
 <div class="overlay" id="backModal">
   <div class="modal">
     <div class="modal-t" data-t="back.title">Back check — how is it today?</div>
@@ -2719,6 +2749,7 @@ function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse
       S.skips=(S.skips||[]).filter(sk=>!_stale.some(d=>d.id===sk.dayId));
     }
     S.weekRemovals=S.weekRemovals.filter(r=>r.weekOf>=_wkMon);
+    pruneLeftovers(_wkMon); // B: unfinished leftovers clear silently at rollover — no debt
   }catch(e){}
   // v1→v2 migration
   if(!S.version||S.version<2){S.version=2;S.sessions.forEach(s=>{if(!s.blockName)s.blockName='Apr 11–16 Block'});save()}
@@ -2860,6 +2891,7 @@ function migrateV3(){
   if(!Array.isArray(S.bodyMetrics))S.bodyMetrics=[];
   if(!Array.isArray(S.backLog))S.backLog=[];
   if(!Array.isArray(S.habits))S.habits=[]; // the habits SYSTEM stays; empty is fine
+  if(!Array.isArray(S.leftovers))S.leftovers=[]; // B: skipped-exercise carryovers, week-keyed
   if(!S.settings._habitSwingsRemovedL1){
     S.habits=S.habits.filter(h=>!(h&&h.id==='h1')); // daily swings retired (leftovers spec A)
     S.settings._habitSwingsRemovedL1=true;
@@ -6007,6 +6039,101 @@ function confirmSkipSet(reasonKey){
 }
 function cancelSkipSet(){_skipSetCtx=null;hideModal('skipSetModal');}
 
+// ===== B (Leftovers): skip an EXERCISE via a reason sheet; optionally carry
+// it to this week's Leftovers list. Unfinished entries expire at rollover.
+let _skipExCtx=null;
+let _skipExLeftover=false;
+function pruneLeftovers(wkMon){S.leftovers=(S.leftovers||[]).filter(l=>l.weekOf>=wkMon);}
+function weekLeftovers(){const wk=weekOfDate(todayStr());return (S.leftovers||[]).filter(l=>l.weekOf===wk);}
+function openSkipExercise(ei){
+  const sess=S.activeSession;if(!sess)return;
+  const ex=sess.exercises[ei];if(!ex)return;
+  _skipExCtx=ei;_skipExLeftover=false;
+  const list=document.getElementById('skipExList');
+  if(!list){skipExercise(ei);return;} // older cached shell
+  const nm=document.getElementById('skipExName');if(nm)nm.textContent=ex.name;
+  renderSkipExSheet();
+  showModal('skipExModal');
+}
+function renderSkipExSheet(){
+  const list=document.getElementById('skipExList');if(!list)return;
+  list.innerHTML=`<button class="btn btn-sm btn-g" style="text-align:left;padding:10px 12px;font:600 12px var(--sans);color:${_skipExLeftover?'var(--grn)':'var(--tx2)'}" onclick="_skipExLeftover=!_skipExLeftover;renderSkipExSheet()">${_skipExLeftover?'\u2713':'\u25cb'} Add to Leftovers \u2014 finish it later this week</button>`
+    +SKIP_SET_REASONS.map(r=>`<button class="btn btn-sm btn-g" style="text-align:left;padding:10px 12px;font:500 12px var(--mono);letter-spacing:.2px" onclick="confirmSkipExercise('${r.key}')">${r.label}</button>`).join('');
+}
+function confirmSkipExercise(reasonKey){
+  const ei=_skipExCtx;const sess=S.activeSession;
+  if(ei==null||!sess){hideModal('skipExModal');return;}
+  const ex=sess.exercises[ei];
+  ex.performed.forEach(s2=>{if(!s2.logged){s2.logged=true;s2.skipped=true;s2.reps=0;s2.weightKg=0;s2.skipReason=s2.skipReason||reasonKey||'other';}});
+  ex.progression='skipped';
+  if(_skipExLeftover)addLeftover(ex,sess);
+  _skipExCtx=null;_skipExLeftover=false;
+  save();hideModal('skipExModal');renderEx();
+  if(typeof toast==='function')toast(_skipExLeftover?'Skipped':'Skipped');
+}
+function addLeftover(ex,sess){
+  S.leftovers=S.leftovers||[];
+  S.leftovers.push({
+    id:'lo_'+Date.now()+'_'+Math.floor(Math.random()*1e4),
+    weekOf:weekOfDate(sess.date||todayStr()),
+    name:ex.name,
+    prescribed:JSON.parse(JSON.stringify(ex.prescribed||{})),
+    variant:ex.variant?JSON.parse(JSON.stringify(ex.variant)):null,
+    fromDate:sess.date,fromDayId:sess.dayId!=null?sess.dayId:null,fromLabel:sess.dayLabel||'',
+    done:false
+  });
+}
+// ---- surfacing + completion ----
+function leftoverRowHTML(){
+  const lo=weekLeftovers();
+  if(!lo.length)return'';
+  const open=lo.filter(l=>!l.done).length;
+  return `<div class="wkc-row" style="cursor:pointer" onclick="openLeftovers()" role="button" aria-label="Leftovers"><span class="wkc-mark">\u21ba</span><span class="wkc-lbl">Leftovers${open?' ('+open+')':''}</span><span class="t-meta">${open?'tap to finish':'all done'}</span></div>`;
+}
+function openLeftovers(){
+  const body=document.getElementById('leftoversBody');if(!body)return;
+  const lo=weekLeftovers();
+  body.innerHTML=lo.length?lo.map(l=>{
+    const rx=`${l.prescribed.sets||'?'}\u00d7${l.prescribed.reps||'?'}${l.prescribed.loadKg?' @ '+fmtW(l.prescribed.loadKg,l.prescribed.unit):''}`;
+    return l.done
+      ?`<div class="wkc-row is-done"><span class="wkc-mark">\u2713</span><span class="wkc-lbl">${esc(l.name)}</span><span class="t-meta">done ${l.completedDate?fmtDate(l.completedDate):''}</span></div>`
+      :`<button class="sheet-btn" onclick="openLeftoverLog('${l.id}')">${esc(l.name)} <span class="t-meta">${rx} \u00b7 from ${esc(l.fromLabel)}</span></button>`;
+  }).join(''):'<div class="t-meta">Nothing carried this week.</div>';
+  showModal('leftoversSheet');
+}
+let _leftoverId=null;
+function openLeftoverLog(id){
+  const l=(S.leftovers||[]).find(x=>x.id===id);if(!l)return;
+  _leftoverId=id;
+  hideModal('leftoversSheet');
+  const nm=document.getElementById('loName');if(nm)nm.textContent=l.name;
+  const hint=document.getElementById('loHint');if(hint)hint.textContent=`Prescribed ${l.prescribed.sets||'?'}\u00d7${l.prescribed.reps||'?'}${l.prescribed.loadKg?' @ '+l.prescribed.loadKg+' kg':''} \u00b7 from ${l.fromLabel}`;
+  const g2=(id2,v)=>{const el=document.getElementById(id2);if(el)el.value=v;};
+  g2('loSets',l.prescribed.sets||'');g2('loReps',(repRange(l.prescribed.reps||'').max||parseInt(l.prescribed.reps)||'')+'');g2('loLoad',l.prescribed.loadKg||'');g2('loRpe','');
+  showModal('leftoverModal');
+}
+function saveLeftover(){
+  const l=(S.leftovers||[]).find(x=>x.id===_leftoverId);if(!l)return;
+  const g2=id2=>{const el=document.getElementById(id2);return el?parseFloat(el.value):NaN;};
+  const sets=Math.max(1,Math.round(g2('loSets')||l.prescribed.sets||1));
+  const reps=Math.round(g2('loReps')||0);
+  const load=g2('loLoad');const rpe=g2('loRpe');
+  if(!(reps>0)){toast('Reps required');return;}
+  const performed=Array.from({length:sets},()=>({type:'working',weightKg:(load>0?load:0),reps,rpe:(rpe>0?rpe:null),logged:true}));
+  const addendum={name:l.name,variant:l.variant||null,performed,completedDate:todayStr()};
+  // Attach to the ORIGINAL session's record; if that session was never
+  // concluded, keep the work as a standalone mini-record so nothing is lost.
+  const rec=(S.sessions||[]).find(s2=>s2.date===l.fromDate&&(l.fromDayId!=null?s2.dayId===l.fromDayId:s2.dayLabel===l.fromLabel));
+  if(rec){(rec.addenda=rec.addenda||[]).push(addendum);}
+  else{S.sessions.push({id:'s_lo_'+Date.now(),date:todayStr(),dayLabel:(l.fromLabel||'Session')+' \u2014 leftover',dayId:null,blockName:S.program.name,sessionType:'lifting',duration:0,status:'complete',exercises:[{name:l.name,cat:getMeta(l.name).pat||'other',section:'main',prescribed:l.prescribed,performed,notes:'',progression:null,nextLoad:null,variant:l.variant||null,painEvent:null,tags:['leftover']}],painEvents:[]});}
+  l.done=true;l.completedDate=todayStr();
+  _leftoverId=null;
+  save();hideModal('leftoverModal');
+  toast('Leftover logged');
+  try{renderTrain();}catch(e){}
+  try{renderGoalsDashboard();}catch(e){}
+}
+
 // S1: overflow menu for exercise secondary actions
 // K11/D8: the per-exercise overflow is a bottom sheet (sessionSheet pattern,
 // 48px rows) — ONE builder for both card views; popover menu retired.
@@ -6021,7 +6148,7 @@ function exSheetHTML(ei){
     ${!allDone?`<button class="sheet-btn" onclick="hideModal('exSheet');openSubstitute(${ei})">Change exercise</button>`:''}
     ${ei<sess.exercises.length-1?`<button class="sheet-btn" onclick="hideModal('exSheet');pairSuperset(${ei})">${ex.supersetNext?'Unpair superset':'Superset with next'}</button>`:''}
     ${!allDone?`<button class="sheet-btn" onclick="hideModal('exSheet');logAll(${ei})">Log all sets</button>`:''}
-    ${!allDone?`<button class="sheet-btn" onclick="hideModal('exSheet');skipExercise(${ei})">Skip exercise</button>`:''}
+    ${!allDone?`<button class="sheet-btn" onclick="hideModal('exSheet');openSkipExercise(${ei})">Skip exercise</button>`:''}
     <button class="sheet-btn" onclick="hideModal('exSheet');toggleFreeze(${ei})">${ex.frozen?'Unfreeze':'Freeze at current load'}</button>
     <button class="sheet-btn danger" onclick="hideModal('exSheet');openPainModal(${ei})">\u26a0 Pain</button>`;
 }
@@ -7629,7 +7756,7 @@ function weekChecklistHTML(){
   const rows=(S.program.days||[]).map(d=>({d,st:dayWeekStatus(d,wd),ed:dayEffectiveDate(d,wd[0])})).filter(o=>o.st!=='removed'&&o.st!=='rest'&&o.st!=='preblock')
     .sort((a,b)=>a.ed<b.ed?-1:a.ed>b.ed?1:0); // one-offs/moves land in date order, not array order
   const _hab=habitRowsHTML();
-  if(!rows.length&&!_hab)return '';
+  if(!rows.length&&!_hab&&!leftoverRowHTML())return '';
   const doneN=rows.filter(o=>o.st==='done'||o.st==='ticked'||o.st==='skipped').length;
   return `<div class="goal-card wk-check"><div class="goal-head"><span class="t-h2">${t('check.title')}</span><span class="t-meta tnum">${rows.length?doneN+' / '+rows.length:''}</span></div>
     ${rows.map(o=>{
@@ -7637,6 +7764,7 @@ function weekChecklistHTML(){
       return `<div class="wkc-row${o.st==='pending'?(missed?' is-missed':''):' is-done'}"><span class="wkc-mark">${missed?'\u2013':o.st==='pending'?'\u25cb':o.st==='ticked'?'\u2713\u00b7':'\u2713'}</span><span class="wkc-lbl">${esc(o.d.label)}</span><span class="t-meta">${dowOf(dayEffectiveDate(o.d,wd[0])).slice(0,3)}${missed?' \u00b7 missed':o.st==='ticked'?' \u00b7 ticked':o.st==='skipped'?' \u00b7 skipped':''}</span></div>`;
     }).join('')}
     ${_hab}
+    ${leftoverRowHTML()}
   </div>`;
 }
 function buildCoachReport(sessions,program,weekDates){
@@ -7697,6 +7825,7 @@ function buildCoachReport(sessions,program,weekDates){
       if(ex.notes)r+=`    Note: ${ex.notes}\n`;
     });
     if(s.painEvents&&s.painEvents.length>0)r+=`  ⚠ Pain: ${s.painEvents.map(p=>p.exercise+' — '+(p.bodyArea?p.bodyArea+' ':'')+(typeof p.severity==='number'?'('+p.severity+'/3)':'('+p.severity+')')).join(', ')}\n`;
+    if(s.addenda&&s.addenda.length)r+=`  completed later in week: ${s.addenda.map(a=>a.name+' '+(a.performed||[]).filter(p2=>p2.type==='working').map(p2=>(p2.weightKg?p2.weightKg+'kg\u00d7':'\u00d7')+p2.reps).join(', ')+(a.completedDate?' ('+fmtDate(a.completedDate)+')':'')).join('; ')}\n`;
     if(s.backStatus)r+=`  Back: ${s.backStatus}\n`;
     if(s.sessionNotes)r+=`  Notes: ${s.sessionNotes}\n`;
     r+=`  Volume: ${Math.round(vol)} kg${skippedN?' (skipped: '+skippedN+' set'+(skippedN===1?'':'s')+')':''}\n\n`;

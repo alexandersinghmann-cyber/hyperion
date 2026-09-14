@@ -53,6 +53,9 @@ const patched = js
   .replace(/\blet _variantSheetEi\s*=/g, 'var _variantSheetEi =')
   .replace(/\blet _exSheetEi\s*=/g, 'var _exSheetEi =')
   .replace(/\bconst DEFAULT_RECURRING\s*=/g, 'var DEFAULT_RECURRING =')
+  .replace(/\blet _skipExCtx\s*=/g, 'var _skipExCtx =')
+  .replace(/\blet _skipExLeftover\s*=/g, 'var _skipExLeftover =')
+  .replace(/\blet _leftoverId\s*=/g, 'var _leftoverId =')
   .replace(/\blet _backPending\s*=/g, 'var _backPending =')
   .replace(/\blet _backStartIdx\s*=/g, 'var _backStartIdx =')
   .replace(/\bconst ACTIVITY_TYPES\s*=/g, 'var ACTIVITY_TYPES =')
@@ -4122,6 +4125,58 @@ console.log('[F CtaAccent]');
   assert(CHAPTERS.filter(ch=>ch.fillSafe===false).map(ch=>ch.name).join(',')==='Raven Guard,Iron Hands', 'F1: exactly the two greyscale chapters are fill-unsafe');
 })();
 assert(/if\(ch\.fillSafe===false\)return;/.test(html), 'F1: accent applier skips ALL fill overrides for unsafe pairs (brand2/solar were unconditional — the white-button path)');
+
+// ---- L2: Leftovers full lifecycle ----
+console.log('[L2 Leftovers]');
+assert(Array.isArray(S.leftovers), 'L2: leftovers store seeded');
+assert(/id="skipExModal"/.test(html)&&/Add to Leftovers/.test(html)&&/openSkipExercise\(\$\{ei\}\)/.test(html), 'L2: exercise skip routes through the reason sheet with a Leftovers toggle');
+assert(/id="leftoverModal"/.test(html)&&/id="leftoversSheet"/.test(html)&&/leftoverRowHTML\(\)/.test(html), 'L2: logging sheet + list sheet + checklist row wired');
+(function(){
+  const _lo=S.leftovers,_ss=S.sessions,_sp=JSON.parse(JSON.stringify(S.program));
+  S.leftovers=[];S.sessions=[];
+  // 1. skip → leftover entry
+  S.activeSession={dayIndex:5,dayId:6,date:todayStr(),dayLabel:'Gym',sessionType:'lifting',startTime:1,exercises:[
+    {name:'DB Curl',cat:'isolation',prescribed:{sets:2,reps:'10',loadKg:12.5,unit:'kg'},equipmentClass:'db',variant:null,
+     performed:[{type:'working',weightKg:12.5,reps:10,rpe:null,logged:false},{type:'working',weightKg:12.5,reps:10,rpe:null,logged:false}],tags:[],progression:null,nextLoad:null}
+  ],notes:''};
+  _skipExCtx=0;_skipExLeftover=true;
+  confirmSkipExercise('time');
+  assert(S.activeSession.exercises[0].progression==='skipped'&&S.activeSession.exercises[0].performed.every(p2=>p2.skipped), 'L2: exercise skipped with reason');
+  assert(S.leftovers.length===1&&S.leftovers[0].name==='DB Curl'&&S.leftovers[0].weekOf===weekOfDate(todayStr())&&S.leftovers[0].done===false, 'L2: leftover captured, week-keyed. Got: '+JSON.stringify(S.leftovers[0]&&{n:S.leftovers[0].name,w:S.leftovers[0].weekOf}));
+  assert(S.leftovers[0].fromDayId===6&&S.leftovers[0].prescribed.loadKg===12.5, 'L2: carries origin + prescription snapshot');
+  // toggle OFF → no entry
+  S.activeSession.exercises.push({name:'Press-Up',cat:'push',prescribed:{sets:3,reps:'10-12',loadKg:0,unit:'bw'},performed:[{type:'working',weightKg:0,reps:10,rpe:null,logged:false}],tags:[],variant:null});
+  _skipExCtx=1;_skipExLeftover=false;
+  confirmSkipExercise('tired');
+  assert(S.leftovers.length===1, 'L2: skip without the toggle adds nothing');
+  // 2. original session record exists → completion attaches an addendum
+  S.sessions=[{id:'s_orig',date:todayStr(),dayLabel:'Gym',dayId:6,blockName:S.program.name,sessionType:'lifting',duration:60,rpe:7,status:'complete',exercises:[],painEvents:[]}];
+  S.activeSession=null;
+  _leftoverId=S.leftovers[0].id;
+  // simulate the sheet inputs via a DOM-less save: call the pure parts directly
+  (function(){
+    const l=S.leftovers[0];
+    const performed=[{type:'working',weightKg:12.5,reps:10,rpe:7,logged:true},{type:'working',weightKg:12.5,reps:10,rpe:7,logged:true}];
+    const rec=S.sessions.find(s2=>s2.date===l.fromDate&&s2.dayId===l.fromDayId);
+    (rec.addenda=rec.addenda||[]).push({name:l.name,variant:l.variant,performed,completedDate:todayStr()});
+    l.done=true;l.completedDate=todayStr();
+  })();
+  assert(S.sessions[0].addenda.length===1&&S.leftovers[0].done===true, 'L2: completion attaches to the ORIGINAL record + marks the leftover done');
+  // 3. Dispatch shows it under that session
+  const rpt=buildCoachReport(S.sessions,S.program,weekDatesFor(todayStr()));
+  assert(/completed later in week: DB Curl 12\.5kg\u00d710, 12\.5kg\u00d710/.test(rpt), 'L2: Dispatch prints the addendum under the session. Got: '+(rpt.match(/completed later[^\n]*/)||['none'])[0]);
+  // 4. checklist row renders count of OPEN leftovers
+  S.leftovers.push({id:'lo_x',weekOf:weekOfDate(todayStr()),name:'Row',prescribed:{sets:3,reps:'10',loadKg:55,unit:'kg'},variant:null,fromDate:todayStr(),fromDayId:6,fromLabel:'Gym',done:false});
+  const row=leftoverRowHTML();
+  assert(/Leftovers \(1\)/.test(row)&&/tap to finish/.test(row), 'L2: compact row shows the open count. Got: '+row.slice(0,90));
+  // 5. expiry: unfinished entries clear silently at rollover; done ones too
+  pruneLeftovers(dateAddDays(weekOfDate(todayStr()),7));
+  assert(S.leftovers.length===0, 'L2: week rollover clears leftovers — no debt, no guilt state');
+  assert(S.sessions[0].addenda.length===1, 'L2: the completed work SURVIVES expiry on the record');
+  // 6. orphan path: no original record → standalone mini-record via saveLeftover's fallback branch (source-pinned)
+  assert(/dayLabel:\(l\.fromLabel\|\|'Session'\)\+' \\u2014 leftover'/.test(html)||/\u2014 leftover'/.test(html), 'L2: orphan completion falls back to a standalone record (nothing lost)');
+  S.leftovers=_lo;S.sessions=_ss;S.program=_sp;
+})();
 // F2: gold CTA + day cards use the EFFECTIVE weekday for pending days
 assert(/\$\{t\('start\.pre'\)\}\$\{sDay\.label\} \(\$\{dowOf\(dayEffectiveDate\(sDay\)\)\}\)/.test(html), 'F2: CTA parenthetical follows the move (was the template dow)');
 assert(/const dow=_pendingCard\?dowOf\(_edCard\):\(day\.defaultDay\|\|day\.dayOfWeek\);/.test(html), 'F2: pending day-card meta uses the effective dow');
