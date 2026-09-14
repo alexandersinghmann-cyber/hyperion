@@ -422,7 +422,8 @@ console.log('[K4 RpeTrend]');
 // ---- K5 (v12 chain): persistent state layer ----
 console.log('[K5 Stores]');
 assert(Array.isArray(S.bodyMetrics)&&Array.isArray(S.backLog)&&Array.isArray(S.habits), 'K5: new stores seeded top-level (weekRemovals precedent)');
-assert(S.habits.some(h=>h.id==='h1'&&/100 KB Swings @ 24/.test(h.name)&&h.gate==='back'), 'K5: daily swings habit seeded as DATA');
+assert(Array.isArray(S.habits)&&!S.habits.some(h=>h&&h.id==='h1'), 'K5/L1: habits system alive, daily swings retired (one-shot)');
+assert(S.settings._habitSwingsRemovedL1===true, 'L1: swings removal one-shot flagged (a user re-add would survive)');
 assert(typeof S.settings.lastExportAt==='string'&&S.settings.lastExportAt.length===10, 'K5: export stamp backfilled so the nudge counts from ship');
 (function(){
   const _bm=S.bodyMetrics,_bl=S.backLog,_h=JSON.parse(JSON.stringify(S.habits));
@@ -434,7 +435,8 @@ assert(typeof S.settings.lastExportAt==='string'&&S.settings.lastExportAt.length
   assert(latestBf()===22.5, 'K5: latest BF% skips entries without one');
   assert(logBodyMetric(83.1,22.1,null)===true&&bodyLatest().weightKg===83.1&&bodyLatest().bfPct===22.1, 'K5: quick-log appends today');
   assert(logBodyMetric(83.0,null,null)===true&&S.bodyMetrics.filter(m=>m.date===todayStr()).length===1, 'K5: same-day re-log replaces (one entry per day)');
-  // habit streak + toggle
+  // habit streak + toggle (synthetic — the seeded swings habit is retired)
+  S.habits.push({id:'h1',name:'Test habit',type:'daily',gate:'back',ticks:{}});
   const h=S.habits.find(x=>x.id==='h1');h.ticks={};
   h.ticks[dateAddDays(todayStr(),-2)]=true;h.ticks[dateAddDays(todayStr(),-1)]=true;
   assert(habitStreak(h)===2, 'K5: streak counts back from yesterday when today unticked. Got: '+habitStreak(h));
@@ -513,7 +515,8 @@ assert(/class="goal-card cond"/.test(html), 'K7: Condition card in the dashboard
   S.bodyMetrics=[{date:dateAddDays(todayStr(),-7),weightKg:84.0,bfPct:23.0},{date:todayStr(),weightKg:83.4}];
   S.backLog=[{date:dateAddDays(todayStr(),-1),status:'good'},{date:todayStr(),status:'good'}];
   S.settings.lastBackCheckin={date:todayStr(),status:'good'};
-  // habit row: visible + tickable under good
+  // habit row: visible + tickable under good (synthetic habit)
+  S.habits.push({id:'h1',name:'100 KB Swings @ 24',type:'daily',gate:'back',ticks:{}});
   const h=S.habits.find(x=>x.id==='h1');h.ticks={};
   let rows=habitRowsHTML();
   assert(/100 KB Swings @ 24/.test(rows)&&/wkc-tick/.test(rows)&&/\u25cb/.test(rows), 'K7: habit row renders with an open tick under good');

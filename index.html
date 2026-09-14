@@ -2859,7 +2859,11 @@ function migrateV3(){
   // Same !Array.isArray guard: user deletions/edits persist, no per-entry respawn.
   if(!Array.isArray(S.bodyMetrics))S.bodyMetrics=[];
   if(!Array.isArray(S.backLog))S.backLog=[];
-  if(!Array.isArray(S.habits))S.habits=[{id:'h1',name:'100 KB Swings @ 24',type:'daily',gate:'back',ticks:{}}];
+  if(!Array.isArray(S.habits))S.habits=[]; // the habits SYSTEM stays; empty is fine
+  if(!S.settings._habitSwingsRemovedL1){
+    S.habits=S.habits.filter(h=>!(h&&h.id==='h1')); // daily swings retired (leftovers spec A)
+    S.settings._habitSwingsRemovedL1=true;
+  }
   // E4: the backup nudge counts from ship, not from the epoch.
   if(!S.settings.lastExportAt)S.settings.lastExportAt=todayStr();
   // --- Program days: sessionType + defaultDay alias; exercises: angle/grip/equipmentClass ---
