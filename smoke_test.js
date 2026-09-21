@@ -640,7 +640,7 @@ assert(bSq.sets===2&&bSq.reps==='8'&&bSq.loadKg===90, 'R1: Week B back-off squat
 assert(bBss.sets===2&&bBss.loadKg===15&&bBss.tags.includes('per hand'), 'R1: Week B BSS 2x8@15/hand');
 // shared block: superset pairs marked on the FIRST member, adjacency preserved
 const _sh=d6.exercises.filter(e=>!e.week&&e.section!=='warmup'&&e.section!=='finisher');
-assert(_sh.length===8, 'R1: 8 shared main-block rows. Got: '+_sh.length);
+assert(_sh.length===10, 'R1: 10 shared main-block rows (Sep 21: +Iso-Lateral Bench, +Pallof). Got: '+_sh.length);
 const puI=d6.exercises.findIndex(e=>e.name==='Strict Pull-Up');
 assert(d6.exercises[puI].supersetNext===true&&d6.exercises[puI+1].name==='Press-Up', 'R1: Pull-Up ↔ Press-Up superset pair');
 assert(d6.exercises[puI+1].tags.includes('twinge-gate')&&/Dip is the substitute/.test(d6.exercises[puI+1].cue||''), 'R1: Press-Up twinge-gated, Dip substitute-only');
@@ -652,7 +652,7 @@ assert(bx.frozen===true&&bx.loadKg===0&&bx.unit==='bw'&&bx.tags.includes('neutra
 const fin=d6.exercises[d6.exercises.length-1];
 assert(fin.name==='Sprints'&&fin.entryType==='circuit'&&fin.format==='Intervals'&&fin.minutes===8&&fin.section==='finisher', 'R1: Intervals finisher closes the day');
 // resolver totals per parity: 6 wu + mains + 8 shared + 1 finisher
-assert(dayExercises(d6,'A').length===17&&dayExercises(d6,'B').length===18, 'R1: resolved lists A=17 B=18. Got: '+dayExercises(d6,'A').length+'/'+dayExercises(d6,'B').length);
+assert(dayExercises(d6,'A').length===19&&dayExercises(d6,'B').length===20, 'R1: resolved lists A=19 B=20 (Sep 21 revision). Got: '+dayExercises(d6,'A').length+'/'+dayExercises(d6,'B').length);
 // EX_META adds
 assert(EX_META['Couch Stretch']&&EX_META['Couch Stretch'].hold===true, 'R1: Couch Stretch meta added');
 assert(EX_META['Press-Up']&&EX_META['Press-Up'].pat==='hpush'&&EX_META['Press-Up'].eq.includes('bodyweight'), 'R1: Press-Up meta added (hpush passes the overhead ban)');
@@ -693,12 +693,13 @@ assert(EX_META['KB Press']&&!EX_META['KB Press'].avoid&&EX_META['KB Press'].sh==
   assert(warns.filter(w=>/shares prime movers/.test(w)).length===1, 'R1: Week-B squat/BSS adjacency warned (authored deliberately)');
   S.program=_sp2;
 })();
-// Naive (superset-blind) estimates run 98/103 vs the coach's ~75 — the two
-// authored pairs share rest, which the estimator double-counts. Bound the
-// drift rather than pretending: both parities stay under 110 naive minutes.
+// Naive (superset-blind) estimates run 109/114 vs the coach's ~75 — the two
+// authored pairs share rest, which the estimator double-counts, and the
+// Sep-21 revision adds Iso-Lateral Bench + Pallof. Bound the drift rather
+// than pretending: both parities stay under 120 naive minutes.
 ['A','B'].forEach(v=>{
   const est=estimateSessionTime(dayExercises(d6,v).map(e=>({name:e.name,sets:e.sets,reps:e.reps,rest:e.rest,entryType:e.entryType,minutes:e.minutes})));
-  assert(est<=110, 'R1: Gym (Week '+v+') naive estimate bounded. Got '+est);
+  assert(est<=120, 'R1: Gym (Week '+v+') naive estimate bounded. Got '+est);
 });
 assert(!DEF_PROGRAM.days.some(d => (d.exercises||[]).some(e => /^seated row$/i.test(e.name))), 'No day has bare "Seated Row"');
 // display name humanized; stored name untouched
@@ -3997,7 +3998,7 @@ console.log('[K13 R1Days]');
   const sess=S.activeSession;
   const v=sess.weekVariant;
   assert(v==='A'||v==='B', 'K13: Gym session stamps its parity. Got: '+v);
-  assert(sess.exercises.length===(v==='A'?17:18), 'K13: resolved card count matches the parity. Got: '+sess.exercises.length);
+  assert(sess.exercises.length===(v==='A'?19:20), 'K13: resolved card count matches the parity (Sep 21 revision). Got: '+sess.exercises.length);
   assert(sess.exercises.filter(e=>e.name==='Back Squat').length===1&&sess.exercises.filter(e=>e.name==='Trap Bar Deadlift').length===1, 'K13: exactly one squat + one trap-bar pull per session');
   const pu=sess.exercises.find(e=>e.name==='Strict Pull-Up');
   assert(pu.supersetNext===true, 'K13: authored superset pair rides into the session');
@@ -4193,13 +4194,55 @@ console.log('[L3 CuePress]');
   S.settings._cuePressL3=false;
   migrateV3();
   assert(/Pad at hip crease/.test(S.program.days[5].exercises.find(e=>e.name==='Back Extension').cue), 'L3: one-shot installs the setup cue on the live copy (no version bump)');
-  assert(/Press re-entry: 2\u00d75\/side @ 16\u201320/.test(S.program.days[6].note), 'L3: Sunday KB note gains the re-entry line');
+  // Sep 21: the re-entry note-append is RETIRED — the cue one-shot must no
+  // longer add it (the M1 one-shot strips it; re-adding would fight it).
+  assert(!/Press re-entry/.test(S.program.days[6].note), 'L3/M1: Sunday KB note no longer gains the re-entry line');
   const _n=S.program.days[6].note;
   migrateV3();
   assert(S.program.days[6].note===_n, 'L3: one-shot idempotent (no double-append)');
   assert(S.program.version===12, 'L3: program version UNTOUCHED — no re-sync banner, day arrangement preserved');
   S.program=_sp;S.settings._cuePressL3=_fl;
 })();
+
+// ---- M1 (Sep 21): gym-day revision one-shot on the LIVE copy ----
+console.log('[M1 GymRev]');
+(function(){
+  const _sp=JSON.parse(JSON.stringify(S.program)),_fl=S.settings._gymRevSep21;
+  // Reconstruct a stale (pre-Sep-21) live copy: no Iso/Pallof, a user-added
+  // KB Press on the gym day, the Sunday re-entry note still present.
+  S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));
+  const _gd=S.program.days[5];
+  _gd.exercises=_gd.exercises.filter(e=>e.name!=='Iso-Lateral Bench Press'&&e.name!=='Pallof Press');
+  _gd.exercises.splice(_gd.exercises.findIndex(e=>e.name==='DB Curl')+1,0,{id:'u1',name:'KB Press',cat:'push',sets:2,reps:'5',loadKg:16,unit:'kg',rest:90,tags:['twinge-gate','per side'],angle:null,grip:null,equipmentClass:'kb'});
+  S.program.days[6].note='Freeform KB \u2014 user-programmed. Log duration, bells, and what you did. Press re-entry: 2\u00d75/side @ 16\u201320, strict \u2014 then 48h of listening before repeating.';
+  S.settings._gymRevSep21=false;
+  migrateV3();
+  const gd=S.program.days[5],exN=gd.exercises.map(e=>e.name);
+  assert(!exN.includes('KB Press'), 'M1: KB Press removed from the gym day (classes are the overhead dose)');
+  assert(!/Press re-entry/.test(S.program.days[6].note)&&/Log duration, bells/.test(S.program.days[6].note), 'M1: Sunday note stripped of the re-entry line, rest kept');
+  const iso=gd.exercises.find(e=>e.name==='Iso-Lateral Bench Press');
+  assert(iso&&iso.sets===3&&iso.reps==='8'&&iso.loadKg===60&&iso.tags.includes('twinge-gate')&&iso.tags.includes('controlled-negatives')&&iso.role==='hypertrophy'&&!iso.week, 'M1: Iso-Lateral Bench 3x8@60 added, both weeks, twinge-gate + controlled-negatives');
+  assert(exN.indexOf('Iso-Lateral Bench Press')===exN.indexOf('DB Curl')+1, 'M1: Iso-Lateral Bench lands after the Row/Curl superset');
+  const pal=gd.exercises.find(e=>e.name==='Pallof Press');
+  assert(pal&&pal.sets===2&&pal.reps==='12'&&pal.loadKg===20&&pal.tags.includes('per side')&&pal.role==='skill/anti-rotation'&&!pal.week, 'M1: Pallof 2x12/side@20 added, both weeks');
+  assert(exN.indexOf('Pallof Press')===exN.indexOf('Suitcase Carry')+1&&exN.indexOf('Side Extension')===exN.indexOf('Pallof Press')+1, 'M1: Pallof sits between Suitcase Carry and Side Extension (nothing else reordered)');
+  const _snap=JSON.stringify(S.program);
+  migrateV3();
+  assert(JSON.stringify(S.program)===_snap, 'M1: one-shot idempotent (no dupes, no re-order)');
+  assert(S.program.version===12, 'M1: version UNTOUCHED — no re-sync banner, day arrangement preserved');
+  // maintain phase: the new press inherits the hold — no suggestion arrows
+  const _ph=S.program.phase;S.program.phase='maintain';
+  const isoEx={name:'Iso-Lateral Bench Press',cat:'push',tags:iso.tags,prescribed:{sets:3,reps:'8',loadKg:60,unit:'kg'},performed:[{type:'working',weightKg:60,reps:8,rpe:6,logged:true},{type:'working',weightKg:60,reps:8,rpe:6,logged:true},{type:'working',weightKg:60,reps:8,rpe:6,logged:true}],painEvent:null,notes:'',equipmentClass:'machine'};
+  const _as=S.activeSession;S.activeSession={sessionType:'lifting',exercises:[isoEx]};
+  evalProg(0);
+  S.activeSession=_as;
+  assert(isoEx.progression==='hold'&&isoEx.nextLoad===60, 'M1: Iso-Lateral Bench inherits the maintain hold (no increment). Got '+isoEx.progression+'/'+isoEx.nextLoad);
+  S.program.phase=_ph;
+  S.program=_sp;S.settings._gymRevSep21=_fl;
+})();
+// DEF-side census: additions authored in DEF too (fresh installs need no one-shot)
+assert(DEF_PROGRAM.days[5].exercises.some(e=>e.name==='Iso-Lateral Bench Press')&&DEF_PROGRAM.days[5].exercises.some(e=>e.name==='Pallof Press'), 'M1: DEF gym day carries Iso-Lateral Bench + Pallof');
+assert(!/Press re-entry/.test(DEF_PROGRAM.days[6].note), 'M1: DEF Sunday note ships without the re-entry line');
 assert(/Pad at hip crease .* rise to a straight line ONLY/.test(DEF_PROGRAM.days[5].exercises.find(e=>e.name==='Back Extension').cue)&&DEF_PROGRAM.days[5].exercises.find(e=>e.name==='Back Extension').frozen===true, 'L3: DEF cue updated, FROZEN kept');
 assert(!DEF_PROGRAM.days.some(d=>(d.exercises||[]).some(e=>e.name==='KB Press')), 'L3: KB Press is picker-only — not authored into the program');
 // L-hotfix: the K1 rename left ONE stale series-key reference in the e1RM

@@ -2159,8 +2159,14 @@ const DEF_PROGRAM={name:"Sep 7 Recomp W1",version:12,active:true,startDate:"2026
   {id:"r1d6e14",name:"Cable Low Row",cat:"pull",sets:3,reps:"10",loadKg:55,unit:"kg",rest:120,tags:["single-pulley"],supersetNext:true,
     angle:null,grip:null,equipmentClass:"cable",variant:{pulley:"single",grip:null,angle:null,machine:null,attachment:null}},
   {id:"r1d6e15",name:"DB Curl",cat:"isolation",sets:2,reps:"10",loadKg:12.5,unit:"kg",rest:60,tags:["per hand"],angle:null,grip:null,equipmentClass:"db"},
+  // Sep 21 revision: NO overhead pressing on the gym day — the KB classes
+  // already carry substantial overhead volume (classes are the overhead
+  // dose; gym stays horizontal). Iso-Lateral Bench is the proven pain-free
+  // chest press.
+  {id:"r1d6e21",name:"Iso-Lateral Bench Press",cat:"push",sets:3,reps:"8",loadKg:60,unit:"kg",rest:90,tags:["twinge-gate","controlled-negatives"],role:"hypertrophy",angle:null,grip:null,equipmentClass:"machine"},
   {id:"r1d6e16",name:"Hanging Leg Raise",cat:"core",sets:3,reps:"10",loadKg:0,unit:"bw",rest:60,tags:[],angle:null,grip:null,equipmentClass:"bw"},
   {id:"r1d6e17",name:"Suitcase Carry",cat:"core",sets:2,reps:"30m",loadKg:27.5,unit:"kg",rest:60,tags:["one hand"],angle:null,grip:null,equipmentClass:"db"},
+  {id:"r1d6e22",name:"Pallof Press",cat:"core",sets:2,reps:"12",loadKg:20,unit:"kg",rest:60,tags:["per side"],role:"skill/anti-rotation",angle:null,grip:null,equipmentClass:"cable"},
   {id:"r1d6e18",name:"Side Extension",cat:"core",sets:2,reps:"12",loadKg:0,unit:"bw",rest:45,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
   {id:"r1d6e19",name:"Back Extension",cat:"hinge",sets:2,reps:"12",loadKg:0,unit:"bw",rest:60,tags:["neutral-only","no-hyperextension"],
     frozen:true,cue:"Pad at hip crease \u00b7 hinge at hips \u00b7 rise to a straight line ONLY \u2014 never past",angle:null,grip:null,equipmentClass:"bw"},
@@ -2169,7 +2175,7 @@ const DEF_PROGRAM={name:"Sep 7 Recomp W1",version:12,active:true,startDate:"2026
     sets:0,reps:"",loadKg:0,unit:"bw",rest:0,tags:[],angle:null,grip:null,equipmentClass:"bw"}
 ]},
 {id:7,label:"KB",defaultDay:"Sunday",dayOfWeek:"Sunday",sessionType:"kb",dur:45,exercises:[],
-  note:"Freeform KB \u2014 user-programmed. Log duration, bells, and what you did. Press re-entry: 2\u00d75/side @ 16\u201320, strict \u2014 then 48h of listening before repeating."}
+  note:"Freeform KB \u2014 user-programmed. Log duration, bells, and what you did."}
 ]};
 
 // ===== EXTRAS LIBRARY =====
@@ -2901,10 +2907,38 @@ function migrateV3(){
     try{
       (S.program.days||[]).forEach(d=>{
         (d.exercises||[]).forEach(ex=>{if(ex.name==='Back Extension'&&ex.frozen)ex.cue='Pad at hip crease \u00b7 hinge at hips \u00b7 rise to a straight line ONLY \u2014 never past';});
-        if(d.sessionType==='kb'&&/Freeform KB/.test(d.note||'')&&!/Press re-entry/.test(d.note||''))d.note+=' Press re-entry: 2\u00d75/side @ 16\u201320, strict \u2014 then 48h of listening before repeating.';
+        // (The Sep-14 'Press re-entry' note-append retired Sep 21 \u2014 the
+        // Sep-21 one-shot below strips it; re-adding here would fight it.)
       });
     }catch(e){}
     S.settings._cuePressL3=true;
+  }
+  // Sep 21 gym-day revision — in-place patch of the LIVE copy (no version
+  // bump: a re-sync offer would clobber the user's own day arrangement).
+  // KB Press leaves the gym day (classes are the overhead dose; gym stays
+  // horizontal — KB Press stays active in pickers); Iso-Lateral Bench joins
+  // the upper block; Pallof Press joins the core block; the Sunday KB
+  // 'Press re-entry' note retires.
+  if(!S.settings._gymRevSep21){
+    try{
+      (S.program.days||[]).forEach(d=>{
+        if(d.sessionType==='kb'&&/Press re-entry/.test(d.note||''))d.note=d.note.replace(/\s*Press re-entry:.*$/,'');
+        if(d.sessionType!=='lifting')return;
+        const exs=d.exercises||[];
+        for(let i=exs.length-1;i>=0;i--)if(canonName(exs[i].name)==='KB Press')exs.splice(i,1);
+        if(!exs.some(e=>e.name==='Iso-Lateral Bench Press')){
+          const di=exs.findIndex(e=>e.name==='DB Curl');
+          const at=di>=0?di+1:exs.findIndex(e=>e.cat==='core'&&e.section!=='warmup');
+          exs.splice(at<0?exs.length:at,0,{id:"r1d6e21",name:"Iso-Lateral Bench Press",cat:"push",sets:3,reps:"8",loadKg:60,unit:"kg",rest:90,tags:["twinge-gate","controlled-negatives"],role:"hypertrophy",angle:null,grip:null,equipmentClass:"machine"});
+        }
+        if(!exs.some(e=>e.name==='Pallof Press')){
+          const si=exs.findIndex(e=>e.name==='Suitcase Carry');
+          const at2=si>=0?si+1:exs.findIndex(e=>e.name==='Side Extension');
+          exs.splice(at2<0?exs.length:at2,0,{id:"r1d6e22",name:"Pallof Press",cat:"core",sets:2,reps:"12",loadKg:20,unit:"kg",rest:60,tags:["per side"],role:"skill/anti-rotation",angle:null,grip:null,equipmentClass:"cable"});
+        }
+      });
+    }catch(e){}
+    S.settings._gymRevSep21=true;
   }
   if(!S.settings._habitSwingsRemovedL1){
     S.habits=S.habits.filter(h=>!(h&&h.id==='h1')); // daily swings retired (leftovers spec A)
