@@ -2127,19 +2127,13 @@ function recommendSupersets(exList){
 // F1: version is the block's ORDER. The banner offers a sync only when the
 // shipped version is NEWER than the installed one — a stale cached HTML can
 // never re-offer an old block ("Jul 27 W2" over "Aug 3 W3").
-const DEF_PROGRAM={name:"Sep 7 Recomp W1",version:12,active:true,startDate:"2026-09-07",phase:"maintain",days:[
-{id:1,label:"Swim",defaultDay:"Monday",dayOfWeek:"Monday",sessionType:"swim",dur:45,exercises:[],
-  note:"Swim \u2014 distance optional, tick off if untracked."},
-{id:2,label:"KB Class",defaultDay:"Tuesday",dayOfWeek:"Tuesday",sessionType:"kb",dur:45,exercises:[],
-  note:"KB class \u2014 log duration, bells, and what you did (tick-friendly)."},
-{id:3,label:"Pilates",defaultDay:"Wednesday",dayOfWeek:"Wednesday",sessionType:"pilates",dur:50,exercises:[],
-  note:"Pilates \u2014 time it and take notes."},
-{id:4,label:"Swim",defaultDay:"Thursday",dayOfWeek:"Thursday",sessionType:"swim",dur:45,exercises:[],
-  note:"Swim \u2014 distance optional, tick off if untracked."},
-{id:5,label:"Rest",defaultDay:"Friday",dayOfWeek:"Friday",sessionType:"rest",dur:0,exercises:[],
-  note:"Scheduled rest \u2014 recovery is training."},
-{id:6,label:"Gym",defaultDay:"Saturday",dayOfWeek:"Saturday",sessionType:"lifting",dur:75,alternating:true,
-  variantLabels:{A:"Squat emphasis",B:"Deadlift emphasis"},exercises:[
+// v13 "Sep 21 Recomp W3": ONE shared alternating Gym definition drives BOTH
+// lifting days. Monday carries variantFlip (renders the OPPOSITE parity of
+// the week), Sunday renders the week parity itself — week of Sep 21:
+// Mon = Week B (trap-bar 4x5 leads), Sun = Week A (squat 4x8-10 leads);
+// the pair flips together at each week boundary. NO rest day BY USER
+// DECISION -- Friday's recovery swim is the pressure valve.
+const GYM_EXERCISES_W3=[
   {id:"r1d6e1",name:"90/90 Hip Switch",cat:"rehab",section:"warmup",sets:1,reps:"8",loadKg:0,unit:"bw",rest:20,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
   {id:"r1d6e2",name:"Couch Stretch",cat:"rehab",section:"warmup",sets:1,reps:"45s",loadKg:0,unit:"bw",rest:20,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
   {id:"r1d6e3",name:"Glute Bridge",cat:"rehab",section:"warmup",sets:2,reps:"10",loadKg:0,unit:"bw",rest:30,tags:[],angle:null,grip:null,equipmentClass:"bw"},
@@ -2175,9 +2169,23 @@ const DEF_PROGRAM={name:"Sep 7 Recomp W1",version:12,active:true,startDate:"2026
   {id:"r1d6e20",name:"Sprints",cat:"cardio",section:"finisher",entryType:"circuit",format:"Intervals",minutes:8,
     movements:"Row or treadmill sprints \u2014 5\u00d730s hard / 90s easy",
     sets:0,reps:"",loadKg:0,unit:"bw",rest:0,tags:[],angle:null,grip:null,equipmentClass:"bw"}
-]},
-{id:7,label:"KB",defaultDay:"Sunday",dayOfWeek:"Sunday",sessionType:"kb",dur:45,exercises:[],
-  note:"Freeform KB \u2014 user-programmed. Log duration, bells, and what you did."}
+];
+const _gymDayW3=p=>GYM_EXERCISES_W3.map(e=>{const c=JSON.parse(JSON.stringify(e));c.id=String(c.id).replace('r1d6',p);return c;});
+const DEF_PROGRAM={name:"Sep 21 Recomp W3",version:13,active:true,startDate:"2026-09-21",phase:"maintain",days:[
+{id:1,label:"Gym",defaultDay:"Monday",dayOfWeek:"Monday",sessionType:"lifting",dur:75,alternating:true,variantFlip:true,tags:["adjacency-accepted"],
+  variantLabels:{A:"Squat emphasis",B:"Deadlift emphasis"},exercises:_gymDayW3('r3d1')},
+{id:2,label:"KB Class",defaultDay:"Tuesday",dayOfWeek:"Tuesday",sessionType:"kb",dur:45,exercises:[],
+  note:"KB class \u2014 log duration, bells, and what you did (tick-friendly)."},
+{id:3,label:"Swim",defaultDay:"Wednesday",dayOfWeek:"Wednesday",sessionType:"swim",dur:45,exercises:[],
+  note:"Pace day \u2014 chase the 30-minute 1000."},
+{id:4,label:"KB Class",defaultDay:"Thursday",dayOfWeek:"Thursday",sessionType:"kb",dur:45,exercises:[],
+  note:"KB class \u2014 log duration, bells, and what you did (tick-friendly)."},
+{id:5,label:"Swim (Recovery)",defaultDay:"Friday",dayOfWeek:"Friday",sessionType:"swim",dur:30,tags:["unmeasured"],exercises:[],
+  note:"Easy by decree \u2014 20-30 min technique, no clock."},
+{id:6,label:"KB Class",defaultDay:"Saturday",dayOfWeek:"Saturday",sessionType:"kb",dur:45,exercises:[],
+  note:"Readiness gates this class: sub-70 \u2192 walk instead. Sunday's gym is protected."},
+{id:7,label:"Gym",defaultDay:"Sunday",dayOfWeek:"Sunday",sessionType:"lifting",dur:75,alternating:true,tags:["adjacency-accepted"],
+  variantLabels:{A:"Squat emphasis",B:"Deadlift emphasis"},exercises:_gymDayW3('r3d7')}
 ]};
 
 // ===== EXTRAS LIBRARY =====
@@ -2698,8 +2706,18 @@ function validateWeek(weekDates,todayDate){
         const d=S.program.days[s2.dayIndex];
         return d&&d.sessionType==='calisthenics'&&(d.tags||[]).includes('RPE-7-cap');
       });
-      const exempt=capCali(a)||capCali(b);
-      warnings.push({level:exempt?'info':'warn',msg:'Same movement pattern ('+shared.join(', ')+': '+names+') on consecutive days ('+rowLabel(a)+' → '+rowLabel(b)+') — '+(exempt?'accepted: RPE-7-capped calisthenics volume':'<24h recovery')});
+      // v13 exception: the user DECIDED on a no-rest week with back-to-back
+      // gym days (Sun → next Mon). Accepted as info ONLY when EVERY day in
+      // the pair is authored 'adjacency-accepted' — keyed to day tags like
+      // the RPE-7-cap exception, never silenced globally.
+      const accAdj=row=>(row.sessions||[]).length>0&&(row.sessions||[]).every(s2=>{
+        if(s2.source!=='program'||s2.dayIndex==null)return false;
+        const d=S.program.days[s2.dayIndex];
+        return !!(d&&(d.tags||[]).includes('adjacency-accepted'));
+      });
+      const _adjOk=accAdj(a)&&accAdj(b);
+      const exempt=capCali(a)||capCali(b)||_adjOk;
+      warnings.push({level:exempt?'info':'warn',msg:'Same movement pattern ('+shared.join(', ')+': '+names+') on consecutive days ('+rowLabel(a)+' → '+rowLabel(b)+') — '+(exempt?(_adjOk?'accepted: back-to-back gym days by user decision (no-rest week)':'accepted: RPE-7-capped calisthenics volume'):'<24h recovery')});
     }
     // Calisthenics abutting lifting (info)
     const aLift=a.sessions.some(s=>s.type==='lifting'),bCali=b.sessions.some(s=>s.type==='calisthenics');
@@ -3976,16 +3994,25 @@ function weekVariantFor(dateStr){
   const wks=Math.round((new Date(wm+'T12:00:00')-new Date(base+'T12:00:00'))/(7*86400000));
   return (((wks%2)+2)%2===0)?'A':'B';
 }
+// v13: TWO lifting days can share one alternating definition and render
+// OPPOSITE parities within the same week \u2014 `day.variantFlip` inverts the
+// week parity for that day only (Sep 21 week: Mon=B, Sun=A; both flip
+// together at the week boundary). An EXPLICIT variant argument always wins
+// (validators/previews asking for a specific parity are never flipped).
+function dayVariantFor(day,dateStr){
+  const v=weekVariantFor(dateStr!==undefined?dateStr:dayEffectiveDate(day));
+  return (day&&day.variantFlip)?(v==='A'?'B':'A'):v;
+}
 function dayExercises(day,variant){
   if(!day)return[];
   const list=day.exercises||[];
   if(!day.alternating)return list;
-  const v=variant||weekVariantFor(dayEffectiveDate(day));
+  const v=variant||dayVariantFor(day);
   return list.filter(e=>!e.week||e.week===v);
 }
 function dayVariantLabel(day,variant){
   if(!day||!day.alternating)return'';
-  const v=variant||weekVariantFor(dayEffectiveDate(day));
+  const v=variant||dayVariantFor(day);
   const lbl=(day.variantLabels||{})[v];
   return 'Week '+v+(lbl?' \u2014 '+lbl:'');
 }
@@ -4363,7 +4390,7 @@ function startDay(i){
   // dayId is the day's immutable identity — dayLabel alone is ambiguous when
   // two days share a label (the deload has two "Swim" days).
   S.activeSession={dayIndex:i,dayId:day.id,blockName:S.program.name,date:todayStr(),dayLabel:day.label,sessionType:st,startTime:Date.now(),exercises:[],notes:'',order:[],gymId:(S.settings&&S.settings.activeGymId)||null};
-  const _variant=day.alternating?weekVariantFor(dayEffectiveDate(day)):null;
+  const _variant=day.alternating?dayVariantFor(day):null;
   const _resolved=dayExercises(day,_variant||undefined);
   if(_variant)S.activeSession.weekVariant=_variant;
   const _hybrid=isActivityType(st)&&_resolved.length>0;
