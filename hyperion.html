@@ -380,6 +380,8 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .top-chip{display:block;font:700 7px var(--sans);color:var(--brand);letter-spacing:.4px;margin-top:1px}
 .pain-flag{min-width:44px;min-height:44px;background:none;border:none;color:var(--tx3);font-size:15px;cursor:pointer;flex-shrink:0;padding:0}
 .pain-flag.has{color:var(--red)}
+.pain-flag-row{display:block;width:100%;margin:2px 0 10px;padding:10px 12px;background:none;border:1px dashed var(--line);border-radius:var(--rs);color:var(--tx3);font:600 12px var(--sans);text-align:left;cursor:pointer}
+.pain-flag-row.has{color:var(--red);border-color:var(--red)}
 .variant-chips{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 8px;align-items:center}
 .variant-chips .vc-lbl{font:600 10px var(--sans);color:var(--tx3);opacity:.6;margin-right:1px}
 .v-chip{font:600 12px var(--sans);color:var(--tx2);background:transparent;border:1px solid var(--s3);border-radius:999px;padding:7px 12px;min-height:34px;cursor:pointer;transition:all .12s}
@@ -4486,7 +4488,7 @@ function makeActivitySession(sess){
     duration:Math.round(+a.durationMin||0),
     activity:{durationMin:+a.durationMin||0,distance:+a.distance||0,effort:a.effort!=null?+a.effort:null,notes:a.notes||'',...(sess.sessionType==='kb'?{kbWeights:a.kbWeights||'',result:a.result||''}:{}),...(sess.sessionType==='conditioning'?{modality:a.modality||''}:{}),...(sess.sessionType==='swim'?{continuous:a.continuous===true}:{})},
     exercises:(sess.exercises||[]).filter(ex=>(ex.performed||[]).some(p2=>p2.logged)).map(ex=>({name:ex.name,cat:ex.cat,section:ex.section||'main',prescribed:ex.prescribed,performed:(ex.performed||[]).filter(p2=>p2.logged),notes:ex.notes||'',progression:ex.progression||null,nextLoad:ex.nextLoad||null,variant:ex.variant||null,painEvent:ex.painEvent||null,tags:ex.tags||[]})),
-    painEvents:[],status:'complete'};
+    painEvents:(sess.painEvents||[]).slice(),status:'complete'};
 }
 // B3: a day tagged 'unmeasured' (snorkel week) logs duration only.
 function dayUnmeasured(sess){
@@ -4542,6 +4544,7 @@ function activityFormHTML(sess){
       <div class="field"><label>Perceived effort (1–10)</label><div class="eff-row">${effChips}</div></div>
       ${st==='kb'?`<div class="field"><label>Result (optional)</label><input type="text" value="${esc(a.result||'')}" placeholder="e.g. 5 rounds + 12" onchange="setActivityField('result',this.value)" aria-label="kb result"></div>`:''}
       <div class="field"><label>${st==='kb'?'What you did':'Notes'}</label><textarea id="actNotes" rows="4" placeholder="${st==='kb'?'e.g. 25 min AMRAP: 10 swings / 8 goblet squats / 40m carry':'How did it feel?'}" oninput="queueNotesSave(this.value,'activity')" aria-label="notes">${esc(a.notes||'')}</textarea></div>
+      <button class="pain-flag-row${(sess.painEvents||[]).length?' has':''}" onclick="openPainModalSession()" aria-label="Log pain for this session">⚑ ${(sess.painEvents||[]).length?`Pain logged (${sess.painEvents.length}) · tap to add another`:'Pain check — log a twinge in one tap'}</button>
       <button class="btn btn-p btn-w act-save" onclick="finalizeActivity()">Save ${st==='kb'?'KB':st} session</button>
     </div>`;
 }
@@ -6661,7 +6664,21 @@ function evalProg(ei){
 // ===== PAIN =====
 const PAIN_AREAS=['shoulder','elbow','wrist','low back','hip','knee','other'];
 let _painArea=null;
+// M2 (Sep 21): classes are now the overhead experiment — a class-induced
+// twinge must be loggable in one tap. Session-level events ride the SAME
+// store the Dispatch already reads (rec.painEvents), stamped with the day
+// label in place of an exercise name.
+let _painSessionMode=false;
+function openPainModalSession(){
+  const sess=S.activeSession;if(!sess)return;
+  _painSessionMode=true;painExI=null;_painArea=null;
+  const nameEl=document.getElementById('painExName');if(nameEl)nameEl.textContent=sess.dayLabel||'This session';
+  const chips=document.getElementById('painAreaChips');
+  if(chips)chips.innerHTML=PAIN_AREAS.map(a=>`<button class="v-chip" id="painArea_${a.replace(/ /g,'-')}" onclick="setPainArea('${a}')">${a}</button>`).join('');
+  showModal('painModal');
+}
 function openPainModal(ei){
+  _painSessionMode=false;
   painExI=ei;_painArea=null;
   const ex=S.activeSession&&S.activeSession.exercises[ei];if(!ex)return;
   const nameEl=document.getElementById('painExName');if(nameEl)nameEl.textContent=ex.name;
@@ -6677,6 +6694,17 @@ function setPainArea(a){
 // 3 (sharp — clear remaining sets + flag). Legacy string severities remain
 // valid in old records; every gate treats numeric ≥1 as a real event.
 function logPain(sev){
+  if(_painSessionMode){
+    // Session-level flag (kb/activity cards): no sets to clear or drop —
+    // record the event and let the coach see it in the Dispatch.
+    const sess=S.activeSession;if(!sess)return;
+    const act=sev===3?'STOP — switch to alternative':sev===2?'Reduce load 10-20%':'Noted — monitor';
+    sess.painEvents=sess.painEvents||[];
+    sess.painEvents.push({exercise:sess.dayLabel||'Class',severity:sev,bodyArea:_painArea||null,action:act,ts:new Date().toISOString()});
+    _painSessionMode=false;
+    save();hideModal('painModal');renderEx();
+    return;
+  }
   if(painExI===null)return;
   const ex=S.activeSession.exercises[painExI];
   const act=sev===3?'STOP — switch to alternative':sev===2?'Reduce load 10-20%':'Noted — monitor';
@@ -7843,7 +7871,10 @@ function buildCoachReport(sessions,program,weekDates){
     if(s.activity||isActivityType(s.sessionType)){
       const a=s.activity||{};
       const bits=[(a.durationMin?a.durationMin+' min':null),(s.backStatus?'back '+s.backStatus+(s.readiness!=null?' ('+s.readiness+')':''):null),(a.modality||null),(a.kbWeights?'bells '+a.kbWeights:null),(a.result?'result: '+a.result:null),(a.distance?a.distance+(s.sessionType==='swim'?' m':' km'):null),(a.effort?'effort '+a.effort:null),(a.notes||null)].filter(Boolean).join(' · ');
-      r+=`### ${s.dayLabel||s.sessionType} (${s.sessionType}) — ${fmtDate(s.date)}${s.ticked?' — (ticked)':''}${bits?' — '+bits:''}\n\n`;
+      r+=`### ${s.dayLabel||s.sessionType} (${s.sessionType}) — ${fmtDate(s.date)}${s.ticked?' — (ticked)':''}${bits?' — '+bits:''}\n`;
+      // M2: class-induced twinges (session-level flag) reach the coach too
+      if(s.painEvents&&s.painEvents.length)r+=`  ⚠ Pain: ${s.painEvents.map(p=>p.exercise+' — '+(p.bodyArea?p.bodyArea+' ':'')+(typeof p.severity==='number'?'('+p.severity+'/3)':'('+p.severity+')')).join(', ')}\n`;
+      r+='\n';
       return;
     }
     const vol=s.exercises.reduce((a,e)=>(e.performed||[]).filter(p=>(p.type==='working'||p.type==='warmup')&&!p.skipped).reduce((b,p)=>b+p.weightKg*p.reps,a),0);

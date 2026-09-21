@@ -36,6 +36,7 @@ const patched = js
   .replace(/\bconst BRAND_CYCLE\s*=/g, 'var BRAND_CYCLE =')
   .replace(/\blet sessionStart\s*=/g, 'var sessionStart =')
   .replace(/\blet _painArea\s*=/g, 'var _painArea =')
+  .replace(/\blet _painSessionMode\s*=/g, 'var _painSessionMode =')
   .replace(/\blet _orderOffer\s*=/g, 'var _orderOffer =')
   .replace(/\blet _focusIdx\s*=/g, 'var _focusIdx =')
   .replace(/\bconst FOCUS_SWIPE\s*=/g, 'var FOCUS_SWIPE =')
@@ -4243,6 +4244,38 @@ console.log('[M1 GymRev]');
 // DEF-side census: additions authored in DEF too (fresh installs need no one-shot)
 assert(DEF_PROGRAM.days[5].exercises.some(e=>e.name==='Iso-Lateral Bench Press')&&DEF_PROGRAM.days[5].exercises.some(e=>e.name==='Pallof Press'), 'M1: DEF gym day carries Iso-Lateral Bench + Pallof');
 assert(!/Press re-entry/.test(DEF_PROGRAM.days[6].note), 'M1: DEF Sunday note ships without the re-entry line');
+
+// ---- M2 (Sep 21): session-level pain flag on kb/activity cards ----
+console.log('[M2 ActivityPain]');
+(function(){
+  const _as=S.activeSession,_ss=S.sessions.slice();
+  // The activity form renders the one-tap flag
+  const sess={sessionType:'kb',dayLabel:'KB Class',dayIndex:-1,date:'2026-09-22',startTime:900,activity:{durationMin:45,kbWeights:'16 / 24 kg',notes:''}};
+  const html1=activityFormHTML(sess);
+  assert(/openPainModalSession\(\)/.test(html1)&&/pain-flag-row/.test(html1)&&!/pain-flag-row has/.test(html1), 'M2: kb form carries the one-tap pain flag (unflagged state)');
+  // One-tap flow: open (session mode) -> area -> severity
+  S.activeSession=sess;
+  openPainModalSession();
+  assert(_painSessionMode===true&&painExI===null, 'M2: session mode armed, no exercise index');
+  setPainArea('shoulder');
+  logPain(1);
+  assert(_painSessionMode===false, 'M2: mode disarms after logging');
+  assert(sess.painEvents.length===1&&sess.painEvents[0].exercise==='KB Class'&&sess.painEvents[0].severity===1&&sess.painEvents[0].bodyArea==='shoulder', 'M2: event stamped with the day label + area');
+  assert(/pain-flag-row has/.test(activityFormHTML(sess))&&/Pain logged \(1\)/.test(activityFormHTML(sess)), 'M2: flag row shows the logged state');
+  // Record carries the events; the Dispatch prints them
+  const rec=makeActivitySession(sess);
+  assert(rec.painEvents.length===1&&rec.painEvents[0].exercise==='KB Class', 'M2: kb record carries session-level pain events');
+  const rpt=buildCoachReport([{...rec,blockName:S.program.name}],S.program,weekDatesFor('2026-09-22'));
+  assert(/Pain: KB Class \u2014 shoulder \(1\/3\)/.test(rpt), 'M2: kb pain event appears in the weekly Dispatch. Got: '+(rpt.match(/Pain:[^\n]*/)||['<none>'])[0]);
+  // Exercise-mode path unaffected; openPainModal disarms session mode
+  _painSessionMode=true;
+  S.activeSession={sessionType:'lifting',exercises:[{name:'Back Squat',prescribed:{sets:1,reps:'5',loadKg:100,unit:'kg'},performed:[{type:'working',weightKg:100,reps:5,rpe:7,logged:true}],painEvent:null,notes:'',tags:[]}]};
+  openPainModal(0);
+  assert(_painSessionMode===false&&painExI===0, 'M2: exercise-mode open disarms session mode');
+  setPainArea('knee');logPain(1);
+  assert(S.activeSession.exercises[0].painEvent&&S.activeSession.exercises[0].painEvent.severity===1&&!(S.activeSession.painEvents||[]).length, 'M2: exercise flag still writes per-exercise, not session-level');
+  S.activeSession=_as;S.sessions=_ss;
+})();
 assert(/Pad at hip crease .* rise to a straight line ONLY/.test(DEF_PROGRAM.days[5].exercises.find(e=>e.name==='Back Extension').cue)&&DEF_PROGRAM.days[5].exercises.find(e=>e.name==='Back Extension').frozen===true, 'L3: DEF cue updated, FROZEN kept');
 assert(!DEF_PROGRAM.days.some(d=>(d.exercises||[]).some(e=>e.name==='KB Press')), 'L3: KB Press is picker-only — not authored into the program');
 // L-hotfix: the K1 rename left ONE stale series-key reference in the e1RM
