@@ -2000,22 +2000,28 @@ function getMeta(name){
 // Estimate FRACTIONAL minutes for one exercise: sets × (rep_time + rest).
 // Deliberately unrounded — per-exercise ceil-rounding inflated a 10-exercise
 // day by ~5 min of pure rounding, tripping the time-budget validator.
-function estimateExTime(ex){
+function estimateExTime(ex,restOverride){
   if(ex&&ex.entryType==='circuit')return (+ex.minutes||0)+2; // clock + setup
   if(!ex||!ex.sets)return 0;
   const sets=ex.sets||0;
-  const rest=ex.rest||60;
+  const rest=restOverride!=null?restOverride:(ex.rest||60);
   const repStr=(ex.reps||'').toString();
   let reps=parseInt(repStr.split('-')[0],10); if(isNaN(reps))reps=10;
   // Hold prescriptions cost their SECONDS, not reps×3.5 — a 90s Frog Pose
   // is 90 seconds, not "90 reps" (which billed 315s and blew time budgets).
   const u=repsUnit(repStr);
-  const repTime=u==='s'?reps+15:u==='min'?reps*60+15:reps*3.5+15;
+  // Distance ('30m' carry) walks at ~1 m/s — it was billed as 30 reps x 3.5s.
+  const repTime=u==='s'?reps+15:u==='min'?reps*60+15:u==='m'?reps+15:reps*3.5+15;
   return sets*(repTime+rest)/60;
 }
 function estimateSessionTime(exList){
-  const bulk=(exList||[]).reduce((a,e)=>a+estimateExTime(e),0);
-  return Math.round(bulk)+10; // round ONCE, add 10 min warmup
+  const l=exList||[];
+  // A superset's first member rests while its partner works: its rest is
+  // billed ONCE (on the partner), not twice. The flat +10 warm-up allowance
+  // applies only when the day doesn't author its own warm-up section.
+  const bulk=l.reduce((a,e,i)=>a+estimateExTime(e,(e&&e.supersetNext&&l[i+1])?0:null),0);
+  const ownWu=l.some(e=>e&&e.section==='warmup');
+  return Math.round(bulk)+(ownWu?0:10); // round ONCE
 }
 // Validator: returns array of {level,msg,exIdx} objects. level='warn'|'info'. Warnings, not blocks.
 // opts.sessionType — lifting rules run only for lifting (or undefined) days.
@@ -2139,65 +2145,59 @@ function recommendSupersets(exList){
 // F1: version is the block's ORDER. The banner offers a sync only when the
 // shipped version is NEWER than the installed one — a stale cached HTML can
 // never re-offer an old block ("Jul 27 W2" over "Aug 3 W3").
-// v13 "Sep 21 Recomp W3": ONE shared alternating Gym definition drives BOTH
-// lifting days. Monday carries variantFlip (renders the OPPOSITE parity of
-// the week), Sunday renders the week parity itself — week of Sep 21:
-// Mon = Week B (trap-bar 4x5 leads), Sun = Week A (squat 4x8-10 leads);
-// the pair flips together at each week boundary. NO rest day BY USER
-// DECISION -- Friday's recovery swim is the pressure valve.
-const GYM_EXERCISES_W3=[
-  {id:"r1d6e1",name:"90/90 Hip Switch",cat:"rehab",section:"warmup",sets:1,reps:"8",loadKg:0,unit:"bw",rest:20,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"r1d6e2",name:"Couch Stretch",cat:"rehab",section:"warmup",sets:1,reps:"45s",loadKg:0,unit:"bw",rest:20,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"r1d6e3",name:"Glute Bridge",cat:"rehab",section:"warmup",sets:2,reps:"10",loadKg:0,unit:"bw",rest:30,tags:[],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"r1d6e4",name:"Frog Pose",cat:"rehab",section:"warmup",sets:1,reps:"60s",loadKg:0,unit:"bw",rest:20,tags:[],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"r1d6e5",name:"Bird Dog",cat:"core",section:"warmup",sets:2,reps:"8",loadKg:0,unit:"bw",rest:30,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"r1d6e6",name:"Band Pull-Apart",cat:"rehab",section:"warmup",sets:2,reps:"15",loadKg:0,unit:"bw",rest:30,tags:[],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"r1d6e7",name:"Back Squat",cat:"squat",week:"A",sets:4,reps:"8-10",loadKg:100,unit:"kg",rest:150,
+// v14 "Sep 28 Recomp W4": ONE gym day (Monday) on the TRIMMED alternating
+// definition (~60 min target). Sunday is REST by design — Sunday gyms died 3
+// of 4 weeks; the schedule now tells the truth. Wednesday's run is optional
+// (a lever, not an obligation): never owed, never 'missed'. DB Curl leaves
+// the program permanently (it stays in EX_META for pickers).
+const DEF_PROGRAM={name:"Sep 28 Recomp W4",version:14,active:true,startDate:"2026-09-28",phase:"maintain",days:[
+{id:1,label:"Gym",defaultDay:"Monday",dayOfWeek:"Monday",sessionType:"lifting",dur:60,alternating:true,
+  variantLabels:{A:"Squat emphasis",B:"Deadlift emphasis"},exercises:[
+  {id:"r4d1e1",name:"90/90 Hip Switch",cat:"rehab",section:"warmup",sets:1,reps:"8",loadKg:0,unit:"bw",rest:20,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"r4d1e2",name:"Couch Stretch",cat:"rehab",section:"warmup",sets:1,reps:"45s",loadKg:0,unit:"bw",rest:20,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"r4d1e3",name:"Glute Bridge",cat:"rehab",section:"warmup",sets:2,reps:"10",loadKg:0,unit:"bw",rest:30,tags:[],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"r4d1e4",name:"Bird Dog",cat:"core",section:"warmup",sets:2,reps:"8",loadKg:0,unit:"bw",rest:30,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"r4d1e5",name:"Back Squat",cat:"squat",week:"A",sets:4,reps:"8-10",loadKg:100,unit:"kg",rest:150,
     tags:["RPE-7-8","full-depth-standard"],angle:null,grip:null,equipmentClass:"barbell"},
-  {id:"r1d6e8",name:"Trap Bar Deadlift",cat:"hinge",week:"A",sets:2,reps:"5",loadKg:100,unit:"kg",rest:180,
+  {id:"r4d1e6",name:"Trap Bar Deadlift",cat:"hinge",week:"A",sets:2,reps:"5",loadKg:100,unit:"kg",rest:180,
     tags:["reset-every-rep","5s-max"],angle:null,grip:null,equipmentClass:"barbell",barKg:36},
-  {id:"r1d6e9",name:"Trap Bar Deadlift",cat:"hinge",week:"B",sets:4,reps:"5",loadKg:100,unit:"kg",rest:180,
+  {id:"r4d1e7",name:"Trap Bar Deadlift",cat:"hinge",week:"B",sets:4,reps:"5",loadKg:100,unit:"kg",rest:180,
     tags:["5s-max-forever","reset-every-rep"],angle:null,grip:null,equipmentClass:"barbell",barKg:36},
-  {id:"r1d6e10",name:"Back Squat",cat:"squat",week:"B",sets:2,reps:"8",loadKg:90,unit:"kg",rest:150,
+  {id:"r4d1e8",name:"Back Squat",cat:"squat",week:"B",sets:2,reps:"8",loadKg:90,unit:"kg",rest:150,
     tags:["full-depth-standard"],angle:null,grip:null,equipmentClass:"barbell"},
-  {id:"r1d6e11",name:"Bulgarian Split Squat",cat:"squat",week:"B",sets:2,reps:"8",loadKg:15,unit:"kg",rest:90,tags:["per hand"],angle:null,grip:null,equipmentClass:"db"},
-  {id:"r1d6e12",name:"Strict Pull-Up",cat:"pull",sets:3,reps:"6-8",loadKg:0,unit:"bw",rest:120,tags:["straight-sets"],supersetNext:true,angle:null,grip:null,equipmentClass:"bw"},
-  {id:"r1d6e13",name:"Press-Up",cat:"push",sets:3,reps:"10-12",loadKg:0,unit:"bw",rest:90,tags:["twinge-gate"],
+  {id:"r4d1e9",name:"Bulgarian Split Squat",cat:"squat",week:"B",sets:2,reps:"8",loadKg:15,unit:"kg",rest:90,tags:["per hand"],angle:null,grip:null,equipmentClass:"db"},
+  {id:"r4d1e10",name:"Strict Pull-Up",cat:"pull",sets:3,reps:"6-8",loadKg:0,unit:"bw",rest:120,tags:["straight-sets"],supersetNext:true,angle:null,grip:null,equipmentClass:"bw"},
+  {id:"r4d1e11",name:"Press-Up",cat:"push",sets:3,reps:"12",loadKg:0,unit:"bw",rest:90,tags:["twinge-gate"],
     cue:"Stop on any twinge \u2014 Dip is the substitute, not the default",angle:null,grip:null,equipmentClass:"bw"},
-  {id:"r1d6e14",name:"Cable Low Row",cat:"pull",sets:3,reps:"10",loadKg:55,unit:"kg",rest:120,tags:["single-pulley"],supersetNext:true,
+  // No overhead pressing on the gym day — the KB classes carry the overhead
+  // dose; gym stays horizontal. Iso-Lateral Bench: the proven pain-free press.
+  {id:"r4d1e12",name:"Iso-Lateral Bench Press",cat:"push",sets:3,reps:"8",loadKg:60,unit:"kg",rest:90,tags:["twinge-gate","controlled-negatives"],role:"hypertrophy",angle:null,grip:null,equipmentClass:"machine"},
+  {id:"r4d1e13",name:"Narrow-Grip Cable Pulldown",cat:"pull",week:"A",sets:3,reps:"8",loadKg:37.5,unit:"kg",rest:90,tags:["double-pulley"],
+    angle:null,grip:null,equipmentClass:"cable",variant:{pulley:"double",grip:null,angle:null,machine:null,attachment:null}},
+  {id:"r4d1e14",name:"Cable Low Row",cat:"pull",week:"B",sets:3,reps:"10",loadKg:61,unit:"kg",rest:120,tags:["single-pulley"],
     angle:null,grip:null,equipmentClass:"cable",variant:{pulley:"single",grip:null,angle:null,machine:null,attachment:null}},
-  {id:"r1d6e15",name:"DB Curl",cat:"isolation",sets:2,reps:"10",loadKg:12.5,unit:"kg",rest:60,tags:["per hand"],angle:null,grip:null,equipmentClass:"db"},
-  // Sep 21 revision: NO overhead pressing on the gym day — the KB classes
-  // already carry substantial overhead volume (classes are the overhead
-  // dose; gym stays horizontal). Iso-Lateral Bench is the proven pain-free
-  // chest press.
-  {id:"r1d6e21",name:"Iso-Lateral Bench Press",cat:"push",sets:3,reps:"8",loadKg:60,unit:"kg",rest:90,tags:["twinge-gate","controlled-negatives"],role:"hypertrophy",angle:null,grip:null,equipmentClass:"machine"},
-  {id:"r1d6e16",name:"Hanging Leg Raise",cat:"core",sets:3,reps:"10",loadKg:0,unit:"bw",rest:60,tags:[],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"r1d6e17",name:"Suitcase Carry",cat:"core",sets:2,reps:"30m",loadKg:27.5,unit:"kg",rest:60,tags:["one hand"],angle:null,grip:null,equipmentClass:"db"},
-  {id:"r1d6e22",name:"Pallof Press",cat:"core",sets:2,reps:"12",loadKg:20,unit:"kg",rest:60,tags:["per side"],role:"skill/anti-rotation",angle:null,grip:null,equipmentClass:"cable"},
-  {id:"r1d6e18",name:"Side Extension",cat:"core",sets:2,reps:"12",loadKg:0,unit:"bw",rest:45,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"r1d6e19",name:"Back Extension",cat:"hinge",sets:2,reps:"12",loadKg:0,unit:"bw",rest:60,tags:["neutral-only","no-hyperextension"],
+  {id:"r4d1e15",name:"Hanging Leg Raise",cat:"core",sets:3,reps:"10",loadKg:0,unit:"bw",rest:60,tags:[],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"r4d1e16",name:"Pallof Press",cat:"core",week:"A",sets:2,reps:"12",loadKg:20,unit:"kg",rest:60,tags:["per side"],role:"skill/anti-rotation",angle:null,grip:null,equipmentClass:"cable"},
+  {id:"r4d1e17",name:"Back Extension",cat:"hinge",week:"A",sets:2,reps:"12",loadKg:0,unit:"bw",rest:60,tags:["neutral-only","no-hyperextension"],
     frozen:true,cue:"Pad at hip crease \u00b7 hinge at hips \u00b7 rise to a straight line ONLY \u2014 never past",angle:null,grip:null,equipmentClass:"bw"},
-  {id:"r1d6e20",name:"Sprints",cat:"cardio",section:"finisher",entryType:"circuit",format:"Intervals",minutes:8,
-    movements:"Row or treadmill sprints \u2014 5\u00d730s hard / 90s easy",
+  {id:"r4d1e18",name:"Suitcase Carry",cat:"core",week:"B",sets:2,reps:"30m",loadKg:27.5,unit:"kg",rest:60,tags:["one hand"],angle:null,grip:null,equipmentClass:"db"},
+  {id:"r4d1e19",name:"Side Extension",cat:"core",week:"B",sets:2,reps:"12",loadKg:0,unit:"bw",rest:45,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
+  {id:"r4d1e20",name:"Sprints",cat:"cardio",section:"finisher",entryType:"circuit",format:"Intervals",minutes:8,
+    movements:"Sprints 5\u00d730s hard / 90s easy",
     sets:0,reps:"",loadKg:0,unit:"bw",rest:0,tags:[],angle:null,grip:null,equipmentClass:"bw"}
-];
-const _gymDayW3=p=>GYM_EXERCISES_W3.map(e=>{const c=JSON.parse(JSON.stringify(e));c.id=String(c.id).replace('r1d6',p);return c;});
-const DEF_PROGRAM={name:"Sep 21 Recomp W3",version:13,active:true,startDate:"2026-09-21",phase:"maintain",days:[
-{id:1,label:"Gym",defaultDay:"Monday",dayOfWeek:"Monday",sessionType:"lifting",dur:75,alternating:true,variantFlip:true,tags:["adjacency-accepted"],
-  variantLabels:{A:"Squat emphasis",B:"Deadlift emphasis"},exercises:_gymDayW3('r3d1')},
+]},
 {id:2,label:"KB Class",defaultDay:"Tuesday",dayOfWeek:"Tuesday",sessionType:"kb",dur:45,exercises:[],
   note:"KB class \u2014 log duration, bells, and what you did (tick-friendly)."},
-{id:3,label:"Swim",defaultDay:"Wednesday",dayOfWeek:"Wednesday",sessionType:"swim",dur:45,exercises:[],
-  note:"Pace day \u2014 chase the 30-minute 1000."},
+{id:3,label:"Run (optional)",defaultDay:"Wednesday",dayOfWeek:"Wednesday",sessionType:"run",dur:30,optional:true,exercises:[],
+  note:"Easy 30 min zone 2 \u2014 a lever, not a race"},
 {id:4,label:"KB Class",defaultDay:"Thursday",dayOfWeek:"Thursday",sessionType:"kb",dur:45,exercises:[],
   note:"KB class \u2014 log duration, bells, and what you did (tick-friendly)."},
-{id:5,label:"Swim (Recovery)",defaultDay:"Friday",dayOfWeek:"Friday",sessionType:"swim",dur:30,tags:["unmeasured"],exercises:[],
-  note:"Easy by decree \u2014 20-30 min technique, no clock."},
+{id:5,label:"Swim",defaultDay:"Friday",dayOfWeek:"Friday",sessionType:"swim",dur:45,exercises:[],
+  note:"Pace day"},
 {id:6,label:"KB Class",defaultDay:"Saturday",dayOfWeek:"Saturday",sessionType:"kb",dur:45,exercises:[],
-  note:"Readiness gates this class: sub-70 \u2192 walk instead. Sunday's gym is protected."},
-{id:7,label:"Gym",defaultDay:"Sunday",dayOfWeek:"Sunday",sessionType:"lifting",dur:75,alternating:true,tags:["adjacency-accepted"],
-  variantLabels:{A:"Squat emphasis",B:"Deadlift emphasis"},exercises:_gymDayW3('r3d7')}
+  note:"KB class \u2014 log duration, bells, and what you did (tick-friendly)."},
+{id:7,label:"Rest",defaultDay:"Sunday",dayOfWeek:"Sunday",sessionType:"rest",dur:0,exercises:[],
+  note:"Scheduled rest \u2014 recovery is training."}
 ]};
 
 // ===== EXTRAS LIBRARY =====
@@ -3487,6 +3487,7 @@ function getNextAvailableDayIdx(){
     const ed=dayEffectiveDate(d);
     if(dayRemovedForWeek(d,weekOfDate(ed)))return; // E2: removed this week
     if(dayPreBlock(d,weekDatesFor(ed)))return; // block hasn't started — never 'next'
+    if(isOptionalDay(d)&&ed<todayStr())return; // a passed optional day is simply not taken
     if(bestDate===null||ed<bestDate){bestDate=ed;best=i;}
   });
   return best;
@@ -3877,7 +3878,7 @@ function renderTrain(){
     const _edCard=dayEffectiveDate(day,_calWk[0]);
     const _pendingCard=!done&&!skipped;
     const dow=_pendingCard?dowOf(_edCard):(day.defaultDay||day.dayOfWeek);
-    const _missTail=(_pendingCard&&_edCard<todayStr())?' · missed':'';
+    const _missTail=(_pendingCard&&_edCard<todayStr())?(isOptionalDay(day)?' · optional':' · missed'):'';
     const isActivity=isActivityType(day.sessionType);
     const meta=isActivity
       ?`${dow} · ${day.sessionType}${metaTail}${_missTail}`
@@ -7938,14 +7939,17 @@ function maybeAdvanceBrandSafe(){try{if(typeof maybeAdvanceBrand==='function')ma
 // the report). All sessionTypes included; activities render one line each.
 function weeklyScheduled(weekDates,today){
   // What this week holds: program days placed by buildWeek + dated recurring.
-  let prog=0,rec=0,recTypes=[];
+  let prog=0,rec=0,opt=0,recTypes=[];
   try{
     buildWeek(weekDates,today||todayStr()).forEach(row=>(row.sessions||[]).forEach(s=>{
-      if(s.source==='program'&&s.type!=='rest')prog++;
+      if(s.source==='program'&&s.type!=='rest'){
+        const d=s.dayIndex!=null?S.program.days[s.dayIndex]:null;
+        if(isOptionalDay(d))opt++;else prog++;
+      }
       else if(s.source==='recurring'){rec++;recTypes.push(s.type);}
     }));
   }catch(e){}
-  return {prog,rec,recTypes};
+  return {prog,rec,opt,recTypes};
 }
 // A2: ONE per-day predicate feeds the checklist card AND week completeness —
 // week-scoped by construction (a record from last week never ticks this one;
@@ -7970,10 +7974,14 @@ function dayWeekStatus(d,wd){
   if(dayPreBlock(d,wd))return 'preblock'; // block started mid-week — not owed
   return 'pending';
 }
+// v14: a day authored optional:true (e.g. 'Run (optional)') is a lever,
+// not an obligation — never owed, never 'missed', never the 'next' session
+// once its date passes. Doing it still counts.
+function isOptionalDay(d){return !!(d&&d.optional);}
 function isWeekComplete(weekDates){
   const wd=weekDates||weekDatesFor(todayStr());
-  const sts=(S.program.days||[]).map(d=>dayWeekStatus(d,wd));
-  const owed=sts.filter(st=>st!=='removed'&&st!=='rest'&&st!=='preblock');
+  const sts=(S.program.days||[]).map(d=>isOptionalDay(d)&&dayWeekStatus(d,wd)==='pending'?'optional':dayWeekStatus(d,wd));
+  const owed=sts.filter(st=>st!=='removed'&&st!=='rest'&&st!=='preblock'&&st!=='optional');
   // A week nobody owed anything in (all pre-block) is NOT "complete" — no
   // spurious week-complete banner the weekend a new block is adopted early.
   return owed.length>0&&owed.every(st=>st!=='pending');
@@ -7987,10 +7995,13 @@ function weekChecklistHTML(){
   const _hab=habitRowsHTML();
   if(!rows.length&&!_hab&&!leftoverRowHTML())return '';
   const doneN=rows.filter(o=>o.st==='done'||o.st==='ticked'||o.st==='skipped').length;
-  return `<div class="goal-card wk-check"><div class="goal-head"><span class="t-h2">${t('check.title')}</span><span class="t-meta tnum">${rows.length?doneN+' / '+rows.length:''}</span></div>
+  // An untaken optional day is outside the denominator (no penalty); taken, it counts.
+  const totN=rows.filter(o=>!(isOptionalDay(o.d)&&o.st==='pending')).length;
+  return `<div class="goal-card wk-check"><div class="goal-head"><span class="t-h2">${t('check.title')}</span><span class="t-meta tnum">${rows.length?doneN+' / '+totN:''}</span></div>
     ${rows.map(o=>{
-      const missed=o.st==='pending'&&dayEffectiveDate(o.d,wd[0])<todayStr();
-      return `<div class="wkc-row${o.st==='pending'?(missed?' is-missed':''):' is-done'}"><span class="wkc-mark">${missed?'\u2013':o.st==='pending'?'\u25cb':o.st==='ticked'?'\u2713\u00b7':'\u2713'}</span><span class="wkc-lbl">${esc(o.d.label)}</span><span class="t-meta">${dowOf(dayEffectiveDate(o.d,wd[0])).slice(0,3)}${missed?' \u00b7 missed':o.st==='ticked'?' \u00b7 ticked':o.st==='skipped'?' \u00b7 skipped':''}</span></div>`;
+      const opt=isOptionalDay(o.d)&&o.st==='pending';
+      const missed=!opt&&o.st==='pending'&&dayEffectiveDate(o.d,wd[0])<todayStr();
+      return `<div class="wkc-row${o.st==='pending'?(missed?' is-missed':''):' is-done'}"><span class="wkc-mark">${missed?'\u2013':o.st==='pending'?'\u25cb':o.st==='ticked'?'\u2713\u00b7':'\u2713'}</span><span class="wkc-lbl">${esc(o.d.label)}</span><span class="t-meta">${dowOf(dayEffectiveDate(o.d,wd[0])).slice(0,3)}${opt?' \u00b7 optional':missed?' \u00b7 missed':o.st==='ticked'?' \u00b7 ticked':o.st==='skipped'?' \u00b7 skipped':''}</span></div>`;
     }).join('')}
     ${_hab}
     ${leftoverRowHTML()}
@@ -8001,7 +8012,7 @@ function buildCoachReport(sessions,program,weekDates){
   const sched=weeklyScheduled(weekDates,weekDates[0]);
   const schedTotal=sched.prog+sched.rec;
   const schedNote=sched.rec?` (${sched.prog} program + ${sched.rec} ${sched.recTypes.join('/')})`:'';
-  let r=`## COACH REPORT — Week ${fmtDate(weekDates[0])} – ${fmtDate(weekDates[6])}\nBlock: ${program.name||'Unnamed Block'}\nSessions: ${wk.length} / ${schedTotal} scheduled${schedNote}\n\n`;
+  let r=`## COACH REPORT — Week ${fmtDate(weekDates[0])} – ${fmtDate(weekDates[6])}\nBlock: ${program.name||'Unnamed Block'}\nSessions: ${wk.length} / ${schedTotal} scheduled${schedNote}${sched.opt?' (+'+sched.opt+' optional)':''}\n\n`;
   if(!wk.length)return r+'No sessions recorded this week.\n';
   const blockSessions=wk.slice().sort((a,b)=>a.date<b.date?-1:1);
 

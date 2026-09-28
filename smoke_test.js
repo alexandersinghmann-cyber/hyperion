@@ -37,8 +37,6 @@ const patched = js
   .replace(/\blet sessionStart\s*=/g, 'var sessionStart =')
   .replace(/\blet _painArea\s*=/g, 'var _painArea =')
   .replace(/\blet _painSessionMode\s*=/g, 'var _painSessionMode =')
-  .replace(/\bconst GYM_EXERCISES_W3\s*=/g, 'var GYM_EXERCISES_W3 =')
-  .replace(/\bconst _gymDayW3\s*=/g, 'var _gymDayW3 =')
   .replace(/\blet _orderOffer\s*=/g, 'var _orderOffer =')
   .replace(/\blet _focusIdx\s*=/g, 'var _focusIdx =')
   .replace(/\bconst FOCUS_SWIPE\s*=/g, 'var FOCUS_SWIPE =')
@@ -608,11 +606,11 @@ assert(/\.imperium #vSession\.on \.ex-card\.sec-warmup\{background:color-mix\(in
 assert(/const _collapsed=\(_wuCollapsed===null\)\?\(_secAll\.some\(e=>sectionOf\(e\)!=='warmup'\)&&_wuAll\.length>0\):_wuCollapsed;/.test(html), 'K11: warm-ups collapsed BY DEFAULT when main work exists (kb-hybrid all-warmup lists stay open)');
 assert(/\.ab-badge\{/.test(html)&&/<span class="ab-badge">\$\{ex\.week\}/.test(html), 'K2: preview badges A/B rows');
 
-// ===== PROGRAM: Sep 21 Recomp W3 structure (7 days Mon-Sun, maintain, NO rest) =====
-assert(DEF_PROGRAM.name === 'Sep 21 Recomp W3', 'Program name is Sep 21 Recomp W3: got ' + DEF_PROGRAM.name);
-assert(DEF_PROGRAM.version === 13, 'R2: program version 13 (banner semantics — this IS a new block). Got ' + DEF_PROGRAM.version);
-assert(DEF_PROGRAM.phase === 'maintain', 'R2: block ships phase maintain');
-assert(DEF_PROGRAM.startDate === '2026-09-21', 'R2: block carries its start date (Monday)');
+// ===== PROGRAM: Sep 28 Recomp W4 structure (7 days Mon-Sun, maintain, Sunday REST) =====
+assert(DEF_PROGRAM.name === 'Sep 28 Recomp W4', 'Program name is Sep 28 Recomp W4: got ' + DEF_PROGRAM.name);
+assert(DEF_PROGRAM.version === 14, 'R3: program version 14 (banner semantics — a new block). Got ' + DEF_PROGRAM.version);
+assert(DEF_PROGRAM.phase === 'maintain', 'R3: block ships phase maintain');
+assert(DEF_PROGRAM.startDate === '2026-09-28', 'R3: block carries its start date (Monday)');
 assert(DEF_PROGRAM.days.length === 7, 'Program has 7 days: got ' + DEF_PROGRAM.days.length);
 const d1 = DEF_PROGRAM.days.find(d => d.id === 1);
 const d2 = DEF_PROGRAM.days.find(d => d.id === 2);
@@ -621,132 +619,158 @@ const d4 = DEF_PROGRAM.days.find(d => d.id === 4);
 const d5 = DEF_PROGRAM.days.find(d => d.id === 5);
 const d6 = DEF_PROGRAM.days.find(d => d.id === 6);
 const d7 = DEF_PROGRAM.days.find(d => d.id === 7);
-assert(d1.label==='Gym'&&d2.label==='KB Class'&&d3.label==='Swim'&&d4.label==='KB Class'&&d5.label==='Swim (Recovery)'&&d6.label==='KB Class'&&d7.label==='Gym', 'R2: labels pinned. Got: '+DEF_PROGRAM.days.map(d=>d.label).join('|'));
-assert(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].every((dw,i)=>DEF_PROGRAM.days[i].defaultDay===dw), 'R2: Mon-Sun defaultDays');
-// NO rest day BY USER DECISION — Friday's recovery swim is the pressure valve
-assert(!DEF_PROGRAM.days.some(d=>d.sessionType==='rest'), 'R2: no rest day (user decision — recovery swim is the valve)');
-assert([d2,d3,d4,d5,d6].every(d=>isActivityType(d.sessionType)&&d.exercises.length===0&&d.note), 'R2: kb/swim days are tick-friendly activity days with notes');
-assert(d3.sessionType==='swim'&&/Pace day/.test(d3.note)&&/30-minute 1000/.test(d3.note), 'R2: Wednesday pace-swim note');
-assert(d5.sessionType==='swim'&&(d5.tags||[]).includes('unmeasured')&&/Easy by decree/.test(d5.note)&&/no clock/.test(d5.note), 'R2: Friday recovery swim — unmeasured (no distance demanded), decreed easy');
-assert(d6.sessionType==='kb'&&/Readiness gates this class/.test(d6.note)&&/sub-70/.test(d6.note)&&/gym is protected/.test(d6.note), 'R2: Saturday KB readiness-gate note');
-// ---- ONE shared gym definition drives Days 1 and 7 ----
-assert(d1.sessionType==='lifting'&&d7.sessionType==='lifting'&&d1.alternating===true&&d7.alternating===true, 'R2: two alternating gym days');
-assert(d1.variantFlip===true&&!d7.variantFlip, 'R2: Monday carries the parity flip; Sunday rides the week parity');
-const _stripIds=d=>JSON.stringify(d.exercises.map(e=>{const c=JSON.parse(JSON.stringify(e));delete c.id;return c;}));
-assert(_stripIds(d1)===_stripIds(d7), 'R2: Days 1 and 7 are the SAME revised gym definition (identical modulo ids)');
-assert(d1.exercises.length===22&&d1.exercises.every((e,i)=>e.id!==d7.exercises[i].id), 'R2: per-day exercise ids stay distinct');
-assert(d1.variantLabels.A==='Squat emphasis'&&d1.variantLabels.B==='Deadlift emphasis'&&d7.variantLabels.A==='Squat emphasis', 'R2: variant labels authored on both');
-const _g=d1; // census target — d7 proven identical above
-// ---- The SHARED alternating Gym definition (census runs on Day 1) ----
-assert(_g.sessionType==='lifting'&&_g.dur===75&&_g.alternating===true, 'R2: gym day alternates, ~75 min');
-assert(_g.variantLabels.A==='Squat emphasis'&&_g.variantLabels.B==='Deadlift emphasis', 'R1: variant labels authored');
-const _wu6=_g.exercises.filter(e=>e.section==='warmup');
-assert(_wu6.length===6&&_wu6.every(e=>!e.week), 'R1: 6-part shared warmup (both weeks). Got: '+_wu6.length);
-assert(['90/90 Hip Switch','Couch Stretch','Glute Bridge','Frog Pose','Bird Dog','Band Pull-Apart'].every(n=>_wu6.some(e=>e.name===n)), 'R1: warmup contents');
+assert(d1.label==='Gym'&&d2.label==='KB Class'&&d3.label==='Run (optional)'&&d4.label==='KB Class'&&d5.label==='Swim'&&d6.label==='KB Class'&&d7.label==='Rest', 'R3: labels pinned. Got: '+DEF_PROGRAM.days.map(d=>d.label).join('|'));
+assert(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].every((dw,i)=>DEF_PROGRAM.days[i].defaultDay===dw), 'R3: Mon-Sun defaultDays');
+assert(DEF_PROGRAM.days.filter(d=>d.sessionType==='lifting').length===1&&d1.sessionType==='lifting', 'R3: exactly ONE gym day (Monday)');
+assert(d7.sessionType==='rest'&&d7.exercises.length===0&&isStartableDay(d7)===false, 'R3: Sunday is REST by design (the schedule tells the truth)');
+assert([d2,d4,d6].every(d=>d.sessionType==='kb'&&d.exercises.length===0&&d.note), 'R3: KB Class Tue/Thu/Sat are tick-friendly kb days');
+assert(d3.sessionType==='run'&&d3.optional===true&&d3.exercises.length===0&&/Easy 30 min zone 2/.test(d3.note)&&/a lever, not a race/.test(d3.note), 'R3: Wednesday run — optional, zone-2 note, tick-friendly');
+assert(d5.sessionType==='swim'&&d5.note==='Pace day'&&!(d5.tags||[]).includes('unmeasured'), 'R3: Friday swim — Pace day (distance counts toward the 1000)');
+// ---- The trimmed alternating gym definition ----
+const _g=d1;
+assert(_g.dur===60&&_g.alternating===true&&!_g.variantFlip, 'R3: gym day alternates, ~60 min target, week parity (no flip)');
+assert(_g.variantLabels.A==='Squat emphasis'&&_g.variantLabels.B==='Deadlift emphasis', 'R3: variant labels authored');
+const _wu=_g.exercises.filter(e=>e.section==='warmup');
+assert(_wu.length===4&&_wu.every(e=>!e.week)&&_wu.map(e=>e.name).join('|')==='90/90 Hip Switch|Couch Stretch|Glute Bridge|Bird Dog', 'R3: 4-part shared warm-up. Got: '+_wu.map(e=>e.name).join('|'));
+const _wx=n=>_wu.find(e=>e.name===n);
+assert(_wx('90/90 Hip Switch').sets===1&&_wx('90/90 Hip Switch').reps==='8'&&_wx('90/90 Hip Switch').tags.includes('per side')&&_wx('Couch Stretch').reps==='45s'&&_wx('Couch Stretch').tags.includes('per side')&&_wx('Glute Bridge').sets===2&&_wx('Glute Bridge').reps==='10'&&_wx('Bird Dog').sets===2&&_wx('Bird Dog').reps==='8', 'R3: warm-up prescriptions');
 const _A=_g.exercises.filter(e=>e.week==='A'),_B=_g.exercises.filter(e=>e.week==='B');
-assert(_A.length===2&&_B.length===3, 'R1: A-mains 2, B-mains 3. Got: '+_A.length+'/'+_B.length);
 const aSq=_A.find(e=>e.name==='Back Squat'),aDl=_A.find(e=>e.name==='Trap Bar Deadlift');
-assert(aSq.sets===4&&aSq.reps==='8-10'&&aSq.loadKg===100&&aSq.tags.includes('RPE-7-8')&&aSq.tags.includes('full-depth-standard'), 'R1: Week A squat 4x8-10@100');
-assert(aDl.sets===2&&aDl.reps==='5'&&aDl.loadKg===100&&aDl.barKg===36&&aDl.tags.includes('reset-every-rep')&&aDl.tags.includes('5s-max'), 'R1: Week A trap-bar 2x5@100 on the 36 bar');
+assert(aSq.sets===4&&aSq.reps==='8-10'&&aSq.loadKg===100&&aSq.tags.includes('RPE-7-8')&&aSq.tags.includes('full-depth-standard'), 'R3: Week A squat 4x8-10@100 (RPE-7-8, full depth)');
+assert(aDl.sets===2&&aDl.reps==='5'&&aDl.loadKg===100&&aDl.barKg===36&&aDl.tags.includes('reset-every-rep'), 'R3: Week A trap-bar 2x5@100 reset-every-rep');
 const bDl=_B.find(e=>e.name==='Trap Bar Deadlift'),bSq=_B.find(e=>e.name==='Back Squat'),bBss=_B.find(e=>e.name==='Bulgarian Split Squat');
-assert(bDl.sets===4&&bDl.loadKg===100&&bDl.tags.includes('5s-max-forever'), 'R1: Week B trap-bar 4x5@100');
-assert(bSq.sets===2&&bSq.reps==='8'&&bSq.loadKg===90, 'R1: Week B back-off squat 2x8@90');
-assert(bBss.sets===2&&bBss.loadKg===15&&bBss.tags.includes('per hand'), 'R1: Week B BSS 2x8@15/hand');
-// shared block: superset pairs marked on the FIRST member, adjacency preserved
-const _sh=_g.exercises.filter(e=>!e.week&&e.section!=='warmup'&&e.section!=='finisher');
-assert(_sh.length===10, 'R1: 10 shared main-block rows (Sep 21: +Iso-Lateral Bench, +Pallof). Got: '+_sh.length);
+assert(bDl.sets===4&&bDl.loadKg===100&&bDl.tags.includes('5s-max-forever')&&bDl.tags.includes('reset-every-rep'), 'R3: Week B trap-bar 4x5@100');
+assert(bSq.sets===2&&bSq.reps==='8'&&bSq.loadKg===90, 'R3: Week B back-off squat 2x8@90');
+assert(bBss.sets===2&&bBss.reps==='8'&&bBss.loadKg===15&&bBss.tags.includes('per hand'), 'R3: Week B BSS 2x8@15/hand');
 const puI=_g.exercises.findIndex(e=>e.name==='Strict Pull-Up');
-assert(_g.exercises[puI].supersetNext===true&&_g.exercises[puI+1].name==='Press-Up', 'R1: Pull-Up ↔ Press-Up superset pair');
-assert(_g.exercises[puI+1].tags.includes('twinge-gate')&&/Dip is the substitute/.test(_g.exercises[puI+1].cue||''), 'R1: Press-Up twinge-gated, Dip substitute-only');
-const crI=_g.exercises.findIndex(e=>e.name==='Cable Low Row');
-assert(_g.exercises[crI].supersetNext===true&&_g.exercises[crI+1].name==='DB Curl', 'R1: Row ↔ Curl superset pair');
-assert(_g.exercises[crI].loadKg===55&&_g.exercises[crI].variant.pulley==='single'&&_g.exercises[crI].tags.includes('single-pulley'), 'R1: Cable Low Row 3x10@55 single pulley (spec said "Cable Row" — canonical name keeps the history track)');
-const bx=_g.exercises.find(e=>e.name==='Back Extension');
-assert(bx.frozen===true&&bx.loadKg===0&&bx.unit==='bw'&&bx.tags.includes('neutral-only')&&bx.tags.includes('no-hyperextension'), 'R1: Back Extension 2x12 BW FROZEN, neutral-only');
+assert(_g.exercises[puI].supersetNext===true&&_g.exercises[puI].reps==='6-8'&&!_g.exercises[puI].week&&_g.exercises[puI+1].name==='Press-Up', 'R3: Pull-Up 3x6-8 <-> Press-Up superset, both weeks');
+const pup=_g.exercises[puI+1];
+assert(pup.sets===3&&pup.reps==='12'&&pup.tags.includes('twinge-gate')&&/Dip is the substitute/.test(pup.cue||''), 'R3: Press-Up 3x12, twinge-gated');
+const iso=_g.exercises.find(e=>e.name==='Iso-Lateral Bench Press');
+assert(iso&&!iso.week&&iso.sets===3&&iso.reps==='8'&&iso.loadKg===60&&iso.tags.includes('twinge-gate'), 'R3: Iso-Lateral Bench 3x8@60 both weeks');
+const pd=_g.exercises.find(e=>e.name==='Narrow-Grip Cable Pulldown');
+assert(pd&&pd.week==='A'&&pd.sets===3&&pd.reps==='8'&&pd.loadKg===37.5&&pd.variant.pulley==='double'&&pd.equipmentClass==='cable', 'R3: Week A Narrow-Grip Cable Pulldown 3x8@37.5, double pulley');
+const row=_g.exercises.find(e=>e.name==='Cable Low Row');
+assert(row&&row.week==='B'&&row.sets===3&&row.reps==='10'&&row.loadKg===61&&row.variant.pulley==='single'&&!row.supersetNext, 'R3: Week B Cable Row 3x10@61 single pulley (canonical Cable Low Row), no longer supersetted');
+const hlr=_g.exercises.find(e=>e.name==='Hanging Leg Raise');
+assert(hlr&&!hlr.week&&hlr.sets===3&&hlr.reps==='10', 'R3: Hanging Leg Raise 3x10 both weeks');
+const pal=_g.exercises.find(e=>e.name==='Pallof Press'),bx=_g.exercises.find(e=>e.name==='Back Extension');
+assert(pal.week==='A'&&pal.sets===2&&pal.reps==='12'&&pal.loadKg===20&&pal.tags.includes('per side'), 'R3: Week A Pallof 2x12/side@20');
+assert(bx.week==='A'&&bx.frozen===true&&bx.loadKg===0&&bx.unit==='bw'&&/Pad at hip crease .* rise to a straight line ONLY/.test(bx.cue), 'R3: Week A Back Extension 2x12 BW FROZEN, cue unchanged');
+const car=_g.exercises.find(e=>e.name==='Suitcase Carry'),sx=_g.exercises.find(e=>e.name==='Side Extension');
+assert(car.week==='B'&&car.sets===2&&car.reps==='30m'&&car.loadKg===27.5&&sx.week==='B'&&sx.sets===2&&sx.reps==='12'&&sx.loadKg===0, 'R3: Week B core — Suitcase Carry 2x30m@27.5 + Side Extension 2x12 BW');
 const fin=_g.exercises[_g.exercises.length-1];
-assert(fin.name==='Sprints'&&fin.entryType==='circuit'&&fin.format==='Intervals'&&fin.minutes===8&&fin.section==='finisher', 'R1: Intervals finisher closes the day');
-// resolver totals per parity: 6 wu + mains + 8 shared + 1 finisher
-assert(dayExercises(_g,'A').length===19&&dayExercises(_g,'B').length===20, 'R1: resolved lists A=19 B=20 (Sep 21 revision). Got: '+dayExercises(_g,'A').length+'/'+dayExercises(_g,'B').length);
-// EX_META adds
-assert(EX_META['Couch Stretch']&&EX_META['Couch Stretch'].hold===true, 'R1: Couch Stretch meta added');
-assert(EX_META['Press-Up']&&EX_META['Press-Up'].pat==='hpush'&&EX_META['Press-Up'].eq.includes('bodyweight'), 'R1: Press-Up meta added (hpush passes the overhead ban)');
-// NO set-level AMRAP; overhead ban intact — audits walk the FLAT array so
-// BOTH week variants are covered (single-array design).
+assert(fin.name==='Sprints'&&fin.entryType==='circuit'&&fin.format==='Intervals'&&fin.minutes===8&&fin.section==='finisher'&&fin.movements==='Sprints 5×30s hard / 90s easy'&&!fin.week, 'R3: Intervals finisher, both weeks');
+// resolved lists per parity — the whole contract in one line each
+const _nA=dayExercises(_g,'A').map(e=>e.name),_nB=dayExercises(_g,'B').map(e=>e.name);
+assert(_nA.join('|')==='90/90 Hip Switch|Couch Stretch|Glute Bridge|Bird Dog|Back Squat|Trap Bar Deadlift|Strict Pull-Up|Press-Up|Iso-Lateral Bench Press|Narrow-Grip Cable Pulldown|Hanging Leg Raise|Pallof Press|Back Extension|Sprints', 'R3: Week A resolves exactly. Got: '+_nA.join('|'));
+assert(_nB.join('|')==='90/90 Hip Switch|Couch Stretch|Glute Bridge|Bird Dog|Trap Bar Deadlift|Back Squat|Bulgarian Split Squat|Strict Pull-Up|Press-Up|Iso-Lateral Bench Press|Cable Low Row|Hanging Leg Raise|Suitcase Carry|Side Extension|Sprints', 'R3: Week B resolves exactly. Got: '+_nB.join('|'));
+assert(_nA.includes('Narrow-Grip Cable Pulldown')&&_nA.includes('Pallof Press')&&!_nA.includes('Cable Low Row')&&!_nA.includes('Suitcase Carry'), 'R3: Week A = pulldown + Pallof core, no row, no carry');
+assert(_nB.includes('Cable Low Row')&&_nB.includes('Suitcase Carry')&&!_nB.includes('Narrow-Grip Cable Pulldown')&&!_nB.includes('Pallof Press'), 'R3: Week B = row + carry core, no pulldown, no Pallof');
+// DB Curl leaves the program permanently (stays pickable)
+assert(!DEF_PROGRAM.days.some(d=>(d.exercises||[]).some(e=>canonName(e.name)==='DB Curl')), 'R3: DB Curl absent from the program');
+assert(!!EX_META['DB Curl'], 'R3: DB Curl stays in EX_META (pickers)');
+// generic audits walk the FLAT array so BOTH variants are covered
 DEF_PROGRAM.days.forEach(d=>(d.exercises||[]).forEach(e=>{
-  assert(!(e.tags||[]).some(tg=>/amrap/i.test(tg)&&!/^no-amrap$/i.test(tg)), 'R1: no AMRAP-prescribing tag. Found on '+e.name);
-  assert(!/amrap/i.test(e.reps||''), 'R1: no AMRAP rep prescriptions');
-  assert(getMeta(e.name).pat!=='vpush', 'R1: no overhead pattern in program. Found '+e.name);
-  assert(e.name!=='Bench Press', 'R1: barbell bench still excluded');
-  assert(!getMeta(e.name).avoid, 'R1: no avoid-listed exercise authored. Found '+e.name);
+  assert(!(e.tags||[]).some(tg=>/amrap/i.test(tg)&&!/^no-amrap$/i.test(tg)), 'R3: no AMRAP-prescribing tag. Found on '+e.name);
+  assert(!/amrap/i.test(e.reps||''), 'R3: no AMRAP rep prescriptions');
+  assert(getMeta(e.name).pat!=='vpush', 'R3: no overhead pattern in program. Found '+e.name);
+  assert(e.name!=='Bench Press', 'R3: barbell bench still excluded');
+  assert(!getMeta(e.name).avoid, 'R3: no avoid-listed exercise authored. Found '+e.name);
 }));
-['KB Snatch','Turkish Get-Up'].forEach(n=>assert(EX_META[n]&&EX_META[n].avoid===true, 'R1/L3: '+n+' REMAINS avoid-listed (overhead)'));
-assert(EX_META['KB Press']&&!EX_META['KB Press'].avoid&&EX_META['KB Press'].sh==='activation-first', 'L3: KB Press ungated for re-entry (pickers may offer it; program still bans vpush AUTHORING via the scan above)');
-['Bench Press','DB Shoulder Press','Military Press','Machine Shoulder Press','Incline Bench Press','DB Incline Bench'].forEach(n=>assert(EX_META[n].avoid===true, 'R1: existing avoid intact — '+n));
-// Rackability on the Singapore inventory. AUTHORED-DATA FLAG: Trap Bar
-// Deadlift 100 on the 36 bar needs 32/side — NOT plate-exact on the 1.25
-// grid (nearest totals 98.5 / 101). Coach data ships verbatim; the
-// validator WARNS (never blocks) — asserted below, and flagged in the ship
-// report for Cowork.
+['KB Snatch','Turkish Get-Up'].forEach(n=>assert(EX_META[n]&&EX_META[n].avoid===true, 'R3/L3: '+n+' REMAINS avoid-listed (overhead)'));
+assert(EX_META['KB Press']&&!EX_META['KB Press'].avoid&&EX_META['KB Press'].sh==='activation-first', 'L3: KB Press ungated for pickers (never authored)');
+['Bench Press','DB Shoulder Press','Military Press','Machine Shoulder Press','Incline Bench Press','DB Incline Bench'].forEach(n=>assert(EX_META[n].avoid===true, 'R3: existing avoid intact — '+n));
+assert(EX_META['Couch Stretch']&&EX_META['Couch Stretch'].hold===true&&EX_META['Press-Up']&&EX_META['Press-Up'].pat==='hpush', 'R3: Couch Stretch / Press-Up meta intact');
 (()=>{
   const P7=[25,20,15,10,5,2.5,1.25];
-  assert(isMakeableTotal(100,20,P7)&&isMakeableTotal(90,20,P7), 'R1: both squat loads rackable on the 20 bar');
-  assert(!isMakeableTotal(100,36,P7), 'R1: trap-bar 100@36 is NOT plate-exact (known, flagged — validator warns)');
+  assert(isMakeableTotal(100,20,P7)&&isMakeableTotal(90,20,P7), 'R3: both squat loads rackable on the 20 bar');
+  assert(!isMakeableTotal(100,36,P7), 'R3: trap-bar 100@36 is NOT plate-exact (known, flagged — validator warns)');
 })();
-// validator: warns are EXACTLY the trap-bar rackability lines, both parities
+// ---- estimator: three genuine accuracy fixes (superset / own warm-up / distance) ----
+(()=>{
+  const a={name:'Strict Pull-Up',sets:3,reps:'6',rest:120,supersetNext:true},b={name:'Press-Up',sets:3,reps:'12',rest:90};
+  const solo=estimateSessionTime([{...a,supersetNext:false},b]),pair=estimateSessionTime([a,b]);
+  assert(solo-pair===6, 'R3/est: a superset bills its first member\'s rest ONCE (3x120s saved). Got '+solo+' vs '+pair);
+  const wu={name:'Glute Bridge',sets:2,reps:'10',rest:30,section:'warmup'};
+  assert(estimateSessionTime([wu,b])===Math.round(estimateExTime(wu)+estimateExTime(b)), 'R3/est: an authored warm-up section replaces the flat +10');
+  assert(estimateSessionTime([b])===Math.round(estimateExTime(b))+10, 'R3/est: no authored warm-up keeps the +10 allowance');
+  assert(Math.abs(estimateExTime({name:'Suitcase Carry',sets:2,reps:'30m',rest:60})-3.5)<1e-9, 'R3/est: a 30 m carry is ~30 s of walking, not 30 reps');
+})();
+// AUTHORED-DATA FLAG (for Cowork): with the estimator fixed, Week A fits
+// the 60+15 budget (73) but Week B runs 79 — ~39 of its minutes are the
+// carried-over rests (trap bar 4x180s, squat 150s, row 120s). Rests are
+// coaching, not code: pinned, warned, never silently trimmed.
+const _estA=estimateSessionTime(dayExercises(_g,'A')),_estB=estimateSessionTime(dayExercises(_g,'B'));
+assert(_estA===73&&_estB===79, 'R3: estimates pinned A 73 / B 79 min (card shows the planned ~60). Got A '+_estA+' / B '+_estB);
+// validator: EXACTLY the known authored-data warns — no time warns now
 (()=>{
   const _sp2=S.program;S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));
   const rep2=validateProgram();
   const warns=rep2.flatMap(r2=>r2.warnings.filter(w=>w.level==='warn').map(w=>r2.day+': '+w.msg));
-  // Expected, coach-authored realities (validator warns, never blocks):
-  // v13 has TWO gym days sharing the definition, so every known warn
-  // doubles: 4x trap-bar 100 not plate-exact; 4x time estimate over the
-  // +15 ceiling (superset-blind estimator); 2x Week-B squat/BSS adjacency
-  // (deliberate). All flagged in the ship report.
-  assert(warns.length===10, 'R2: exactly the ten known warns (5 x 2 gym days). Got '+warns.length+': '+JSON.stringify(warns));
-  assert(warns.filter(w=>/Trap Bar Deadlift: 100 kg is not loadable/.test(w)).length===4, 'R2: trap-bar 100 warned for BOTH parities on BOTH gym days');
-  assert(warns.filter(w=>/over the 90-min ceiling/.test(w)).length===4, 'R2: superset-blind time estimate warned everywhere (known)');
-  assert(warns.filter(w=>/shares prime movers/.test(w)).length===2, 'R2: Week-B squat/BSS adjacency warned on both gym days (authored deliberately)');
+  // AUTHORED-DATA FLAGS (warn, never block; flagged to Cowork): trap-bar
+  // 100 on the 36 bar isn't plate-exact (both parities); Week-B squat -> BSS
+  // prime-mover adjacency (deliberate); Press-Up -> Iso-Lateral Bench
+  // back-to-back presses in BOTH parities (the spec's order — DB Curl no
+  // longer sits between them; a pull between the presses would clear it);
+  // Week B's 79-min estimate over the 75 ceiling. Week A's time budget is
+  // CLEAN (was 2 superset-blind warns).
+  assert(warns.length===6, 'R3: exactly the six known authored-data warns. Got '+warns.length+': '+JSON.stringify(warns));
+  assert(warns.filter(w=>/Iso-Lateral Bench Press shares prime movers with Press-Up/.test(w)).length===2, 'R3: press-to-press adjacency warned in both parities (spec order, flagged)');
+  assert(warns.filter(w=>/Trap Bar Deadlift: 100 kg is not loadable/.test(w)).length===2, 'R3: trap-bar 100 warned for BOTH parities');
+  assert(warns.filter(w=>/Bulgarian Split Squat shares prime movers/.test(w)).length===1&&warns.some(w=>/Week B.*Bulgarian Split Squat/.test(w)), 'R3: Week-B squat/BSS adjacency warned (authored deliberately)');
+  assert(warns.filter(w=>/estimated at/.test(w)).length===1&&warns.some(w=>/Week B.*estimated at 79 min/.test(w)), 'R3: only Week B carries a time warn (79 > 75)');
   S.program=_sp2;
 })();
-// Naive (superset-blind) estimates run 109/114 vs the coach's ~75 — the two
-// authored pairs share rest, which the estimator double-counts, and the
-// Sep-21 revision adds Iso-Lateral Bench + Pallof. Bound the drift rather
-// than pretending: both parities stay under 120 naive minutes.
-['A','B'].forEach(v=>{
-  const est=estimateSessionTime(dayExercises(_g,v).map(e=>({name:e.name,sets:e.sets,reps:e.reps,rest:e.rest,entryType:e.entryType,minutes:e.minutes})));
-  assert(est<=120, 'R1: Gym (Week '+v+') naive estimate bounded. Got '+est);
-});
 assert(!DEF_PROGRAM.days.some(d => (d.exercises||[]).some(e => /^seated row$/i.test(e.name))), 'No day has bare "Seated Row"');
-// display name humanized; stored name untouched
-assert(blockDisplayName('Sep 21 Recomp W3')==='Recomp \u00b7 Week 3', 'R2: header renders "Recomp · Week 3". Got: '+blockDisplayName('Sep 21 Recomp W3'));
-assert(blockDisplayName('Sep 7 Recomp W1')==='Recomp \u00b7 Week 1', 'R2: earlier Recomp-form names still parse');
-assert(blockDisplayName('Sep 2 Block 6 W3')==='Block 6 \u00b7 Week 3', 'R2: Block-form names still parse');
-// parity contract on the LIVE program copy: Mon and Sun render OPPOSITE
-// parities within a week and flip together at the boundary
+assert(blockDisplayName('Sep 28 Recomp W4')==='Recomp · Week 4', 'R3: header renders "Recomp · Week 4". Got: '+blockDisplayName('Sep 28 Recomp W4'));
+assert(blockDisplayName('Sep 2 Block 6 W3')==='Block 6 · Week 3', 'R3: Block-form names still parse');
+// parity: Mon Sep 28 = Week A (squat leads); Mon Oct 5 = Week B (trap bar leads)
 (()=>{
   const _sp2=S.program;S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));
-  assert(weekVariantFor('2026-09-21')==='A'&&weekVariantFor('2026-09-28')==='B', 'R2: startDate week is parity A');
-  const dd1=S.program.days[0],dd7=S.program.days[6];
-  assert(dayVariantFor(dd1,'2026-09-21')==='B'&&dayVariantFor(dd7,'2026-09-27')==='A', 'R2: week of Sep 21 — Mon gym renders Week B, Sun gym Week A');
-  assert(dayVariantFor(dd1,'2026-09-28')==='A'&&dayVariantFor(dd7,'2026-10-04')==='B', 'R2: the pair flips together the following week (Mon A / Sun B)');
-  const monLead=dayExercises(dd1,dayVariantFor(dd1,'2026-09-21')).find(e=>e.section!=='warmup');
-  assert(monLead.name==='Trap Bar Deadlift'&&monLead.sets===4&&monLead.loadKg===100, 'R2: Mon Sep 21 leads Trap Bar Deadlift 4x5@100 (Week B). Got: '+monLead.name);
-  const sunLead=dayExercises(dd7,dayVariantFor(dd7,'2026-09-27')).find(e=>e.section!=='warmup');
-  assert(sunLead.name==='Back Squat'&&sunLead.sets===4&&sunLead.loadKg===100, 'R2: Sun Sep 27 leads Back Squat 4x8-10@100 (Week A). Got: '+sunLead.name);
-  assert(dayVariantLabel(dd7,'A')==='Week A \u2014 Squat emphasis', 'R2: label line (explicit variant never flipped)');
-  assert(dayVariantLabel(dd1,'B')==='Week B \u2014 Deadlift emphasis', 'R2: Monday label line');
+  const g=S.program.days[0];
+  assert(dayVariantFor(g,'2026-09-28')==='A'&&dayVariantFor(g,'2026-10-05')==='B'&&dayVariantFor(g,'2026-10-12')==='A', 'R3: Mon Sep 28 = A, Oct 5 = B, Oct 12 = A');
+  const lead=d=>dayExercises(g,dayVariantFor(g,d)).find(e=>e.section!=='warmup');
+  assert(lead('2026-09-28').name==='Back Squat'&&lead('2026-10-05').name==='Trap Bar Deadlift', 'R3: Week A leads the squat, Week B the trap bar');
+  assert(dayVariantLabel(g,'A')==='Week A — Squat emphasis', 'R3: label line');
   S.program=_sp2;
 })();
-// adoption: syncProgram deep-copies phase / startDate / BOTH gym days + flip
+// adoption: v13 -> v14 carries phase / startDate / optional / rest
 (()=>{
   const _sp2=S.program,_ss2=S.sessions;
-  S.program={name:'Sep 7 Recomp W1',version:12,active:true,startDate:'2026-09-07',phase:'maintain',days:[]};
+  S.program={name:'Sep 21 Recomp W3',version:13,active:true,startDate:'2026-09-21',phase:'maintain',days:[]};
   S.sessions=[];S.activeSession=null;
   global.confirm=window.confirm=()=>true;
   syncProgram();
-  assert(S.program.version===13&&S.program.phase==='maintain'&&S.program.startDate==='2026-09-21', 'R2: adoption carries version/phase/startDate');
-  assert(S.program.days[0].alternating===true&&S.program.days[0].variantFlip===true&&S.program.days[6].alternating===true&&!S.program.days[6].variantFlip, 'R2: adoption carries BOTH gym days and the Monday flip intact');
+  assert(S.program.version===14&&S.program.phase==='maintain'&&S.program.startDate==='2026-09-28', 'R3: adoption carries version/phase/startDate');
+  assert(S.program.days[0].alternating===true&&S.program.days[2].optional===true&&S.program.days[6].sessionType==='rest', 'R3: adoption carries the A/B gym day, the optional run and Sunday rest');
   S.program=_sp2;S.sessions=_ss2;
+})();
+// optional day: never owed, never missed, never 'next' once past
+(()=>{
+  const _sp2=S.program,_ss2=S.sessions,_sk=S.skips,_wr=S.weekRemovals;
+  S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));S.sessions=[];S.skips=[];S.weekRemovals=[];
+  const wd=weekDatesFor('2026-09-28');
+  const rec=(date,label,dayId,type)=>({date,dayLabel:label,dayId,blockName:S.program.name,sessionType:type,duration:45,rpe:7,status:'complete',exercises:[],painEvents:[]});
+  // every REQUIRED day done, the run untaken -> week complete
+  S.sessions=[rec(wd[0],'Gym',1,'lifting'),rec(wd[1],'KB Class',2,'kb'),rec(wd[3],'KB Class',4,'kb'),rec(wd[4],'Swim',5,'swim'),rec(wd[5],'KB Class',6,'kb')];
+  assert(isWeekComplete(wd)===true, 'R3: the untaken optional run never blocks week completion');
+  const sched=weeklyScheduled(wd,wd[0]);
+  assert(sched.prog===5&&sched.opt===1, 'R3: scheduled = 5 required (+1 optional). Got '+sched.prog+'/'+sched.opt);
+  const rpt=buildCoachReport(S.sessions,S.program,wd);
+  assert(/Sessions: 5 \/ 5 scheduled \(\+1 optional\)/.test(rpt), 'R3: Dispatch counts the run as optional. Got: '+(rpt.split('\n').find(l=>/Sessions:/.test(l))||''));
+  S.sessions=[rec(wd[0],'Gym',1,'lifting')];
+  const _ts=global.todayStr;global.todayStr=()=>wd[3]; // Thursday: Wednesday has passed
+  const ch=weekChecklistHTML();
+  assert(/Run \(optional\)<\/span><span class="t-meta">Wed · optional/.test(ch)&&!/Run \(optional\)<\/span><span class="t-meta">Wed · missed/.test(ch), 'R3: a passed, untaken run reads "optional", never "missed"');
+  assert(/1 \/ 5</.test(ch), 'R3: checklist denominator excludes the untaken optional day. Got '+((ch.match(/\d+ \/ \d+/)||[''])[0]));
+  const nx=getNextAvailableDayIdx();
+  assert(nx!==2, 'R3: a passed optional day is never the "next" session');
+  S.sessions.push(rec(wd[2],'Run (optional)',3,'run'));
+  const ch2=weekChecklistHTML();
+  assert(/2 \/ 6</.test(ch2), 'R3: a TAKEN optional run counts. Got '+((ch2.match(/\d+ \/ \d+/)||[''])[0]));
+  global.todayStr=_ts;
+  S.program=_sp2;S.sessions=_ss2;S.skips=_sk;S.weekRemovals=_wr;
 })();
 
 // ===== SYNC PROGRAM function exists =====
@@ -1154,13 +1178,13 @@ const pa_d4 = S.program.days.find(d => d.id === 4);
 const pa_d5 = S.program.days.find(d => d.id === 5);
 const pa_d6 = S.program.days.find(d => d.id === 6);
 const pa_d7 = S.program.days.find(d => d.id === 7);
-// R2: every non-lifting day is a clean activity card; BOTH gym days (1+7)
-// open with the 6-part WARMUP SECTION ahead of the mains in BOTH parities.
-assert([pa_d2,pa_d3,pa_d4,pa_d5,pa_d6].every(d=>d.exercises.length===0), 'Phase A: activity days carry no exercises');
-[pa_d1,pa_d7].forEach(pa_gd=>['A','B'].forEach(v=>{
+// R3: every non-lifting day (activity + Sunday rest) carries no exercises;
+// the ONE gym day opens with its 4-part WARMUP SECTION in BOTH parities.
+assert([pa_d2,pa_d3,pa_d4,pa_d5,pa_d6,pa_d7].every(d=>d.exercises.length===0), 'Phase A: activity/rest days carry no exercises');
+[pa_d1].forEach(pa_gd=>['A','B'].forEach(v=>{
   const ls=dayExercises(pa_gd,v);
   const mainI=ls.findIndex(e=>e.section!=='warmup');
-  assert(mainI===6&&ls.slice(0,6).every(e=>e.section==='warmup'), 'Phase A: Gym (Week '+v+') warms up then lifts. main@'+mainI);
+  assert(mainI===4&&ls.slice(0,4).every(e=>e.section==='warmup'), 'Phase A: Gym (Week '+v+') warms up then lifts. main@'+mainI);
   assert(/90\/90/.test(ls[0].name), 'Phase A: hips first');
 }));
 
@@ -1194,26 +1218,27 @@ assert(!wlOk.some(w=>/shares prime movers/.test(w.msg)), 'Phase B: weak-leg-focu
 const progWarns = validateProgram();
 // G10: Block 6 authors only rackable barbell loads — fully clean again.
 const warnTotal = progWarns.reduce((a,r)=>a+(r.warnings||[]).filter(w=>w.level==='warn').length,0);
-assert(warnTotal === 10, 'Phase B/R2: validateProgram surfaces exactly the ten known authored-data warns (5 x 2 gym days). Got: '+warnTotal+' ('+progWarns.map(r=>r.day+':'+r.warnings.filter(w=>w.level==='warn').length).join(',')+')');
-// validateWeek on v13: the Sun→(next) Mon gym pair is <24h with shared
-// patterns — the user DECIDED no rest day, and BOTH gym days are authored
-// 'adjacency-accepted', so the pair downgrades to INFO (RPE-7-cap
-// precedent: keyed to day tags, never silenced globally). The week sweep
-// is warn-clean; kb/swim days take the empty-exercise exempt path.
+assert(warnTotal === 6, 'Phase B/R3: validateProgram surfaces exactly the six known authored-data warns (A 2 / B 4). Got: '+warnTotal+' ('+progWarns.map(r=>r.day+':'+r.warnings.filter(w=>w.level==='warn').length).join(',')+')');
+// validateWeek on v14: ONE gym day, Sunday REST — genuinely warn-clean
+// (kb/swim/run days take the empty-exercise exempt path).
 assert(typeof validateWeek === 'function', 'Phase B: validateWeek defined');
 S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.skips=[];
-const vw=validateWeek(weekDatesFor('2026-09-21'),'2026-09-21');
+const vw=validateWeek(weekDatesFor('2026-09-28'),'2026-09-28');
 const vwWarns=vw.flatMap(r=>r.warnings.filter(w=>w.level==='warn').map(w=>w.msg));
-const vwInfos=vw.flatMap(r=>r.warnings.filter(w=>w.level==='info').map(w=>w.msg));
-assert(vwWarns.length===0, 'Phase B/R2: validateWeek warn-clean (gym adjacency accepted by authored tag). Got: '+JSON.stringify(vwWarns));
-assert(vwInfos.some(m=>/consecutive days \(Gym \u2192 Gym\)/.test(m)&&/back-to-back gym days by user decision/.test(m)), 'Phase B/R2: the accepted adjacency still surfaces as INFO. Got: '+JSON.stringify(vwInfos));
-assert(DEF_PROGRAM.days[0].tags.includes('adjacency-accepted')&&DEF_PROGRAM.days[6].tags.includes('adjacency-accepted'), 'R2: the exception is KEYED to both authored gym-day tags');
-// negative control: strip ONE tag → the warn comes back (exception is per-pair, not global)
+assert(vwWarns.length===0, 'Phase B/R3: validateWeek warn-clean on the v14 week. Got: '+JSON.stringify(vwWarns));
+// The v13 'adjacency-accepted' exception stays live infra: synthetic pair.
 (()=>{
-  const _t=S.program.days[6].tags;S.program.days[6].tags=[];
-  const vwx=validateWeek(weekDatesFor('2026-09-21'),'2026-09-21');
-  assert(vwx.flatMap(r=>r.warnings.filter(w=>w.level==='warn')).length===1, 'R2: exception requires BOTH days tagged — untag one and the warn returns');
-  S.program.days[6].tags=_t;
+  const _sp=S.program;
+  const gx=[{id:'x',name:'Back Squat',cat:'squat',sets:3,reps:'5',loadKg:100,unit:'kg',rest:150,tags:[],equipmentClass:'barbell'}];
+  S.program={name:'AdjTest',active:true,days:[
+    {id:1,label:'Gym',defaultDay:'Monday',dayOfWeek:'Monday',sessionType:'lifting',dur:60,tags:['adjacency-accepted'],exercises:JSON.parse(JSON.stringify(gx))},
+    {id:2,label:'Gym',defaultDay:'Sunday',dayOfWeek:'Sunday',sessionType:'lifting',dur:60,tags:['adjacency-accepted'],exercises:JSON.parse(JSON.stringify(gx))}]};
+  const w1=validateWeek(weekDatesFor('2026-09-28'),'2026-09-28');
+  assert(w1.flatMap(r=>r.warnings.filter(w=>w.level==='warn')).length===0&&w1.flatMap(r=>r.warnings.filter(w=>w.level==='info').map(w=>w.msg)).some(m=>/back-to-back gym days by user decision/.test(m)), 'Phase B: both days tagged adjacency-accepted -> the Sun->Mon pair is INFO');
+  S.program.days[1].tags=[];
+  const w2=validateWeek(weekDatesFor('2026-09-28'),'2026-09-28');
+  assert(w2.flatMap(r=>r.warnings.filter(w=>w.level==='warn')).length===1, 'Phase B: untag one day and the warn returns (per-pair, never global)');
+  S.program=_sp;
 })();
 // The RPE-7-cap calisthenics exception: a capped cali day sharing a compound
 // pattern with the NEXT day is accepted as info, not warn (by-design volume).
@@ -1330,13 +1355,13 @@ assert(typeof getEligibleVariantsForSlot === 'function', 'Phase C: getEligibleVa
 S.program = JSON.parse(JSON.stringify(DEF_PROGRAM));
 S.block = {sessionsSinceRotate:14, variantCursor:{}};
 const hasEx=(id,name)=>S.program.days.find(d=>d.id===id).exercises.some(e=>e.name===name);
-assert(hasEx(1,'Back Squat')&&hasEx(7,'Back Squat'), 'Phase C: Pre-rotate gym days contain Back Squat');
-assert(hasEx(1,'Trap Bar Deadlift')&&hasEx(7,'Trap Bar Deadlift'), 'Phase C: Pre-rotate gym days contain Trap Bar Deadlift');
+assert(hasEx(1,'Back Squat'), 'Phase C: Pre-rotate gym day contains Back Squat');
+assert(hasEx(1,'Trap Bar Deadlift'), 'Phase C: Pre-rotate gym day contains Trap Bar Deadlift');
 
 const rotRes = rotateAccessories();
 assert(rotRes.rotated.length > 0, 'Phase C: Rotation swapped at least 1 accessory. Got: ' + rotRes.rotated.length);
-assert(hasEx(1,'Back Squat')&&hasEx(7,'Back Squat'), 'Phase C: Back Squat unchanged after rotation');
-assert(hasEx(1,'Trap Bar Deadlift')&&hasEx(7,'Trap Bar Deadlift'), 'Phase C: Trap Bar Deadlift unchanged after rotation');
+assert(hasEx(1,'Back Squat'), 'Phase C: Back Squat unchanged after rotation');
+assert(hasEx(1,'Trap Bar Deadlift'), 'Phase C: Trap Bar Deadlift unchanged after rotation');
 // Bench stays fixed (Upper A has DB Incline Bench as hpush main, not flat Bench Press — so we test that rotation doesn't TOUCH 'Bench Press' if it's anywhere)
 const benchStill = S.program.days.some(d => d.exercises.some(e => e.name === 'Bench Press'));
 const benchWas = DEF_PROGRAM.days.some(d => d.exercises.some(e => e.name === 'Bench Press'));
@@ -1632,7 +1657,7 @@ assert(S.version === 3, 'MigrateV3: version stamped to 3');
 migrateV3();
 const md1 = S.program.days.find(d=>d.sessionType==='lifting');
 assert(md1 && md1.sessionType === 'lifting', 'MigrateV3: lifting day keeps sessionType');
-assert(S.program.days[0].sessionType==='lifting'&&S.program.days[1].sessionType==='kb'&&S.program.days[2].sessionType==='swim'&&S.program.days[4].sessionType==='swim'&&S.program.days[5].sessionType==='kb'&&S.program.days[6].sessionType==='lifting', 'MigrateV3: kb/swim/lifting sessionTypes preserved (not coerced)');
+assert(S.program.days[0].sessionType==='lifting'&&S.program.days[1].sessionType==='kb'&&S.program.days[2].sessionType==='run'&&S.program.days[4].sessionType==='swim'&&S.program.days[5].sessionType==='kb'&&S.program.days[6].sessionType==='rest', 'MigrateV3: lifting/kb/run/swim/rest sessionTypes preserved (not coerced)');
 assert(md1.defaultDay && md1.dayOfWeek && md1.defaultDay === md1.dayOfWeek, 'MigrateV3: defaultDay/dayOfWeek alias both populated + equal');
 assert(md1.exercises.every(e=>typeof e.equipmentClass==='string' && 'angle' in e && 'grip' in e), 'MigrateV3: exercises gain equipmentClass + angle + grip');
 // sessions get sessionType
@@ -1865,7 +1890,7 @@ const exp2=buildExportPayload('2026-06-22T00:00:00Z');
 const parsed=parseRestorePayload(exp2);
 assert(parsed.ok===true, 'C8: export round-trips through parseRestorePayload');
 const blob=parsed.parsed;
-assert(Array.isArray(blob.recurringActivities) && blob.goals.some(g=>g.id==='g-mu') && blob.program.days[0].sessionType==='lifting' && blob.program.days[0].variantFlip===true && blob.program.days[4].sessionType==='swim' && blob.program.days[6].alternating===true && blob.program.days[6].exercises.find(e=>e.name==='Back Squat'&&e.week==='A').loadKg===100 && blob.program.days[6].exercises.find(e=>e.name==='Back Extension').frozen===true && blob.program.phase==='maintain' && blob.program.days[1].note && blob.program.version===13 && Array.isArray(blob.habits), 'C8/G10/R2: round-trip preserves types + A/B tags + variantFlip + phase + frozen + note + version + new stores');
+assert(Array.isArray(blob.recurringActivities) && blob.goals.some(g=>g.id==='g-mu') && blob.program.days[0].sessionType==='lifting' && blob.program.days[0].alternating===true && blob.program.days[2].optional===true && blob.program.days[6].sessionType==='rest' && blob.program.days[0].exercises.find(e=>e.name==='Back Squat'&&e.week==='A').loadKg===100 && blob.program.days[0].exercises.find(e=>e.name==='Back Extension').frozen===true && blob.program.phase==='maintain' && blob.program.days[1].note && blob.program.version===14 && Array.isArray(blob.habits), 'C8/G10/R3: round-trip preserves types + A/B tags + optional + rest + phase + frozen + note + version + new stores');
 // importing that blob and re-migrating is a no-op for v3 fields (idempotent)
 const _s=S;S=JSON.parse(JSON.stringify(blob));migrateV3();
 assert(S.version===3 && S.goals.find(g=>g.id==='g-mu'), 'C8: re-import + migrate keeps v3 shape (swim goal retired)');
@@ -2256,15 +2281,15 @@ S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();
 S.activeSession={dayIndex:0,dayId:1,date:'2026-09-21',dayLabel:'Gym',sessionType:'lifting',startTime:1,weekVariant:'A',exercises:dayExercises(S.program.days[0],'A').filter(ex=>ex.entryType!=='circuit').map(ex=>({name:ex.name,cat:ex.cat,prescribed:{sets:ex.sets,reps:ex.reps,loadKg:ex.loadKg,unit:ex.unit||'kg'},equipmentClass:ex.equipmentClass,performed:[{type:'working',weightKg:ex.loadKg,reps:5,rpe:null,logged:false}],tags:ex.tags||[],rest:ex.rest,progression:null,nextLoad:null})),notes:''};
 const preLen=S.activeSession.exercises.length;
 const preTargetLen=S.program.days[2].exercises.length;
-const fpIdx2=S.activeSession.exercises.findIndex(e=>e.name==='DB Curl');
+const fpIdx2=S.activeSession.exercises.findIndex(e=>e.name==='Hanging Leg Raise');
 confirmMoveExercise(fpIdx2,2);
 assert(S.activeSession.exercises.length===preLen, 'Skip: move does NOT splice the session (index pairing with confirmRpe preserved)');
 assert(S.activeSession.exercises[fpIdx2].progression==='skipped' && S.activeSession.exercises[fpIdx2].performed[0].skipReason==='moved', 'Skip: moved exercise marked skipped/moved in-session');
-assert(S.program.days[2].exercises.length===preTargetLen+1 && S.program.days[2].exercises.some(e=>e.name==='DB Curl'&&(e.tags||[]).includes('moved-in')), 'Skip: deep copy appended to the target day');
+assert(S.program.days[2].exercises.length===preTargetLen+1 && S.program.days[2].exercises.some(e=>e.name==='Hanging Leg Raise'&&(e.tags||[]).includes('moved-in')), 'Skip: deep copy appended to the target day');
 // chronic actions: move earlier + drop
 S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.activeSession=null;
-chronicMoveEarlier('DB Curl');
-assert(S.program.days[0].exercises[1].name==='DB Curl', 'Skip: Move earlier → index 1 in its own day (Gym). Got: '+S.program.days[0].exercises[1].name);
+chronicMoveEarlier('Hanging Leg Raise');
+assert(S.program.days[0].exercises[1].name==='Hanging Leg Raise', 'Skip: Move earlier → index 1 in its own day (Gym). Got: '+S.program.days[0].exercises[1].name);
 assert(/openMoveExercise/.test(html) && /id="moveExModal"/.test(html), 'Skip: skip sheet offers the move action + picker modal exists');
 assert(/Skipped \$\{cs\.count\}/.test(html), 'Skip: chronic card renders on Train (sentence-case)');
 S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.settings.chronicDismissed={};
@@ -2284,8 +2309,8 @@ S.sessions=[
 const rpt=buildCoachReport(S.sessions,S.program,wkAug17);
 assert(/Week .*Aug 17.*Aug 23/.test(rpt), 'Report: header names the calendar week. Got: '+rpt.split('\n')[0]);
 assert(/Deadlift \+ Pull/.test(rpt), 'Report: this week\'s session included');
-// R2: seven program days, NO rest day (user decision) = 7 scheduled
-assert(/Sessions: 2 \/ 7 scheduled/.test(rpt), 'Report: N/M counts all 7 days (no rest day). Got: '+(rpt.split('\n').find(l=>/Sessions:/.test(l))||'none'));
+// R3: seven days minus Sunday rest = 6; the optional run sits OUTSIDE M
+assert(/Sessions: 2 \/ 5 scheduled \(\+1 optional\)/.test(rpt), 'Report: N/M = 5 required (+1 optional), rest excluded. Got: '+(rpt.split('\n').find(l=>/Sessions:/.test(l))||'none'));
 assert(/\(swim\).*45 min.*800 m/.test(rpt), 'Report: swim renders as one activity line');
 // variant label in the line
 S.sessions=[{date:'2026-08-22',dayLabel:'Deadlift + Pull',dayId:6,blockName:S.program.name,duration:60,rpe:7,status:'complete',exercises:[{name:'Cable Low Row',cat:'pull',prescribed:{sets:1,reps:'8',loadKg:34,unit:'kg'},performed:[{type:'working',weightKg:34,reps:8,logged:true}],progression:'hold',nextLoad:34,variant:{pulley:'double',grip:'narrow'},tags:[]}],painEvents:[]}];
@@ -2294,9 +2319,9 @@ assert(/Cable Low Row \(double pulley, narrow\)/.test(buildCoachReport(S.session
 // isWeekComplete on the live W3 block: all SEVEN days loggable
 S.sessions=[actRec('2026-08-17',1,'kb','KB + Mobility',0),actRec('2026-08-18',2,'swim','Swim',800,{continuous:true}),liftRec('2026-08-19','Squat',3),actRec('2026-08-20',4,'swim','Swim',600),actRec('2026-08-21',5,'kb','KB + Mobility',0),liftRec('2026-08-22','Deadlift + Pull',6),actRec('2026-08-23',7,'conditioning','Conditioning',0,{modality:'row'})];
 assert(isWeekComplete(wkAug17)===true, 'Report: seven logged days → week complete');
-S.sessions=S.sessions.slice(0,6);
+S.sessions=S.sessions.slice(1); // v14: drop the Monday gym (Sunday is rest — never owed)
 assert(isWeekComplete(wkAug17)===false, 'Report: a missing day → not complete');
-S.skips=[{dayLabel:'Conditioning',dayId:7,blockName:S.program.name,date:'2026-08-23',reason:'sick'}];
+S.skips=[{dayLabel:'Gym',dayId:1,blockName:S.program.name,date:'2026-08-17',reason:'sick'}];
 assert(isWeekComplete(wkAug17)===true, 'Report: a skipped day counts as resolved');
 S.skips=[];S.sessions=[];S.recurringActivities=_raSave;
 
@@ -2747,7 +2772,7 @@ f1ex.performed.forEach(pp=>{if(!pp.logged){pp.logged=true;if(pp.type==='working'
 evalProg(f1ei);
 assert(f1ex.progression!=='flag', '3a: skipped rep-0 row does not trigger bigMiss/deload. Got: '+f1ex.progression);
 // logAll: zero rows become inline skips
-const f1b=S.activeSession.exercises.find(e=>e.name==='Machine Shoulder Press'||e.name==='DB RDL'||e.name==='Leg Press')||S.activeSession.exercises[4];
+const f1b=S.activeSession.exercises.find(e=>e.name==='Machine Shoulder Press'||e.name==='DB RDL'||e.name==='Leg Press')||S.activeSession.exercises.find(e=>e.name==='Bird Dog');
 f1b.performed.forEach(pp=>{pp.logged=false;pp.skipped=false;});
 f1b.performed[0].reps=0;
 logAll(S.activeSession.exercises.indexOf(f1b));
@@ -3743,7 +3768,7 @@ assert(true, 'G6: (drag scroll guard retired with the planner drag paths — K3)
 
 // ===== G7: BLOCK BANNER VERSIONING + STALE MOBILITY REMOVAL =====
 console.log('\n--- G7: banner versioning + F2 ---');
-assert(DEF_PROGRAM.version===13, 'G7/G10/R2: Recomp W3 ships as version 13. Got: '+DEF_PROGRAM.version);
+assert(DEF_PROGRAM.version===14, 'G7/G10/R3: Recomp W4 ships as version 14. Got: '+DEF_PROGRAM.version);
 assert(/DEF_PROGRAM\.version>\(S\.program\.version\?\?0\) && S\.settings\._dismissedProgramVersion!==DEF_PROGRAM\.version/.test(html), 'G7: banner fires only for a NEWER version');
 assert(!/DEF_PROGRAM\.name!==S\.program\.name && S\.settings\._dismissedBlock/.test(html), 'G7: the direction-blind name banner is gone');
 // An OLDER cached HTML (lower version) can never re-offer itself:
@@ -4169,25 +4194,28 @@ console.log('[K13 R1Days]');
 (function(){
   S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.activeSession=null;
   global.startTimer=()=>{};global.showSessionHero=global.showSessionHero||(()=>{});global.confirm=window.confirm=()=>true;
-  startDay(2); // Swim (Wednesday, id 3, index 2)
-  assert(S.activeSession&&S.activeSession.sessionType==='swim'&&S.activeSession.activity&&S.activeSession.exercises.length===0, 'K13: Swim Wednesday starts as a pure activity session');
+  startDay(2); // Run (optional) — Wednesday, id 3, index 2
+  assert(S.activeSession&&S.activeSession.sessionType==='run'&&S.activeSession.activity&&S.activeSession.exercises.length===0, 'K13: optional Wednesday run starts as a pure activity session');
   cancelSession();
   // KB Saturday freeform
   startDay(5);
   assert(S.activeSession.sessionType==='kb'&&'kbWeights' in S.activeSession.activity&&S.activeSession.exercises.length===0, 'K13: KB Saturday freeform card');
   cancelSession();
-  // NO rest day this block (user decision) — every day is startable-or-activity
-  assert(S.program.days.every(d=>isStartableDay(d)||isActivityType(d.sessionType)), 'K13: no rest day — all seven days live');
+  // Sunday is REST by design — never startable
+  assert(isStartableDay(S.program.days[6])===false&&S.program.days.filter(d=>!isStartableDay(d)).length===1, 'K13: Sunday rest is the only non-startable day');
 })();
 // Gym Saturday: parity-resolved session, superset pair, frozen Back Extension,
 // maintain holds, finisher circuit
 (function(){
   S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.activeSession=null;
-  startDay(6); // Sunday gym (week-parity side of the shared definition)
+  // Anchor the block to THIS week so the run date never flips the parity
+  // (Back Extension is Week-A only) — no date-rollover bomb.
+  S.program.startDate=weekOfDate(todayStr());
+  startDay(0); // Monday gym
   const sess=S.activeSession;
   const v=sess.weekVariant;
-  assert(v==='A'||v==='B', 'K13: Gym session stamps its parity. Got: '+v);
-  assert(sess.exercises.length===(v==='A'?19:20), 'K13: resolved card count matches the parity (Sep 21 revision). Got: '+sess.exercises.length);
+  assert(v==='A', 'K13: Gym session stamps its parity (week 0 = A). Got: '+v);
+  assert(sess.exercises.length===14, 'K13: Week A resolves to 14 cards (trimmed day). Got: '+sess.exercises.length);
   assert(sess.exercises.filter(e=>e.name==='Back Squat').length===1&&sess.exercises.filter(e=>e.name==='Trap Bar Deadlift').length===1, 'K13: exactly one squat + one trap-bar pull per session');
   const pu=sess.exercises.find(e=>e.name==='Strict Pull-Up');
   assert(pu.supersetNext===true, 'K13: authored superset pair rides into the session');
@@ -4249,7 +4277,7 @@ assert(/input\[type=range\]\{accent-color:var\(--brand\)\}/.test(html), 'K15: du
 
 // ---- K16 (synthetic since v12 starts on a Monday): mid-week block start ----
 console.log('[K16 StartDate]');
-assert(DEF_PROGRAM.startDate==='2026-09-21', 'K16/R2: the block carries its start date (every future block must)');
+assert(DEF_PROGRAM.startDate==='2026-09-28', 'K16/R3: the block carries its start date (every future block must)');
 (function(){
   const _sp=S.program;
   // synthetic v11-shaped program starting mid-week (Wed Sep 2)
@@ -4389,7 +4417,7 @@ console.log('[L3 CuePress]');
   const _n=S.program.days[1].note;
   migrateV3();
   assert(S.program.days[1].note===_n, 'L3: one-shot idempotent (no double-append)');
-  assert(S.program.version===13, 'L3: program version UNTOUCHED — no re-sync banner, day arrangement preserved');
+  assert(S.program.version===14, 'L3: program version UNTOUCHED — no re-sync banner, day arrangement preserved');
   S.program=_sp;S.settings._cuePressL3=_fl;
 })();
 
@@ -4397,12 +4425,21 @@ console.log('[L3 CuePress]');
 console.log('[M1 GymRev]');
 (function(){
   const _sp=JSON.parse(JSON.stringify(S.program)),_fl=S.settings._gymRevSep21;
-  // Reconstruct a stale (pre-Sep-21) live copy: no Iso/Pallof, a user-added
-  // KB Press on the gym day, the Sunday re-entry note still present.
+  // A FROZEN pre-Sep-21 (v12-shaped) live copy — DEF_PROGRAM has moved on,
+  // so the one-shot's input is a literal: Row<->Curl superset, no Iso/Pallof,
+  // a user-added KB Press, the re-entry note on the KB day.
   S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));
   const _gd=S.program.days[0];
-  _gd.exercises=_gd.exercises.filter(e=>e.name!=='Iso-Lateral Bench Press'&&e.name!=='Pallof Press');
-  _gd.exercises.splice(_gd.exercises.findIndex(e=>e.name==='DB Curl')+1,0,{id:'u1',name:'KB Press',cat:'push',sets:2,reps:'5',loadKg:16,unit:'kg',rest:90,tags:['twinge-gate','per side'],angle:null,grip:null,equipmentClass:'kb'});
+  const _x=(name,cat,extra)=>Object.assign({name,cat,sets:3,reps:'10',loadKg:0,unit:'bw',rest:60,tags:[],equipmentClass:'bw'},extra||{});
+  _gd.exercises=[
+    _x('90/90 Hip Switch','rehab',{section:'warmup',sets:1,reps:'8'}),
+    _x('Back Squat','squat',{week:'A',loadKg:100,unit:'kg',equipmentClass:'barbell'}),
+    _x('Strict Pull-Up','pull',{supersetNext:true}),_x('Press-Up','push'),
+    _x('Cable Low Row','pull',{supersetNext:true,loadKg:55,unit:'kg',equipmentClass:'cable'}),_x('DB Curl','isolation',{loadKg:12.5,unit:'kg',equipmentClass:'db'}),
+    {id:'u1',name:'KB Press',cat:'push',sets:2,reps:'5',loadKg:16,unit:'kg',rest:90,tags:['twinge-gate','per side'],angle:null,grip:null,equipmentClass:'kb'},
+    _x('Hanging Leg Raise','core'),_x('Suitcase Carry','core',{reps:'30m',loadKg:27.5,unit:'kg'}),_x('Side Extension','core'),
+    _x('Back Extension','hinge',{frozen:true}),
+    _x('Sprints','cardio',{section:'finisher',entryType:'circuit',format:'Intervals',minutes:8})];
   S.program.days[1].note='Freeform KB \u2014 user-programmed. Log duration, bells, and what you did. Press re-entry: 2\u00d75/side @ 16\u201320, strict \u2014 then 48h of listening before repeating.';
   S.settings._gymRevSep21=false;
   migrateV3();
@@ -4418,7 +4455,7 @@ console.log('[M1 GymRev]');
   const _snap=JSON.stringify(S.program);
   migrateV3();
   assert(JSON.stringify(S.program)===_snap, 'M1: one-shot idempotent (no dupes, no re-order)');
-  assert(S.program.version===13, 'M1: version UNTOUCHED — no re-sync banner, day arrangement preserved');
+  assert(S.program.version===14, 'M1: version UNTOUCHED — no re-sync banner, day arrangement preserved');
   // maintain phase: the new press inherits the hold — no suggestion arrows
   const _ph=S.program.phase;S.program.phase='maintain';
   const isoEx={name:'Iso-Lateral Bench Press',cat:'push',tags:iso.tags,prescribed:{sets:3,reps:'8',loadKg:60,unit:'kg'},performed:[{type:'working',weightKg:60,reps:8,rpe:6,logged:true},{type:'working',weightKg:60,reps:8,rpe:6,logged:true},{type:'working',weightKg:60,reps:8,rpe:6,logged:true}],painEvent:null,notes:'',equipmentClass:'machine'};
@@ -4505,7 +4542,7 @@ assert(/id="backReadiness"/.test(html)&&html.indexOf('Below 70 \u2192 treat as a
 assert(/\$\{t\('start\.pre'\)\}\$\{sDay\.label\} \(\$\{dowOf\(dayEffectiveDate\(sDay\)\)\}\)/.test(html), 'F2: CTA parenthetical follows the move (was the template dow)');
 assert(/const dow=_pendingCard\?dowOf\(_edCard\):\(day\.defaultDay\|\|day\.dayOfWeek\);/.test(html), 'F2: pending day-card meta uses the effective dow');
 // F6: missed tag on pending past cards
-assert(/const _missTail=\(_pendingCard&&_edCard<todayStr\(\)\)\?' · missed':'';/.test(html), 'F6: pending past cards tagged missed');
+assert(/const _missTail=\(_pendingCard&&_edCard<todayStr\(\)\)\?\(isOptionalDay\(day\)\?' · optional':' · missed'\):'';/.test(html), 'F6/R3: pending past cards tagged missed (an optional day reads optional)');
 // F5: checklist rows sort by effective date (one-offs/moves land in date order)
 (function(){
   const _sp=S.program;
