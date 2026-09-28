@@ -1717,13 +1717,18 @@ let _veilT1=null,_veilT2=null;
 // Register crossing (400ms dip-to-black). Instant when the theme is off,
 // under reduced motion, or in any environment without rAF (test harness) —
 // fn always runs, synchronously on the instant path.
-function veilCross(fn){
+function veilAnimates(){
   const instant=!imperiumOn()
     ||typeof document==='undefined'||!document.getElementById
     ||typeof requestAnimationFrame!=='function'
     ||(typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches);
-  const el=instant?null:document.getElementById('registerVeil');
-  if(!el||!el.classList){fn();return;}
+  if(instant)return false;
+  const el=document.getElementById('registerVeil');
+  return !!(el&&el.classList);
+}
+function veilCross(fn){
+  const el=veilAnimates()?document.getElementById('registerVeil'):null;
+  if(!el){fn();return;}
   if(_veilT1)clearTimeout(_veilT1);if(_veilT2)clearTimeout(_veilT2);
   el.classList.add('on');
   _veilT1=setTimeout(()=>{_veilT1=null;fn();},200);
@@ -4390,6 +4395,11 @@ function startDay(i){
   // dayId is the day's immutable identity — dayLabel alone is ambiguous when
   // two days share a label (the deload has two "Swim" days).
   S.activeSession={dayIndex:i,dayId:day.id,blockName:S.program.name,date:todayStr(),dayLabel:day.label,sessionType:st,startTime:Date.now(),exercises:[],notes:'',order:[],gymId:(S.settings&&S.settings.activeGymId)||null};
+  // A new session always opens on its first card. _focusIdx is module state:
+  // left over from the previous session it opened the NEW one on that
+  // session's last card (or the Finish card), and rest-end auto-advance then
+  // wrapped back to the start — the reported back-and-forward bounce.
+  _focusIdx=null;
   const _variant=day.alternating?dayVariantFor(day):null;
   const _resolved=dayExercises(day,_variant||undefined);
   if(_variant)S.activeSession.weekVariant=_variant;
@@ -4467,7 +4477,11 @@ function startDay(i){
   // D4: a fresh rite starts with an empty record — the static notes box must
   // never carry the previous session's text into this one.
   try{const _sn=document.getElementById('sessNotes');if(_sn){_sn.value='';if(_sn.style)_sn.style.height='';}}catch(e){}
-  veilCross(()=>{showView('vSession');renderEx();showSessionHero(day);});
+  // ONE forward transition: when the register veil runs it IS the crossing —
+  // the 1s hero on top of it was a second full-screen scene (and swallowed
+  // taps). Plain mode has no veil, so the hero stays the single transition.
+  const _veiled=veilAnimates();
+  veilCross(()=>{showView('vSession');renderEx();if(!_veiled)showSessionHero(day);});
 }
 
 // 1s brand-washed transition naming the session + today's main-lift target.

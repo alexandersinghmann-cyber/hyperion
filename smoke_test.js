@@ -3796,7 +3796,40 @@ assert(machineCant('discord detected:','Back Squat <36h')==='++ DISCORD DETECTED
 // --- no audio added: baseline is the single rest-beep feature detect ---
 assert((html.match(/AudioContext/g)||[]).length===2&&!/new Audio\(/.test(html), 'H6: no audio APIs added — baseline is the single rest-beep feature-detect line (2 substring hits)');
 // --- reduced-motion guards ---
-assert(/matchMedia\('\(prefers-reduced-motion: reduce\)'\)\.matches/.test((html.match(/function veilCross[\s\S]{0,700}/)||[''])[0]), 'H6: veil crossing guards reduced motion');
+assert(/matchMedia\('\(prefers-reduced-motion: reduce\)'\)\.matches/.test((html.match(/function veilAnimates[\s\S]{0,700}/)||[''])[0])&&/function veilCross\(fn\)\{\s*const el=veilAnimates\(\)/.test(html), 'H6: veil crossing guards reduced motion (via the shared veilAnimates predicate)');
+
+// ---- N1 (Sep 28): session start is ONE forward transition ----
+console.log('[N1 StartNav]');
+(function(){
+  assert(!/history\.(pushState|replaceState)|location\.hash\s*=/.test(html), 'N1: no History-API / hash churn anywhere in the app');
+  const _sp=JSON.parse(JSON.stringify(S.program)),_ss=S.sessions,_sv=S.settings.sessionView;
+  const _svw=global.showView,_hero=global.showSessionHero,_va=global.veilAnimates,_vc=global.veilCross;
+  S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.activeSession=null;S.settings.sessionView='focus';
+  global.startTimer=()=>{};global.confirm=window.confirm=()=>true;
+  // stale Finish-card index from a previous session
+  _focusIdx=-1;
+  startDay(0);
+  assert(focusPos()===0, 'N1: a new session opens on its FIRST card even when the last one ended on Finish. Got pos '+focusPos());
+  cancelSession();
+  // stale mid-session index
+  _focusIdx=7;
+  startDay(0);
+  assert(focusPos()===0, 'N1: a stale mid-session index never carries into a new session. Got pos '+focusPos());
+  cancelSession();
+  // exactly one view switch per start; hero only when no veil runs
+  let views=0,heroes=0;
+  global.showView=id=>{views++;};global.showSessionHero=()=>{heroes++;};global.veilCross=fn=>fn();
+  global.veilAnimates=()=>true;
+  startDay(0);
+  assert(views===1&&heroes===0, 'N1: veiled start = ONE view switch, no second hero scene. Got views '+views+' heroes '+heroes);
+  S.activeSession=null;views=0;heroes=0;
+  global.veilAnimates=()=>false;
+  startDay(0);
+  assert(views===1&&heroes===1, 'N1: plain start = ONE view switch + the hero as its single transition. Got views '+views+' heroes '+heroes);
+  S.activeSession=null;
+  global.showView=_svw;global.showSessionHero=_hero;global.veilAnimates=_va;global.veilCross=_vc;
+  S.program=_sp;S.sessions=_ss;S.settings.sessionView=_sv;_focusIdx=null;
+})();
 assert(/@media \(prefers-reduced-motion: no-preference\)\{\s*\n?\s*\.imperium #vSession\.on::before/.test(html), 'H6: scanlines gated behind no-preference');
 // --- STRINGS hygiene + coverage ---
 (()=>{
