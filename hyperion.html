@@ -185,6 +185,13 @@
 .circ-log-row input{flex:1;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx);font:500 16px var(--mono);padding:10px 12px;min-height:48px}
 .circ-result-done{display:flex;align-items:center;gap:8px;padding:10px 12px;background:color-mix(in srgb,var(--grn) 8%,var(--s1));border-radius:var(--rs);font-size:15px}
 .circ-result-done .set-edit{margin-left:auto}
+.circ-speed{display:flex;gap:8px;margin:0 0 8px}
+.circ-speed input{min-width:0;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx);font:500 16px var(--mono);padding:10px 12px;min-height:48px}
+.circ-speed .cs-v{flex:2}.circ-speed .cs-u{flex:1.4}.circ-speed .cs-i{flex:1.4}
+.circ-speed-meta{display:flex;align-items:center;gap:8px;margin:-2px 0 8px;font:500 12px var(--sans);color:var(--tx3)}
+.circ-speed-meta .cs-note{color:var(--tx2)}
+.circ-speed-meta button{margin-left:auto;background:none;border:none;color:var(--tx3);font:600 12px var(--sans);text-decoration:underline;cursor:pointer;min-height:32px;padding:0}
+.speed-hist .sh-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)}
 /* ===== SESSION SECTIONS (W4-A) ===== */
 .sec-hdr{font:600 12px var(--sans);color:var(--tx3);margin:16px 0 6px;display:flex;align-items:center;gap:8px}
 .sec-hdr-wu{cursor:pointer;min-height:32px}
@@ -4319,10 +4326,44 @@ function setCircuitField(ei,field,val){
   const ex=S.activeSession&&S.activeSession.exercises[ei];if(!ex)return;
   ex[field]=val;save();
 }
+// N3 (Sep 28): sprint speed on Intervals circuits — ONE per-session value
+// (not per interval): speed + unit text + optional incline. The "faster than
+// last" cue is conditioning feedback, independent of the maintain phase
+// (evalProg never sees circuits, so there is nothing for maintain to mute).
+function isSpeedCircuit(ex){return !!ex&&ex.entryType==='circuit'&&/^intervals$/i.test(ex.format||'');}
+function speedHistory(name,n){
+  return (S.sessions||[]).filter(s2=>s2&&s2.date).slice().sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0)
+    .map(s2=>{const e=(s2.exercises||[]).find(x=>x&&x.entryType==='circuit'&&x.name===name&&+x.speed>0);
+      return e?{date:s2.date,speed:+e.speed,unit:e.speedUnit||'km/h',incline:(e.incline!=null&&e.incline!=='')?+e.incline:null}:null;})
+    .filter(Boolean).slice(0,n||5);
+}
+function speedLabel(ex){
+  if(!(+ex.speed>0))return '';
+  const inc=(ex.incline!=null&&ex.incline!==''&&+ex.incline>0)?' \u00b7 incline '+(+ex.incline)+'%':'';
+  return (+ex.speed)+' '+(ex.speedUnit||'km/h')+inc;
+}
+function intervalsSpec(ex){
+  const m=String(ex.movements||'').match(/(\d+)\s*[\u00d7x]\s*(\d+)\s*s\b/);
+  return m?m[1]+'\u00d7'+m[2]+'s':((ex.minutes||'?')+'min');
+}
+function speedAutoResult(ex){return intervalsSpec(ex)+' @ '+speedLabel(ex);}
+// Same unit only — 14 km/h vs 9 mph is not a comparison.
+function speedVsLast(ex){
+  if(!isSpeedCircuit(ex)||!(+ex.speed>0))return null;
+  const last=speedHistory(ex.name,1)[0];
+  if(!last||last.unit!==(ex.speedUnit||'km/h'))return null;
+  return +ex.speed>last.speed?'faster':(+ex.speed===last.speed?'matched':null);
+}
+function speedTrendHTML(name){
+  const hist=speedHistory(name,5);
+  if(!hist.length)return '<div class="t-meta">No speed logged yet</div>';
+  return '<div class="speed-hist">'+hist.map(h=>`<div class="sh-row"><span class="t-meta">${fmtDate(h.date)}</span><span class="tm tnum">${h.speed} ${esc(h.unit)}${h.incline?' \u00b7 incline '+h.incline+'%':''}</span></div>`).join('')+'</div>';
+}
 function logCircuit(ei){
   const ex=S.activeSession&&S.activeSession.exercises[ei];if(!ex)return;
   const inp=document.getElementById('circRes'+ei);
-  const v=inp&&inp.value!=null?String(inp.value).trim():'';
+  let v=inp&&inp.value!=null?String(inp.value).trim():'';
+  if(!v&&isSpeedCircuit(ex)&&+ex.speed>0)v=speedAutoResult(ex); // speed alone is a result
   if(!v){toast('Log the result — rounds, reps or distance');return;}
   ex.result=v;save();renderEx();
 }
@@ -4338,8 +4379,21 @@ function circuitCardHTML(ex,ei,mode){
   const readout=mode==='focus'
     ?`<div class="fc-readout${done?' done':''}"><span class="fc-readout-w tnum">${mins}</span><span class="fc-readout-u">min</span><span class="fc-readout-x">${fmt}</span></div>`
     :`<div class="circ-head tnum"><span class="circ-min">${mins}</span><span class="circ-min-u">min</span><span class="circ-fmt">${fmt}</span>${ex.loadKg?`<span class="circ-load">@ ${fmtW(ex.loadKg,'kg')}</span>`:''}</div>`;
+  let speedRow='';
+  if(isSpeedCircuit(ex)){
+    const last=speedHistory(ex.name,1)[0];
+    const unit=ex.speedUnit||(last&&last.unit)||'km/h';
+    const vs=speedVsLast(ex);
+    speedRow=`<div class="circ-speed">
+      <input class="cs-v tnum" type="number" inputmode="decimal" step="0.1" min="0" value="${+ex.speed>0?+ex.speed:''}" placeholder="${last?last.speed:'Speed'}" aria-label="sprint speed" onchange="setCircuitField(${ei},'speed',+this.value>0?+this.value:null);if(!${JSON.stringify(!!ex.speedUnit)})setCircuitField(${ei},'speedUnit',${esc(JSON.stringify(unit))});renderEx()">
+      <input class="cs-u" type="text" value="${esc(unit)}" aria-label="speed unit" onchange="setCircuitField(${ei},'speedUnit',this.value.trim()||'km/h');renderEx()">
+      <input class="cs-i tnum" type="number" inputmode="decimal" step="0.5" min="0" value="${(ex.incline!=null&&ex.incline!=='')?ex.incline:''}" placeholder="Incline" aria-label="incline" onchange="setCircuitField(${ei},'incline',this.value===''?null:+this.value);renderEx()">
+    </div>
+    <div class="circ-speed-meta">${vs==='faster'?'<span class="cs-note">\u2191 faster than last</span>':vs==='matched'?'<span class="cs-note">= matched last</span>':(last?`<span>Last ${last.speed} ${esc(last.unit)} \u00b7 ${fmtDate(last.date)}</span>`:'<span>Speed \u2014 one value for the session</span>')}<button onclick="openFcDetail(${ei})">History</button></div>`;
+  }
   return `${mode==='focus'&&ex.loadKg?`<div class="fc-meta">@ ${fmtW(ex.loadKg,'kg')}</div>`:''}${readout}
     <textarea class="circ-moves" rows="3" placeholder="Movements — e.g. 10 swings / 8 goblet squats / 40m carry" oninput="setCircuitField(${ei},'movements',this.value)">${esc(ex.movements||'')}</textarea>
+    ${speedRow}
     ${done
       ?`<div class="circ-result-done"><span class="set-check">${icon('check',14)}</span><span class="tnum">${esc(ex.result)}</span><button class="set-edit" onclick="editCircuit(${ei})" aria-label="edit result">\u270e</button></div>`
       :`<div class="circ-log-row"><input id="circRes${ei}" placeholder="Result — rounds / reps" aria-label="circuit result">${mode==='focus'?`<button class="fc-log" style="margin:0;flex:0 0 auto;width:auto;padding:0 20px" onclick="logCircuit(${ei})">Log result</button>`:`<button class="set-log ready" style="opacity:1" onclick="logCircuit(${ei})">Log result</button>`}</div>`}`;
@@ -5256,6 +5310,12 @@ function openFcDetail(ei){
   const sess=S.activeSession;if(!sess)return;
   const ex=sess.exercises[ei];if(!ex)return;
   const body=document.getElementById('fcDetailBody');
+  if(body&&ex.entryType==='circuit'){
+    body.innerHTML=`<div class="t-h2" style="margin-bottom:8px">${ex.name}</div>
+      <div class="fc-detail-row"><span class="t-meta">Prescription</span><div class="tm">${ex.format||'Circuit'} ${ex.minutes||'?'} min${ex.movements?' \u2014 '+esc(ex.movements):''}</div></div>
+      ${isSpeedCircuit(ex)?`<div class="fc-detail-row"><span class="t-meta">Speed \u2014 last 5 sessions</span>${speedTrendHTML(ex.name)}</div>`:''}`;
+    showModal('fcDetailSheet');return;
+  }
   if(body){
     const rx=ex.prescribed.setScheme?schemeString(ex.prescribed.setScheme,ex.prescribed.unit)+' kg':`${ex.prescribed.sets}\u00d7${ex.prescribed.reps}${ex.prescribed.loadKg?' @ '+fmtW(ex.prescribed.loadKg,ex.prescribed.unit):''}`;
     const bits=metaBits(ex);
@@ -6856,7 +6916,7 @@ function confirmRpe(){
 
   const rec={id:'s_'+Date.now(),date:sess.date,retro:sess.retro||undefined,dayLabel:sess.dayLabel,dayId:sess.dayId!=null?sess.dayId:null,gymId:sess.gymId||(S.settings&&S.settings.activeGymId)||null,blockName:S.program.name,duration:dur,rpe:selRpe,status:'complete',backStatus:sess.backStatus||null,readiness:sess.readiness!=null?sess.readiness:null,
     sessionNotes:sess.notes||'',
-    exercises:sess.exercises.map(ex=>({name:ex.name,cat:ex.cat,section:ex.section||'main',...(ex.entryType==='circuit'?{entryType:'circuit',format:ex.format,minutes:ex.minutes,movements:ex.movements||'',result:ex.result||null,loadKg:ex.prescribed&&ex.prescribed.loadKg||ex.loadKg||null}:{}),prescribed:ex.prescribed,performed:ex.performed.filter(s=>s.logged),notes:ex.notes,progression:ex.progression,progressionReason:ex.progressionReason||null,role:ex.role||null,target:ex.target||null,frozen:ex.frozen||undefined,nextLoad:ex.nextLoad,nextTarget:ex.nextTarget||null,variant:ex.variant||null,painEvent:ex.painEvent,tags:ex.tags})),
+    exercises:sess.exercises.map(ex=>({name:ex.name,cat:ex.cat,section:ex.section||'main',...(ex.entryType==='circuit'?{entryType:'circuit',format:ex.format,minutes:ex.minutes,movements:ex.movements||'',result:ex.result||null,loadKg:ex.prescribed&&ex.prescribed.loadKg||ex.loadKg||null,speed:+ex.speed>0?+ex.speed:null,speedUnit:+ex.speed>0?(ex.speedUnit||'km/h'):null,incline:(ex.incline!=null&&ex.incline!=='')?+ex.incline:null}:{}),prescribed:ex.prescribed,performed:ex.performed.filter(s=>s.logged),notes:ex.notes,progression:ex.progression,progressionReason:ex.progressionReason||null,role:ex.role||null,target:ex.target||null,frozen:ex.frozen||undefined,nextLoad:ex.nextLoad,nextTarget:ex.nextTarget||null,variant:ex.variant||null,painEvent:ex.painEvent,tags:ex.tags})),
     painEvents:sess.exercises.filter(e=>e.painEvent&&e.painEvent.severity!=='none').map(e=>({exercise:e.name,...e.painEvent}))
   };
   S.sessions.push(rec);
@@ -7970,6 +8030,10 @@ function buildCoachReport(sessions,program,weekDates){
         _rptSec=_sec;
       }
       if(ex.entryType==='circuit'){
+        if(isSpeedCircuit(ex)&&+ex.speed>0){
+          const _auto=speedAutoResult(ex);
+          r+=`  ${ex.name} ${_auto}${ex.result&&ex.result!==_auto?' \u2014 '+ex.result:''}\n`;
+        } else
         r+=`  ${ex.format||'Circuit'} ${ex.minutes||'?'}min${ex.loadKg?' @'+ex.loadKg+'kg':''} \u2014 ${ex.result||'no result logged'}\n`;
         if(ex.movements)r+=`    (${String(ex.movements).replace(/\n+/g,' / ')})\n`;
         return;

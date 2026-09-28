@@ -2627,7 +2627,7 @@ assert(/button:focus-visible[^{]*\{outline:2px solid var\(--brand\)/.test(html),
 // K9/D1: the card secondary line is GONE — cards are name + one chip + one
 // tappable rx line; the deep context renders in the fcDetail sheet only.
 assert(!/class="ex-sub"/.test(html), 'K9/D1: no ex-sub secondary line on cards (context moved to the detail sheet)');
-assert((html.match(/openFcDetail\(\$\{i\}\)/g)||[]).length===1&&(html.match(/openFcDetail\(\$\{ei\}\)/g)||[]).length===1, 'K9/D1: both card views open the detail sheet from the rx line');
+assert((html.match(/openFcDetail\(\$\{i\}\)/g)||[]).length===1&&(html.match(/openFcDetail\(\$\{ei\}\)/g)||[]).length===2&&/<button onclick="openFcDetail\(\$\{ei\}\)">History<\/button>/.test(html), 'K9/D1+N3: both card views open the detail sheet from the rx line; the Intervals card adds exactly one History link');
 assert((html.match(/fc-meta-more/g)||[]).length>=3, 'K9/D1: ellipsis affordance on list rx, focus meta and variant chip');
 // quote: single t-meta italic line
 assert(/id="greeting" style="margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"/.test(html), 'D6: stoic quote is a single ellipsised line');
@@ -2941,6 +2941,53 @@ assert(/#focusRoot\.kb-compact \.fc-readout\{[^}]*min-height:0/.test(html)&&/#vS
 assert(/@keyframes frglow/.test(html)&&/\.fr-count\{[^}]*var\(--display\)[^}]*animation:frglow/.test(html), 'S6: rest countdown in the display face with the slow glow pulse');
 assert(/id="focusRestDisp"/.test(html)&&/_fd\.textContent=rem<=0\?'GO'/.test(html), 'S6: rest tick mirrors into the focus overlay');
 assert(/resting&&\(!focusOnSession\|\|_restPeek\)/.test(html), 'S6: rest strip suppressed on-session in focus (until the card is woken); backgrounded mini-bar unchanged');
+
+// ---- N3 (Sep 28): sprint speed on Intervals circuits ----
+console.log('[N3 SprintSpeed]');
+(function(){
+  const _sp=JSON.parse(JSON.stringify(S.program)),_ss=S.sessions,_as=S.activeSession;
+  global.startTimer=()=>{};global.showSessionHero=global.showSessionHero||(()=>{});global.confirm=window.confirm=()=>true;
+  const mkSprint=()=>({name:'Sprints',cat:'cardio',section:'finisher',entryType:'circuit',format:'Intervals',minutes:8,movements:'Sprints 5\u00d730s hard / 90s easy',prescribed:{sets:0,reps:'',loadKg:0,unit:'bw'},performed:[],tags:[],result:null});
+  const ex=mkSprint();
+  // renders the speed row on Intervals only
+  const h1=circuitCardHTML(ex,0,'list');
+  assert(/aria-label="sprint speed"/.test(h1)&&/aria-label="speed unit"/.test(h1)&&/aria-label="incline"/.test(h1), 'N3: Intervals finisher card renders speed + unit + incline fields');
+  assert(/value="km\/h"/.test(h1)&&/Speed \u2014 one value for the session/.test(h1), 'N3: unit defaults to km/h; one per-session value (not per interval)');
+  const emom={...mkSprint(),name:'KB EMOM',format:'EMOM'};
+  assert(!/sprint speed/.test(circuitCardHTML(emom,0,'list')), 'N3: non-Intervals circuits carry no speed row');
+  assert(intervalsSpec(ex)==='5\u00d730s', 'N3: interval spec parsed from the movements text');
+  // history: last 5, newest first, same-unit comparison
+  const rec=(date,speed,unit,inc)=>({date,dayLabel:'Gym',status:'complete',exercises:[{name:'Sprints',entryType:'circuit',format:'Intervals',minutes:8,movements:'Sprints 5\u00d730s hard / 90s easy',speed,speedUnit:unit,incline:inc,result:'x'}],painEvents:[]});
+  S.sessions=[rec('2026-08-01',12,'km/h',null),rec('2026-08-08',12.5,'km/h',1),rec('2026-08-15',13,'km/h',null),rec('2026-08-22',13,'km/h',null),rec('2026-08-29',13.5,'km/h',2),rec('2026-09-05',14,'km/h',null)];
+  const hist=speedHistory('Sprints',5);
+  assert(hist.length===5&&hist[0].speed===14&&hist[4].speed===12.5, 'N3: history = last 5 sessions, newest first. Got '+JSON.stringify(hist.map(x=>x.speed)));
+  const th=speedTrendHTML('Sprints');
+  assert((th.match(/sh-row/g)||[]).length===5&&/14 km\/h/.test(th)&&/incline 2%/.test(th), 'N3: detail-sheet trend lists the last 5 speeds (incline shown when logged)');
+  // maintain phase does NOT mute the conditioning cue
+  S.program.phase='maintain';
+  ex.speed=14.5;ex.speedUnit='km/h';
+  assert(speedVsLast(ex)==='faster'&&/faster than last/.test(circuitCardHTML(ex,0,'list')), 'N3: speed above last \u2192 quiet "faster than last" note, even in maintain phase');
+  ex.speed=14;
+  assert(speedVsLast(ex)==='matched'&&/matched last/.test(circuitCardHTML(ex,0,'list')), 'N3: equal speed \u2192 "matched last"');
+  ex.speed=13;
+  assert(speedVsLast(ex)===null&&!/faster than last|matched last/.test(circuitCardHTML(ex,0,'list')), 'N3: slower \u2192 no cue (quiet, never a scold)');
+  ex.speed=9;ex.speedUnit='mph';
+  assert(speedVsLast(ex)===null, 'N3: different units never compare');
+  // persistence end-to-end: real start -> field writes -> confirmRpe record
+  S.program=JSON.parse(JSON.stringify(_sp));S.sessions=[];S.activeSession=null;
+  S.activeSession={dayIndex:-1,dayId:null,date:'2026-09-28',dayLabel:'Gym',sessionType:'lifting',startTime:1,order:[0],notes:'',exercises:[mkSprint()]};
+  setCircuitField(0,'speed',14);setCircuitField(0,'speedUnit','km/h');setCircuitField(0,'incline',null);
+  logCircuit(0); // speed alone logs the block
+  assert(S.activeSession.exercises[0].result==='5\u00d730s @ 14 km/h', 'N3: speed alone is a loggable result. Got '+S.activeSession.exercises[0].result);
+  selRpe=7;confirmRpe();
+  const r0=S.sessions[S.sessions.length-1];
+  const sx=r0&&r0.exercises.find(e=>e.name==='Sprints');
+  assert(sx&&sx.speed===14&&sx.speedUnit==='km/h'&&sx.incline===null, 'N3: the saved record stores speed/unit/incline');
+  const rpt=buildCoachReport(S.sessions,S.program,weekDatesFor('2026-09-28'));
+  assert(/Sprints 5\u00d730s @ 14 km\/h\n/.test(rpt), 'N3: Dispatch prints "Sprints 5\u00d730s @ 14 km/h". Got: '+((rpt.match(/.*Sprints.*/)||['<none>'])[0]));
+  assert(!/Sprints 5\u00d730s @ 14 km\/h \u2014 5\u00d730s/.test(rpt), 'N3: auto-result is not printed twice');
+  S.program=_sp;S.sessions=_ss;S.activeSession=_as;
+})();
 
 // ---- N2 (Sep 28): the rest timer NEVER blocks the session ----
 console.log('[N2 RestNonBlocking]');
