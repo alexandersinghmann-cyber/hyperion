@@ -123,13 +123,13 @@
 .rail-chip.done{opacity:.4}
 .rail-chip.fin{border-style:dashed}
 .rail-count{font:600 12px var(--mono);color:var(--tx3);flex:0 0 auto}
-#focusRestOverlay{position:absolute;inset:0;z-index:5;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:color-mix(in srgb,var(--bg) 82%,transparent)}
+#focusRestOverlay{position:absolute;inset:0;z-index:5;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:color-mix(in srgb,var(--bg) 82%,transparent);pointer-events:none}
 #focusRestOverlay.on{display:flex}
-#focusTrack.resting{opacity:.1;pointer-events:none}
+#focusTrack.resting{opacity:.1}
 .fr-label{font:600 12px var(--sans);color:var(--tx3);letter-spacing:1px}
 .fr-count{font:500 72px/1 var(--display);color:var(--brand);animation:frglow 2.4s ease-in-out infinite}
 @keyframes frglow{0%,100%{text-shadow:0 0 12px var(--brand-dim)}50%{text-shadow:0 0 32px var(--brand-dim)}}
-.fr-actions{display:flex;gap:12px;align-items:center}
+.fr-actions{display:flex;gap:12px;align-items:center;pointer-events:auto}
 .fr-ghost{min-height:48px;padding:0 20px;border-radius:24px;border:1px solid var(--s3);background:none;color:var(--tx2);font:600 14px var(--sans);cursor:pointer}
 .fr-skip{min-height:48px;padding:0 24px;border-radius:24px;border:1px solid var(--tx3);background:none;color:var(--tx);font:600 14px var(--sans);cursor:pointer}
 /* C1: 300ms number morph on set change (reduced-motion blanket kills it) */
@@ -3294,7 +3294,7 @@ function renderSessionBar(currentViewId){
   // Focus mode renders its own rest overlay on-session; the strip would
   // double up. Off vSession (backgrounded) behaviour is bit-identical.
   const focusOnSession=live&&onSession&&(S.settings.sessionView||'focus')!=='list'&&!(S.activeSession&&S.activeSession.activity);
-  const show=(resting&&!focusOnSession)||showSummary;
+  const show=(resting&&(!focusOnSession||_restPeek))||showSummary;
   bar.classList.toggle('on',show);
   if(app&&app.classList)app.classList.toggle('has-sessbar',show);
 }
@@ -4216,6 +4216,11 @@ function toggleSessionView(){
   S.settings.sessionView=(S.settings.sessionView==='list')?'focus':'list';
   save();
   try{renderEx();}catch(e){}
+  // A rest running across the switch must follow it: list view gets the
+  // mini-bar countdown (it previously got NOTHING — the stale focus overlay
+  // was hidden with focusRoot and the bar never re-rendered).
+  if(restInt!=null)try{focusRestSync(true);}catch(e){}
+  try{renderSessionBar();}catch(e){}
 }
 // ===== F1: CARD OPEN-STATE SURVIVES RE-RENDERS =====
 // autoOpen is recomputed every render; a manual open/close previously
@@ -4995,6 +5000,7 @@ function focusGoTo(pos){
   const units=focusUnits(sess);
   pos=Math.max(0,Math.min(units.length,pos));
   _focusIdx=pos<units.length?units[pos].eis[0]:-1;
+  if(restInt!=null)restWake(); // navigating mid-rest: the new card is live, not dimmed
   applyFocusTransform(pos,true);
   try{renderFocusRail();}catch(e){}
 }
@@ -5429,9 +5435,42 @@ function wireRowReveal(track){
 // unit is done (user navigation during rest naturally suppresses this).
 function focusRestSync(on){
   const focus=!!S.activeSession&&(S.settings.sessionView||'focus')!=='list';
-  try{const ov=document.getElementById('focusRestOverlay');if(ov&&ov.classList)ov.classList.toggle('on',!!on&&focus);}catch(e){}
-  try{const tr=document.getElementById('focusTrack');if(tr&&tr.classList)tr.classList.toggle('resting',!!on&&focus);}catch(e){}
-  if(!on)try{focusMaybeAdvance();}catch(e){}
+  const dim=!!on&&focus&&!_restPeek;
+  try{const ov=document.getElementById('focusRestOverlay');if(ov&&ov.classList)ov.classList.toggle('on',dim);}catch(e){}
+  try{const tr=document.getElementById('focusTrack');if(tr&&tr.classList)tr.classList.toggle('resting',dim);}catch(e){}
+  if(!on){_restPeek=false;try{focusMaybeAdvance();}catch(e){}}
+}
+// N2: rest NEVER blocks the session. The focus-view dim is a peek-able
+// state, not a barrier: the first touch on the dimmed card wakes it (the
+// countdown moves to the mini-bar and keeps running). That touch's CLICK is
+// swallowed so a near-invisible Log button can't fire by accident; a swipe
+// or scroll in the same gesture proceeds normally (no preventDefault).
+let _restPeek=false,_wakeSwallow=false;
+function restDimmed(){
+  const sess=S.activeSession;
+  return restInt!=null&&!_restPeek&&!!sess&&!sess.activity&&(S.settings.sessionView||'focus')!=='list';
+}
+function restWake(){
+  if(restInt==null||_restPeek)return false;
+  _restPeek=true;
+  try{focusRestSync(true);}catch(e){}
+  renderSessionBar();
+  return true;
+}
+function wireRestWake(wrap){
+  if(!wrap||typeof wrap.addEventListener!=='function')return;
+  wrap.addEventListener('pointerdown',e=>{
+    if(!restDimmed())return;
+    if(e&&e.target&&e.target.closest&&e.target.closest('.fr-actions'))return;
+    restWake();
+    _wakeSwallow=true;setTimeout(()=>{_wakeSwallow=false;},600);
+  },true);
+  wrap.addEventListener('click',e=>{
+    if(!_wakeSwallow)return;
+    _wakeSwallow=false;
+    if(e&&e.preventDefault)e.preventDefault();
+    if(e&&e.stopPropagation)e.stopPropagation();
+  },true);
 }
 function focusMaybeAdvance(){
   const sess=S.activeSession;if(!sess)return;
@@ -6449,7 +6488,7 @@ function cancelBeep(){if(_restBeepTimer){clearTimeout(_restBeepTimer);_restBeepT
 
 // ===== REST TIMER =====
 function startRest(sec){
-  stopRest();restDur=sec;restEnd=Date.now()+sec*1000;
+  stopRest();_restPeek=false;restDur=sec;restEnd=Date.now()+sec*1000;
   const bar=document.getElementById('restBar');bar.classList.add('on');
   document.getElementById('restDisp').classList.remove('go');
   try{focusRestSync(true);}catch(e){}
@@ -8169,7 +8208,7 @@ function init(){
   // iOS standalone PWA: extend #app into the dead space below the CSS viewport
   load();
   // Focus-mode swipe (S6): the track is static DOM — wire once, mock-guarded.
-  try{const _ft=document.getElementById('focusTrack');wireFocusSwipe(_ft);wireRowReveal(_ft);}catch(e){}
+  try{const _ft=document.getElementById('focusTrack');wireFocusSwipe(_ft);wireRowReveal(_ft);wireRestWake(document.getElementById('focusTrackWrap'));}catch(e){}
   try{wireRowReveal(document.getElementById('exList'));}catch(e){}
   // Reorder surfaces (S7): static containers — listeners survive re-renders.
   try{wireReorderDrag(document.getElementById('roList'));}catch(e){}

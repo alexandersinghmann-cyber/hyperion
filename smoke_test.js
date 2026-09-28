@@ -62,6 +62,7 @@ const patched = js
   .replace(/\blet _backReadiness\s*=/g, 'var _backReadiness =')
   .replace(/\blet _backPending\s*=/g, 'var _backPending =')
   .replace(/\blet _backStartIdx\s*=/g, 'var _backStartIdx =')
+  .replace(/\blet _restPeek\s*=/g, 'var _restPeek =')
   .replace(/\bconst ACTIVITY_TYPES\s*=/g, 'var ACTIVITY_TYPES =')
   .replace(/\bconst MODALITY_TYPES\s*=/g, 'var MODALITY_TYPES =')
   .replace(/\blet _reachCache\s*=/g, 'var _reachCache =')
@@ -2939,7 +2940,79 @@ assert(/Math\.abs\(dx\)>=FOCUS_SWIPE\.commit\|\|\(Math\.abs\(dx\)>=24&&v>=FOCUS_
 assert(/#focusRoot\.kb-compact \.fc-readout\{[^}]*min-height:0/.test(html)&&/#vSession\.focus-on #focusRoot\.kb-compact #focusRail\{display:none\}/.test(html), 'S6: keyboard compression collapses readout + hides rail');
 assert(/@keyframes frglow/.test(html)&&/\.fr-count\{[^}]*var\(--display\)[^}]*animation:frglow/.test(html), 'S6: rest countdown in the display face with the slow glow pulse');
 assert(/id="focusRestDisp"/.test(html)&&/_fd\.textContent=rem<=0\?'GO'/.test(html), 'S6: rest tick mirrors into the focus overlay');
-assert(/resting&&!focusOnSession/.test(html), 'S6: rest strip suppressed on-session in focus; backgrounded mini-bar unchanged');
+assert(/resting&&\(!focusOnSession\|\|_restPeek\)/.test(html), 'S6: rest strip suppressed on-session in focus (until the card is woken); backgrounded mini-bar unchanged');
+
+// ---- N2 (Sep 28): the rest timer NEVER blocks the session ----
+console.log('[N2 RestNonBlocking]');
+// CSS census: no pointer barrier, no scroll lock keyed to rest
+assert(/#focusTrack\.resting\{opacity:\.1\}/.test(html)&&!/#focusTrack\.resting\{[^}]*pointer-events:none/.test(html), 'N2: the dimmed focus track keeps pointer events (swipe/scroll live)');
+assert(/#focusRestOverlay\{[^}]*pointer-events:none/.test(html)&&/\.fr-actions\{[^}]*pointer-events:auto/.test(html), 'N2: the rest layer is click-through except its own +30s/Skip controls');
+assert(!/\.resting[^{]*\{[^}]*overflow:hidden/.test(html)&&!/rest[^{]*\{[^}]*touch-action:none/.test(html), 'N2: no scroll lock keyed to rest');
+(function(){
+  // stateful DOM: persistent elements with real class sets
+  const els={};
+  const mk=id=>{const cls=new Set();return {id,textContent:'',innerHTML:'',style:{},classList:{add:c=>cls.add(c),remove:c=>cls.delete(c),toggle:(c,f)=>{const on=f===undefined?!cls.has(c):!!f;on?cls.add(c):cls.delete(c);return on;},contains:c=>cls.has(c)},_cls:cls};};
+  const _gid=document.getElementById,_qs=document.querySelector;
+  document.getElementById=id=>els[id]||(els[id]=mk(id));
+  let onSession=true;
+  document.querySelector=q=>(q==='#vSession.on'&&onSession)?{}:null;
+  const has=(id,c)=>document.getElementById(id).classList.contains(c);
+  const _as=S.activeSession,_sv=S.settings.sessionView,_re=global.renderEx;
+  global.renderEx=()=>{};
+  S.activeSession={dayIndex:0,sessionType:'lifting',dayLabel:'Gym',date:todayStr(),startTime:1,order:[0,1],exercises:[
+    {name:'Back Squat',cat:'squat',section:'main',prescribed:{sets:2,reps:'5',loadKg:100,unit:'kg'},performed:[{type:'working',weightKg:100,reps:5,logged:true},{type:'working',weightKg:100,reps:5,logged:false}],tags:[]},
+    {name:'Strict Pull-Up',cat:'pull',section:'main',prescribed:{sets:1,reps:'6',loadKg:0,unit:'bw'},performed:[{type:'working',weightKg:0,reps:6,logged:false}],tags:[]}]};
+  // --- focus view: dimmed but live ---
+  S.settings.sessionView='focus';_focusIdx=0;
+  startRest(90);
+  assert(restInt!=null&&has('focusRestOverlay','on')&&has('focusTrack','resting'), 'N2: focus rest starts in its dimmed state');
+  assert(!has('sessBar','on'), 'N2: focus on-session: no duplicate countdown in the strip while dimmed');
+  assert(restDimmed()===true, 'N2: dimmed predicate on');
+  // wake via a touch on the dimmed card (capture listeners)
+  const h={};const wrap={addEventListener:(t,fn,cap)=>{h[t]=fn;}};
+  wireRestWake(wrap);
+  const cardTarget={closest:q=>null};
+  h.pointerdown({target:cardTarget});
+  assert(restInt!=null, 'N2: waking never stops the rest — it keeps counting');
+  assert(!has('focusRestOverlay','on')&&!has('focusTrack','resting'), 'N2: first touch lifts the dim (card live, scroll/swipe proceed)');
+  assert(has('sessBar','on'), 'N2: woken rest counts down in the mini-bar');
+  let pd=0,sp=0;
+  h.click({preventDefault:()=>pd++,stopPropagation:()=>sp++});
+  assert(pd===1&&sp===1, 'N2: the waking tap\'s click is swallowed (no accidental Log on the hidden card)');
+  h.click({preventDefault:()=>pd++,stopPropagation:()=>sp++});
+  assert(pd===1&&sp===1, 'N2: only ONE click is swallowed — the next tap acts normally');
+  // overlay's own controls never wake/swallow
+  stopRest();startRest(90);
+  h.pointerdown({target:{closest:q=>q==='.fr-actions'?{}:null}});
+  assert(has('focusRestOverlay','on')&&_restPeek===false, 'N2: +30s/Skip taps act on the rest, not as a wake');
+  // navigating mid-rest (rail tap / swipe) opens the other card live
+  focusGoTo(1);
+  assert(_focusIdx===1&&restInt!=null&&!has('focusTrack','resting')&&has('sessBar','on'), 'N2: navigating to another exercise mid-rest opens it undimmed; rest continues in the mini-bar');
+  stopRest();
+  assert(_restPeek===false&&!has('focusRestOverlay','on'), 'N2: rest end clears the peek state');
+  // --- list view: countdown ONLY in the mini-bar ---
+  S.settings.sessionView='list';
+  startRest(90);
+  assert(!has('focusRestOverlay','on')&&!has('focusTrack','resting'), 'N2: list rest draws NO overlay/dim');
+  assert(has('sessBar','on')&&has('restBar','on'), 'N2: list rest counts down in the mini-bar');
+  // open another exercise card mid-rest
+  const _uo=_userOpened,_uc=_userClosed;_userOpened=new Set();_userClosed=new Set();
+  toggleCardOpen(1);
+  assert(cardOpen(S.activeSession,1)===true&&restInt!=null, 'N2: tapping another card mid-rest opens it (rest keeps running)');
+  _userOpened=_uo;_userClosed=_uc;
+  stopRest();
+  // --- focus → list switch mid-rest follows the rest ---
+  S.settings.sessionView='focus';
+  startRest(90);
+  assert(has('focusRestOverlay','on')&&!has('sessBar','on'), 'N2: focus rest dimmed before the switch');
+  toggleSessionView();
+  assert(S.settings.sessionView==='list'&&!has('focusRestOverlay','on')&&!has('focusTrack','resting')&&has('sessBar','on'), 'N2: switching to list mid-rest moves the countdown to the mini-bar (was: no countdown anywhere)');
+  toggleSessionView();
+  assert(S.settings.sessionView==='focus'&&has('focusRestOverlay','on')&&!has('sessBar','on'), 'N2: switching back re-dims the focus card');
+  stopRest();
+  document.getElementById=_gid;document.querySelector=_qs;global.renderEx=_re;
+  S.activeSession=_as;S.settings.sessionView=_sv;_focusIdx=null;
+})();
 // focusMaybeAdvance: advances past a completed unit at rest end, wraps to earlier incomplete
 (()=>{
   S.activeSession={dayIndex:0,dayLabel:'X',sessionType:'lifting',startTime:1,notes:'',exercises:[
@@ -3187,7 +3260,7 @@ assert(/\.fc-meta\{[^}]*white-space:nowrap[^}]*text-overflow:ellipsis/.test(html
 assert(/onclick="openFcDetail\(\$\{ei\}\)"/.test(html)&&typeof openFcDetail==='function'&&/id="fcDetailSheet"/.test(html), 'C4: tap opens the detail sheet');
 assert(!/\$\{getLastHint\(ex\)\}\n  <\/div>`;/.test(html), 'C4: last-session detail moved off the card into the sheet');
 // C6: rest scene
-assert(/#focusTrack\.resting\{opacity:\.1;pointer-events:none\}/.test(html), 'C6: rest dims to 10% and mutes pointers behind the overlay');
+assert(/#focusTrack\.resting\{opacity:\.1\}/.test(html), 'C6/N2: rest dims to 10% — pointers stay LIVE (N2 supersedes the old mute: the dim is a wakeable peek, never a barrier)');
 assert(/class="fr-skip"/.test(html)&&/\.fr-skip\{[^}]*border:1px solid var\(--tx3\)/.test(html), 'C6: Skip is a neutral outline — never the Log colour');
 assert(!/fr-actions[^<]*<button class="btn btn-p"/.test(html), 'C6: no solid brand button in the rest overlay');
 // C7: rail ellipsis + fade + outside controls
