@@ -2896,6 +2896,41 @@ assert(/restInt=setInterval\(restTick,250\);/.test(html)&&typeof restTick==='fun
   S.activeSession=_as;
 })();
 
+// ---- Q2/D3: the finisher card has a completed (collapsed) state ----
+console.log('[Q2 FinisherCollapse]');
+(function(){
+  const els={};
+  const mk=id=>{const cls=new Set();return {id,value:'',textContent:'',innerHTML:'',style:{},classList:{add:c=>cls.add(c),remove:c=>cls.delete(c),toggle:(c,f)=>{const on=f===undefined?!cls.has(c):!!f;on?cls.add(c):cls.delete(c);return on;},contains:c=>cls.has(c)}};};
+  const _gid=document.getElementById;
+  document.getElementById=id=>els[id]||(els[id]=mk(id));
+  const _as=S.activeSession,_uo=_userOpened,_uc=_userClosed;_userOpened=new Set();_userClosed=new Set();
+  S.activeSession={dayIndex:0,sessionType:'lifting',dayLabel:'Gym',date:todayStr(),startTime:1,notes:'',exercises:[
+    {name:'Back Squat',cat:'squat',section:'main',prescribed:{sets:1,reps:'5',loadKg:100,unit:'kg'},performed:[{type:'working',weightKg:100,reps:5,logged:false}],tags:[],equipmentClass:'barbell'},
+    {name:'Sprints',cat:'cardio',section:'finisher',entryType:'circuit',format:'Intervals',minutes:8,movements:'Sprints 5×30s hard / 90s easy',prescribed:{sets:0,reps:'',loadKg:0,unit:'bw'},performed:[],tags:[],result:null}]};
+  const card=()=>{renderExList();const h=document.getElementById('exList').innerHTML;const i=h.indexOf('id="ex1"');return h.slice(h.lastIndexOf('<div class="ex-card',i),h.indexOf('circ-head',i));};
+  assert(cardOpen(S.activeSession,1)===true&&/class="ex-card open sec-finisher" id="ex1"/.test(card()), 'D3: a pending finisher is open (it is its own input surface)');
+  assert(/<div class="ex-rx">Intervals 8 min<\/div>/.test(card()), 'D3: pending header shows the prescription line');
+  document.getElementById('circRes1').value='5 rounds';
+  logCircuit(1);
+  assert(cardOpen(S.activeSession,1)===false, 'D3: logging the result collapses the finisher');
+  const done=card();
+  assert(/class="ex-card  done sec-finisher" id="ex1"/.test(done)&&!/ex-card open/.test(done), 'D3: completed finisher renders collapsed + done. Got '+done.slice(0,70));
+  assert(/<div class="ex-topset">5 rounds<\/div>/.test(done)&&/class="ex-status done">✓/.test(done), 'D3: collapsed header carries the result and the tick');
+  assert(/<div class="ex-head" onclick="toggleCardOpen\(1\)">/.test(done), 'D3: the header toggles it like any exercise');
+  toggleCardOpen(1);
+  assert(cardOpen(S.activeSession,1)===true, 'D3: tapping the header reopens a completed finisher');
+  toggleCardOpen(1);
+  assert(cardOpen(S.activeSession,1)===false, 'D3: and closes it again');
+  // completing ALWAYS collapses, even when the user had it explicitly open
+  editCircuit(1);
+  assert(S.activeSession.exercises[1].result===null&&cardOpen(S.activeSession,1)===true, 'D3: editing the result reopens the input surface');
+  _userOpened.add(1);document.getElementById('circRes1').value='6 rounds';logCircuit(1);
+  assert(cardOpen(S.activeSession,1)===false, 'D3: completion collapses even an explicitly-opened card');
+  assert(cardOpen(S.activeSession,0)===true, 'D3: regular exercises keep their own auto-open rule');
+  document.getElementById=_gid;S.activeSession=_as;_userOpened=_uo;_userClosed=_uc;
+})();
+assert(!/<div class="ex-body" style="display:block">\$\{circuitCardHTML/.test(html), 'D3: the finisher body no longer forces itself open inline');
+
 // ---- N3 (Sep 28): sprint speed on Intervals circuits ----
 console.log('[N3 SprintSpeed]');
 (function(){

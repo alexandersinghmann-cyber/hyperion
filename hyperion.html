@@ -4064,6 +4064,10 @@ function cardAutoOpen(sess,i){
 function cardOpen(sess,i){
   if(_userClosed.has(i))return false;
   if(_userOpened.has(i))return true;
+  // D3: a circuit/finisher is open while pending (it IS its own input
+  // surface) and collapses once its result is logged.
+  const ex=sess&&sess.exercises&&sess.exercises[i];
+  if(ex&&ex.entryType==='circuit')return !exDone(ex);
   return cardAutoOpen(sess,i);
 }
 function toggleCardOpen(i){
@@ -4187,11 +4191,15 @@ function logCircuit(ei){
   let v=inp&&inp.value!=null?String(inp.value).trim():'';
   if(!v&&isSpeedCircuit(ex)&&+ex.speed>0)v=speedAutoResult(ex); // speed alone is a result
   if(!v){toast('Log the result — rounds, reps or distance');return;}
-  ex.result=v;save();renderEx();
+  ex.result=v;
+  try{_userOpened.delete(ei);}catch(e){} // completing always collapses the card
+  save();renderEx();
 }
 function editCircuit(ei){
   const ex=S.activeSession&&S.activeSession.exercises[ei];if(!ex)return;
-  ex.result=null;save();renderEx();
+  ex.result=null;
+  try{_userClosed.delete(ei);}catch(e){} // editing reopens the input surface
+  save();renderEx();
 }
 function circuitCardHTML(ex,ei,mode){
   const fmt=ex.format||'Circuit';
@@ -4684,13 +4692,19 @@ function renderExList(){
     })():null;
     const secCls=sectionOf(ex)==='warmup'?' sec-warmup':sectionOf(ex)==='finisher'?' sec-finisher':'';
     if(ex.entryType==='circuit'){
+      // D3: the finisher has a completed state like any exercise — open
+      // while pending, collapsed to a one-line result once logged; the
+      // header toggles it (cardOpen is circuit-aware).
       const cDone=exDone(ex);
-      return _secHdr(ex)+`<div class="ex-card open${cDone?' done':''}${secCls}" id="ex${i}">
-        <div class="ex-head"><div class="ex-status ${cDone?'done':'pending'}">${cDone?'\u2713':'\u25cb'}</div>
-          <div class="ex-info"><div class="ex-name">${ex.name}</div></div>
+      const cOpen=cardOpen(sess,i);
+      return _secHdr(ex)+`<div class="ex-card ${cOpen?'open':''}${cDone?' done':''}${secCls}" id="ex${i}">
+        <div class="ex-head" onclick="toggleCardOpen(${i})"><div class="ex-status ${cDone?'done':'pending'}">${cDone?'\u2713':'\u25cb'}</div>
+          <div class="ex-info"><div class="ex-name">${ex.name}</div>
+            ${cDone?`<div class="ex-topset">${esc(ex.result)}</div>`:`<div class="ex-rx">${ex.format||'Circuit'} ${ex.minutes||'?'} min</div>`}
+          </div>
           <button class="pain-flag${ex.painEvent&&ex.painEvent.severity!=='none'?' has':''}" onclick="event.stopPropagation();openPainModal(${i})" aria-label="Log pain for ${ex.name.replace(/"/g,'')}" title="Pain check">\u2691</button>
         </div>
-        <div class="ex-body" style="display:block">${circuitCardHTML(ex,i,'list')}</div>
+        <div class="ex-body">${circuitCardHTML(ex,i,'list')}</div>
       </div>`;
     }
     const isOpen=cardOpen(sess,i);
