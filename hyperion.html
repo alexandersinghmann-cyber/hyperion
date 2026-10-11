@@ -82,92 +82,15 @@
    WebKit re-rasterize the filter during scroll and froze homepage scroll. */
 #trainHdr{position:relative}
 #trainHdr::before{content:'';position:absolute;inset:-20px -16px -8px;background-image:url(data:image/png;base64,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);background-size:64px 64px;opacity:.02;pointer-events:none}
-/* ===== FOCUS MODE (S5) ===== */
-#focusRoot{display:none}
-#vSession.focus-on{overflow:hidden}
-#vSession.focus-on #focusRoot{display:flex;flex-direction:column;flex:1;min-height:0}
-#vSession.focus-on #exList{display:none}
-#vSession.focus-on .sess-progress{display:none}
-#vSession.focus-on #sessNotesWrap{display:none}
-#focusTrackWrap{position:relative;flex:1;min-height:0;overflow:hidden;margin:0 -16px}
-#focusTrack{display:flex;height:100%;transition:transform var(--motion)}
-#focusTrack.no-anim{transition:none}
-.fcard{flex:0 0 100%;width:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 16px calc(84px + var(--sab))}
-.fc-head{display:flex;align-items:flex-start;gap:8px}
-.fc-member-block{margin-top:8px}
-.fc-name{font:600 20px var(--sans);overflow:hidden;text-overflow:ellipsis}
-.fc-member-tag{display:inline-flex;align-items:center;font:700 10px var(--mono);color:var(--brand);border:1px solid var(--brand);border-radius:4px;padding:0 4px;margin-right:6px;vertical-align:middle}
-.fc-member-tag.big{font-size:12px;padding:2px 6px;margin-top:4px}
-.fc-meta{font:500 12px var(--mono);color:var(--tx3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .fc-meta-more{color:var(--tx2)}
 .fc-detail-row{margin-bottom:8px}
-.fc-hscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x}
-.fc-readout{display:flex;align-items:baseline;gap:8px;margin:16px 0 12px;min-height:64px}
-.fc-readout.done{min-height:40px}
-.fc-readout-w{font:500 64px/1 var(--display);background:var(--solar);-webkit-background-clip:text;background-clip:text;color:transparent}
-.fc-readout-u{font:500 16px var(--mono);color:var(--tx3)}
-.fc-readout-x{font:500 24px var(--display);color:var(--tx2)}
-#focusRoot.kb-compact .fc-readout{min-height:0;margin:4px 0}
-#focusRoot.kb-compact .fc-readout-w{font-size:20px;background:none;-webkit-background-clip:initial;background-clip:initial;color:var(--tx)}
-#focusRoot.kb-compact .fc-readout-x{font-size:14px}
-#vSession.focus-on #focusRoot.kb-compact #focusRail{display:none}
-.fc-log{display:block;width:100%;min-height:52px;border:none;border-radius:var(--r);background:var(--solar);color:var(--on-brand);font:700 16px var(--sans);margin:12px 0 4px;cursor:pointer}
-.fc-log:active{transform:scale(.98)}
-.fcard.done{opacity:.85}
-.fc-wrap{padding-top:16px}
-#focusRail{position:fixed;left:0;right:0;bottom:calc(55px + var(--sab));z-index:96;display:none;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-top:1px solid var(--line)}
-#vSession.focus-on #focusRail{display:flex}
-.rail-scroll{display:flex;gap:6px;overflow-x:auto;flex:1;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-.rail-chip{flex:0 0 auto;min-height:48px;padding:0 16px;border-radius:24px;border:1px solid var(--s3);background:var(--s1);color:var(--tx2);font:600 12px var(--sans);cursor:pointer;white-space:nowrap}
-.rail-chip.current{border-color:var(--brand);color:var(--tx)}
-.rail-chip.done{opacity:.4}
-.rail-chip.fin{border-style:dashed}
-.rail-count{font:600 12px var(--mono);color:var(--tx3);flex:0 0 auto}
-#focusRestOverlay{position:absolute;inset:0;z-index:5;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:color-mix(in srgb,var(--bg) 82%,transparent);pointer-events:none}
-#focusRestOverlay.on{display:flex}
-#focusTrack.resting{opacity:.1}
-.fr-label{font:600 12px var(--sans);color:var(--tx3);letter-spacing:1px}
-.fr-count{font:500 72px/1 var(--display);color:var(--brand);animation:frglow 2.4s ease-in-out infinite}
-@keyframes frglow{0%,100%{text-shadow:0 0 12px var(--brand-dim)}50%{text-shadow:0 0 32px var(--brand-dim)}}
-.fr-actions{display:flex;gap:12px;align-items:center;pointer-events:auto}
-.fr-ghost{min-height:48px;padding:0 20px;border-radius:24px;border:1px solid var(--s3);background:none;color:var(--tx2);font:600 14px var(--sans);cursor:pointer}
-.fr-skip{min-height:48px;padding:0 24px;border-radius:24px;border:1px solid var(--tx3);background:none;color:var(--tx);font:600 14px var(--sans);cursor:pointer}
-/* C1: 300ms number morph on set change (reduced-motion blanket kills it) */
-.fc-readout.morph .fc-readout-w{animation:fcmorph 300ms cubic-bezier(.2,0,0,1)}
-@keyframes fcmorph{from{opacity:0;transform:translateY(8px) scale(.92)}to{opacity:1;transform:none}}
-/* C2: one lit Log per card — the solar fc-log. Row Logs ghost at 35%; the
-   current row's is hidden (fc-log IS its action); skip/del hidden until the
-   row is current or long-press revealed. */
-.fcard .set-row .set-log{opacity:.35}
-.fcard .set-row.current .set-log{display:none}
-.fcard .set-row:not(.current):not(.reveal) .set-skip{display:none}
-.fcard .set-row:not(.current):not(.reveal) .set-del{display:none}
-.fcard .set-row.reveal .set-log{opacity:1}
-/* K10/D6: the same record hierarchy in LIST view — ghosts at 35%, but the
-   current row's Log stays LIT (list rows have no fc-log to defer to). */
+/* K10/D6: one lit Record per card — pending rows ghost at 35%, the current
+   row's stays LIT; skip/del hide until current or long-press revealed. */
 #exList .set-row .set-log{opacity:.35}
 #exList .set-row.current .set-log{opacity:1}
 #exList .set-row:not(.current):not(.reveal) .set-skip{display:none}
 #exList .set-row:not(.current):not(.reveal) .set-del{display:none}
 #exList .set-row.reveal .set-log{opacity:1}
-/* C7: rail chips ellipsis at 12ch; scroll area fades at its right edge;
-   reorder + counter live OUTSIDE the scroll with their own gap. */
-.rail-chip{max-width:12ch;overflow:hidden;text-overflow:ellipsis}
-.rail-chip.pair{max-width:16ch}
-.rail-scroll{padding-right:24px;mask-image:linear-gradient(90deg,#000 calc(100% - 24px),transparent);-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 24px),transparent)}
-/* ===== FOCUS REORDER (S7) ===== */
-.rail-reorder{flex:0 0 auto;min-width:48px;min-height:48px;border-radius:12px;border:1px solid var(--s3);background:var(--s1);color:var(--tx2);font-size:16px;cursor:pointer}
-#focusRail.rail-locked .rail-scroll{overflow-x:hidden;touch-action:none}
-.rail-chip.dragging{opacity:.92;box-shadow:0 8px 24px rgba(0,0,0,.5);transform:scale(1.05);position:relative;z-index:50}
-.rail-chip.drop-target{border-color:var(--brand)}
-.ro-row{display:flex;align-items:center;gap:8px;padding:8px;background:var(--s1);border:1px solid var(--s2);border-radius:var(--rs);margin-bottom:6px;touch-action:none}
-.ro-row.dragging{opacity:.92;box-shadow:0 8px 24px rgba(0,0,0,.5);border-color:var(--brand)}
-.ro-row.drag-dim{opacity:.5}
-.ro-pair{border-left:2px solid var(--brand)}
-.ro-updown{display:flex;flex-direction:column;gap:2px}
-.ro-btn{min-width:48px;min-height:40px;border:1px solid var(--s3);background:none;color:var(--tx2);border-radius:var(--rs);font-size:11px;cursor:pointer}
-.ro-name{flex:1;font:600 14px var(--sans);min-width:0;overflow:hidden;text-overflow:ellipsis}
-.ro-handle{min-width:48px;min-height:48px;display:flex;align-items:center;justify-content:center;color:var(--tx3);font-size:20px;cursor:grab}
 /* ===== PAUSED GOALS (W4-D) ===== */
 .paused-wrap{margin-top:8px;border:1px solid var(--s2);border-radius:var(--r);overflow:hidden}
 .paused-toggle{display:flex;align-items:center;gap:8px;padding:12px 16px;font:600 13px var(--sans);color:var(--tx3);cursor:pointer;min-height:48px}
@@ -204,10 +127,6 @@
 .ex-card.sec-finisher{background:color-mix(in srgb,var(--brand) 4%,var(--s1))}
 .ex-card.sec-warmup{background:color-mix(in srgb,var(--blu) 5%,var(--s1))}
 .sec-hdr{border-bottom:1px solid var(--s2);padding-bottom:4px}
-.fcard.fc-sec-warmup .fc-name{font-size:16px;color:var(--tx2)}
-.fcard.fc-sec-finisher{background:color-mix(in srgb,var(--brand) 4%,transparent)}
-.rail-chip.fin-sec{border-color:color-mix(in srgb,var(--brand) 40%,var(--s3))}
-.sum-order-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 16px;background:var(--s1);border:1px solid var(--s2);border-radius:var(--r);margin:12px 0}
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{transition:none !important;animation:none !important}
 }
@@ -366,7 +285,6 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .ex-rx{font:500 12px var(--mono);color:var(--tx3);margin-top:1px}
 .plate-line{font:600 11px var(--mono);color:var(--gold);margin-top:4px;letter-spacing:.3px;opacity:.92}
 .ex-sub{font:500 11px var(--mono);color:var(--tx3);margin-top:4px;line-height:1.5}
-.fcard .set-row.current{flex-wrap:wrap}
 .row-plates{flex-basis:100%;order:99;font:500 11px var(--mono);color:var(--tx3);padding:3px 2px 0 34px;letter-spacing:.02em}
 #exList .row-plates{padding:3px 2px 7px 36px;border-bottom:1px solid var(--s2)}
 .row-protect{font:600 10px var(--mono);letter-spacing:.18em;color:var(--tx3);padding:4px 2px 0 36px}
@@ -728,7 +646,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .imperium #greeting{white-space:normal !important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.45}
 .imperium .commem-card .ch-name{font-family:var(--serif);font-variant-caps:small-caps;color:var(--gold);letter-spacing:.04em}
 .imperium .btn-d{background:color-mix(in srgb,var(--crimson) 26%,var(--s1));border-color:color-mix(in srgb,var(--crimson) 55%,transparent)}
-/* MECHANICUS register — the active session only (list AND focus). */
+/* MECHANICUS register — the active session only. */
 .imperium #vSession.on{
   background:var(--bg-mech);
   --bg:var(--bg-mech);
@@ -757,15 +675,6 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .imperium #vSession.on .sess-head .btn-sm{padding:7px 9px}
 .imperium #vSession.on .btn-d{background:transparent;border-color:color-mix(in srgb,var(--red) 55%,transparent);color:var(--red)}
 .imperium #vSession.on .sess-progress{background:color-mix(in srgb,var(--phos) 7%,transparent)}
-/* focus card: names bright, meta dim, tags quiet */
-.imperium #vSession.on .fc-name{font:700 15px var(--mono);letter-spacing:0;color:var(--phos)}
-.imperium #vSession.on .fcard.fc-sec-warmup .fc-name{font-size:13px;color:var(--tx2)}
-.imperium #vSession.on .fc-meta{font:500 10px var(--mono);color:var(--tx3)}
-.imperium #vSession.on .fc-member-tag{font:700 9px var(--mono);padding:0 3px;border-radius:3px}
-.imperium #vSession.on .fc-readout-w{background:none;-webkit-background-clip:initial;background-clip:initial;color:var(--phos);font-size:56px}
-.imperium #vSession.on .fc-readout-u{font:500 13px var(--mono);color:var(--tx3);letter-spacing:.1em}
-.imperium #vSession.on .fc-readout-x{font:500 18px var(--mono);color:var(--phos-dim)}
-.imperium #vSession.on .fc-log{background:var(--phos);color:var(--bg-mech);font:700 15px var(--mono);border-radius:var(--rs)}
 /* set rows: dim until current; the current row is the bright thing on screen */
 .imperium #vSession.on .set-row{border:1px solid transparent}
 .imperium #vSession.on .set-row.current{border:1px solid var(--phos);background:color-mix(in srgb,var(--phos) 6%,transparent)}
@@ -773,13 +682,6 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .imperium #vSession.on .set-log{font-family:var(--mono);font-size:12px}
 .imperium #vSession.on .set-skip{font:600 10px var(--mono);letter-spacing:0;padding:0 6px}
 .imperium #vSession.on .set-log.ready{background:var(--phos);color:var(--bg-mech)}
-/* rail: what is coming must be READABLE — mid phosphor, current bright */
-.imperium #vSession.on .rail-chip{font:600 11px var(--mono);background:transparent;border-color:color-mix(in srgb,var(--phos) 22%,transparent);color:color-mix(in srgb,var(--phos) 66%,var(--bg-mech));max-width:14ch;min-height:44px;padding:0 12px}
-.imperium #vSession.on .rail-chip.current{color:var(--phos);border-color:var(--phos);background:color-mix(in srgb,var(--phos) 10%,transparent)}
-/* rest = Vigil: label whispers, count speaks */
-.imperium #vSession.on .fr-label{font:600 10px var(--mono);letter-spacing:.3em;color:var(--tx3)}
-.imperium #vSession.on .fr-count{font-size:64px}
-.imperium #vSession.on .fr-ghost,.imperium #vSession.on .fr-skip{font-family:var(--mono)}
 /* notes + hints */
 .imperium #vSession.on textarea{background:color-mix(in srgb,var(--phos) 5%,var(--bg-mech));border:1px solid color-mix(in srgb,var(--phos) 14%,transparent);color:var(--phos)}
 .imperium #vSession.on .sec-hdr{font:600 10px var(--mono);letter-spacing:.2em;color:var(--tx3)}
@@ -791,7 +693,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
    transitions, so JS guards the instant path — never transitionend). */
 /* Session-owned modals (pain, RPE, skip-set, detail, reorder) follow the
    Mechanicus register while a rite is live — no parchment mid-session. */
-.imperium.mech-live :is(#painModal,#rpeModal,#skipSetModal,#fcDetailSheet,#reorderSheet){
+.imperium.mech-live :is(#painModal,#rpeModal,#skipSetModal,#fcDetailSheet){
   --s1:color-mix(in srgb,var(--bg-mech) 93%,var(--phos));
   --s2:color-mix(in srgb,var(--bg-mech) 88%,var(--phos));
   --s3:color-mix(in srgb,var(--bg-mech) 82%,var(--phos));
@@ -800,7 +702,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   --line:color-mix(in srgb,var(--phos) 16%,transparent);
   --brand:var(--phos);--brand-dim:color-mix(in srgb,var(--phos) 12%,transparent);
 }
-.imperium.mech-live :is(#painModal,#rpeModal,#skipSetModal,#fcDetailSheet,#reorderSheet) .modal-t{font-family:var(--mono);font-variant-caps:normal;letter-spacing:.02em}
+.imperium.mech-live :is(#painModal,#rpeModal,#skipSetModal,#fcDetailSheet) .modal-t{font-family:var(--mono);font-variant-caps:normal;letter-spacing:.02em}
 #registerVeil{position:fixed;inset:0;background:var(--bg-mech);opacity:0;pointer-events:none;z-index:420;transition:opacity 400ms cubic-bezier(.2,0,0,1)}
 #registerVeil.on{opacity:1}
 .imp-only{display:none}
@@ -898,7 +800,6 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       </div>
       <div style="display:flex;align-items:center;gap:10px">
         <div class="sess-timer" id="sDur">0:00</div>
-        <button class="btn btn-sm btn-g" id="sViewToggle" onclick="toggleSessionView()" aria-label="Toggle focus or list session view">List</button>
         <button class="btn btn-sm btn-s" onclick="cancelSession()" data-t="sess.cancel">Cancel</button>
         <button class="btn btn-sm btn-d" onclick="endSession()" data-t="sess.end">End</button>
       </div>
@@ -908,19 +809,6 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       <div class="sess-progress-bar"><div class="sess-progress-fill" id="sessProgFill" style="width:0%"></div></div>
     </div>
     <div id="exList"></div>
-    <!-- FOCUS MODE (S5): full-screen card stack + up-next rail. Only one of
-         #exList / #focusTrack holds content at a time (ids stay unique). -->
-    <div id="focusRoot">
-      <div id="focusTrackWrap">
-        <div id="focusTrack"></div>
-        <div id="focusRestOverlay" aria-hidden="true">
-          <div class="fr-label" data-t="rest.label">Rest</div>
-          <div class="fr-count tnum" id="focusRestDisp">0:00</div>
-          <div class="fr-actions"><button class="fr-ghost" onclick="addRest(30)" data-t="rest.plus30">+30s</button><button class="fr-skip" onclick="skipRest()" data-t="rest.skip">Skip</button></div>
-        </div>
-      </div>
-      <div id="focusRail"></div>
-    </div>
     <div style="margin-top:12px" id="sessNotesWrap">
       <div class="field"><label data-t="notes.label">Session Notes</label><textarea id="sessNotes" rows="4" data-t-ph="notes.ph" placeholder="How did it feel? Anything to flag..." oninput="queueNotesSave(this.value);this.style.height='auto';this.style.height=this.scrollHeight+'px'" style="font-size:13px"></textarea></div>
     </div>
@@ -934,7 +822,6 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       <div class="t2c" style="margin-top:4px" id="sumSub"></div>
     </div>
     <div id="sumExs"></div>
-    <div id="sumOrderRow"></div>
     <!-- The report is a WEEKLY artifact — no per-session report action here.
          Copy it from the Train header icon or the week-complete banner. -->
     <button class="btn btn-s btn-w" style="margin-top:10px" onclick="goTrain()">Back</button>
@@ -1364,10 +1251,6 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
       <span>Stoic quote on Train</span>
       <button class="btn btn-sm btn-g" onclick="toggleQuote();renderSettings()" id="sQuoteBtn">ON</button>
     </div>
-    <div style="padding:10px 0;border-bottom:1px solid var(--s2);display:flex;justify-content:space-between;align-items:center">
-      <span>Session view</span>
-      <button class="btn btn-sm btn-g" onclick="toggleSessionView();renderSettings()" id="sViewBtn">FOCUS</button>
-    </div>
     <div class="set-row"><label>Imperium theme</label>
       <button class="btn btn-sm btn-g" onclick="toggleImperium()" id="sImpBtn">ON</button>
     </div>
@@ -1455,14 +1338,6 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   </div>
 </div>
 
-<div class="overlay" id="reorderSheet">
-  <div class="modal">
-    <div class="modal-t">Reorder exercises</div>
-    <div class="t-meta" style="margin-bottom:8px">Drag the handle, or use the arrows. Superset pairs move as one.</div>
-    <div id="roList"></div>
-    <button class="btn btn-s btn-w" style="margin-top:12px;min-height:48px" onclick="hideModal('reorderSheet')">Done</button>
-  </div>
-</div>
 
 <div class="overlay" id="sessionSheet">
   <div class="modal">
@@ -1538,7 +1413,7 @@ const COMPOUNDS=['squat','hinge','push'];
 const STRINGS={
 plain:{
  'tab.train':'Train','tab.week':'Week','tab.progress':'Progress',
- 'sess.list':'List','sess.focus':'Focus','sess.cancel':'Cancel','sess.end':'End',
+ 'sess.cancel':'Cancel','sess.end':'End',
  'preview.start':'Start Session','preview.redo':'Redo Session',
  'rest.label':'Rest','rest.plus30':'+30s','rest.skip':'Skip',
  'notes.label':'Session Notes','notes.ph':'How did it feel? Anything to flag...',
@@ -1553,15 +1428,15 @@ plain:{
  'start.pre':'Start — ','start.resume':'Resume','banner.newBlock':'New block available','banner.review':'Review','banner.skip':'Skip',
  'train.upNext':'Up next','train.completed':'Completed this block','train.allDone':'All sessions done — load a new block.',
  'day.rest':'Rest day — recovery','summary.title':'Done',
- 'log.one':'Log','log.all':'Log All','log.set':'Log set ','log.wu':'Log warm-up','set.add':'+ Set','skip.set':'skip',
- 'ex.add':'+ Add Exercise','wrap.title':'Wrap up','wrap.end':'End Session',
+ 'log.one':'Log','log.all':'Log All','set.add':'+ Set','skip.set':'skip',
+ 'ex.add':'+ Add Exercise',
  'badge.frozen':'Frozen','badge.atTarget':'At target — maintain',
  'goal.g1':'1000 lb Club','goal.swim':'1000 m Freestyle','goal.mu':'Bar Muscle-Up','goal.run':'Weekly Running','goal.paused':'Paused',
  'excl.title':'Excluded'
 },
 gothic:{
  'tab.train':'Crusade','tab.week':'Campaign','tab.progress':'Reliquary',
- 'sess.list':'List','sess.focus':'Focus','sess.cancel':'Abandon','sess.end':'Conclude',
+ 'sess.cancel':'Abandon','sess.end':'Conclude',
  'preview.start':'Commence the Rite','preview.redo':'Repeat the Rite',
  'rest.label':'Vigil','rest.plus30':'+30','rest.skip':'End Vigil',
  'notes.label':'The Record','notes.ph':'Let the record show\u2026',
@@ -1576,8 +1451,8 @@ gothic:{
  'start.pre':'Commence the Rite — ','start.resume':'Return to the Rite','banner.newBlock':'A new Crusade is proclaimed','banner.review':'Heed','banner.skip':'Defer',
  'train.upNext':'Appointed Rites','train.completed':'Rites Concluded','train.allDone':'No rites stand appointed. The Emperor\u2019s work awaits.',
  'day.rest':'Day of Vigil — recovery is duty','summary.title':'Rite Concluded',
- 'log.one':'Record','log.all':'Record All','log.set':'Record set ','log.wu':'Record warm-up','set.add':'+ Set','skip.set':'abstain',
- 'ex.add':'+ Add Exercise','wrap.title':'Let the record close','wrap.end':'Conclude the Rite',
+ 'log.one':'Record','log.all':'Record All','set.add':'+ Set','skip.set':'abstain',
+ 'ex.add':'+ Add Exercise',
  'badge.frozen':'Stasis-Locked','badge.atTarget':'Honour Held',
  'goal.g1':'The Vow of One Thousand','goal.swim':'The Vow of Open Water','goal.mu':'The Vow of the Bar','goal.run':'The Vow of Miles','goal.paused':'Vows in Abeyance',
  'excl.title':'Interdicted Rites'
@@ -2335,7 +2210,7 @@ const FIXED_MAINS=['Back Squat','Bench Press','Trap Bar Deadlift'];
 // Rotation threshold (sessions). Rule #17: every ~14 sessions or 4 wks, whichever first.
 const ROTATION_THRESHOLD=14;
 
-let S={version:2,program:JSON.parse(JSON.stringify(DEF_PROGRAM)),sessions:[],goals:[{id:'g1',name:'1000 lb Total',current:0,target:1000,unit:'lb',auto:true}],settings:{unit:'kg',benchBaseline1RM:95,big3Targets:{squat:166,bench:102,dead:186},variantMemory:{},brandIdx:0,brandBlock:'Jul 8 Block 4 W3',sessionView:'focus'},skips:[],activeSession:null,block:{sessionsSinceRotate:0,variantCursor:{}}};
+let S={version:2,program:JSON.parse(JSON.stringify(DEF_PROGRAM)),sessions:[],goals:[{id:'g1',name:'1000 lb Total',current:0,target:1000,unit:'lb',auto:true}],settings:{unit:'kg',benchBaseline1RM:95,big3Targets:{squat:166,bench:102,dead:186},variantMemory:{},brandIdx:0,brandBlock:'Jul 8 Block 4 W3'},skips:[],activeSession:null,block:{sessionsSinceRotate:0,variantCursor:{}}};
 let sessionStart=null,sessionTimer=null,restInt=null,restEnd=null,restDur=0,painExI=null,selRpe=null,viewDayI=0,previewDayI=0;
 
 function save(){try{localStorage.setItem(STORE,JSON.stringify(S))}catch(e){}}
@@ -2774,10 +2649,8 @@ function load(){try{const r=localStorage.getItem(STORE);if(r){const d=JSON.parse
   if(!S.settings.big3Targets)S.settings.big3Targets={squat:166,bench:102,dead:186};
   if(!S.settings.variantMemory)S.settings.variantMemory={};
   if(S.settings.brandIdx==null){S.settings.brandIdx=-1;S.settings.brandBlock=S.program&&S.program.name;}
-  // Focus-mode session view (S4): default focus; imports/legacy backfill here.
-  if(!S.settings.sessionView)S.settings.sessionView='focus';
+  delete S.settings.sessionView; // focus view removed — the list is the only session UI
   // order permutation for a live session predating the feature
-  if(S.activeSession&&Array.isArray(S.activeSession.exercises)&&!Array.isArray(S.activeSession.order))S.activeSession.order=S.activeSession.exercises.map((_,i)=>i);
   // Backfill skips array
   if(!Array.isArray(S.skips))S.skips=[];
   if(!Array.isArray(S.weekRemovals))S.weekRemovals=[];
@@ -3298,10 +3171,9 @@ function renderSessionBar(currentViewId){
       pr.textContent=exs.length?done+'/'+exs.length:(sess.activity?'activity':'');
     }
   }
-  // Focus mode renders its own rest overlay on-session; the strip would
-  // double up. Off vSession (backgrounded) behaviour is bit-identical.
-  const focusOnSession=live&&onSession&&(S.settings.sessionView||'focus')!=='list'&&!(S.activeSession&&S.activeSession.activity);
-  const show=(resting&&(!focusOnSession||_restPeek))||showSummary;
+  // INVARIANT: a running rest ALWAYS shows its countdown here — the mini-bar
+  // is the only rest surface (no overlay, no mode that hides it).
+  const show=resting||showSummary;
   bar.classList.toggle('on',show);
   if(app&&app.classList)app.classList.toggle('has-sessbar',show);
 }
@@ -3316,7 +3188,6 @@ function showSettings(){renderSettings();showModal('settingsModal')}
 function renderSettings(){
   document.getElementById('sUnitBtn').textContent=S.settings.unit.toUpperCase();
   const qB=document.getElementById('sQuoteBtn');if(qB)qB.textContent=(S.settings.showQuote!==false)?'ON':'OFF';
-  const vB=document.getElementById('sViewBtn');if(vB)vB.textContent=(S.settings.sessionView==='list')?'LIST':'FOCUS';
   const iB=document.getElementById('sImpBtn');if(iB)iB.textContent=imperiumOn()?'ON':'OFF';
   const barI=document.getElementById('sBarKg'),plI=document.getElementById('sPlates');
   if(barI)barI.value=activeGymBar();
@@ -4180,56 +4051,6 @@ function saveDayEdit(){
 }
 
 // ===== SESSION =====
-// ===== FOCUS-MODE ORDER MODEL (S4) =====
-// order is a PERMUTATION of session-array indexes, consumed only at render/
-// navigation time. exercises[] itself is NEVER re-ordered: every index-keyed
-// consumer (progression write-back, logSet/evalProg, DOM ids) keeps today's
-// geometry — the same "mark, don't splice" discipline the move flow uses.
-function sessOrder(sess){
-  if(!sess||!Array.isArray(sess.exercises))return[];
-  const n=sess.exercises.length;
-  const raw=Array.isArray(sess.order)?sess.order.filter(i=>Number.isInteger(i)&&i>=0&&i<n):[];
-  const seen=new Set(raw),out=raw.slice();
-  for(let i=0;i<n;i++)if(!seen.has(i))out.push(i); // heal: mid-session adds/bonus
-  return out;
-}
-function sessOrderDiffers(sess){return sessOrder(sess).some((v,i)=>v!==i);}
-// Map the session's display order onto the program day. Emits the SAME
-// program-exercise object references (post-write-back load bumps travel
-// intact); unmatched program entries keep their relative order at the end;
-// session-only entries (bonus / mid-session adds) emit nothing.
-function mapSessionOrderToProgram(order,sessExs,dayExs){
-  const used=new Set(),out=[];
-  (order||[]).forEach(ei=>{
-    if(ei<dayExs.length&&dayExs[ei]&&sessExs[ei]&&dayExs[ei].name===sessExs[ei].name&&!((sessExs[ei].tags||[]).includes('bonus'))){out.push(dayExs[ei]);used.add(ei);}
-  });
-  dayExs.forEach((dx,i)=>{if(!used.has(i))out.push(dx);});
-  return out;
-}
-// Transient post-session offer ("Keep this order?"). Never persisted.
-let _orderOffer=null;
-function applyOrderOffer(){
-  if(!_orderOffer)return;
-  const day=S.program.days[_orderOffer.dayIndex];
-  if(day&&day.alternating){_orderOffer=null;return;} // K2: never whole-array-replace an A/B day
-  if(day&&Array.isArray(_orderOffer.exercises)&&_orderOffer.exercises.length)day.exercises=_orderOffer.exercises;
-  _orderOffer=null;save();
-  try{const el=document.getElementById('sumOrderRow');if(el)el.innerHTML='<div class="t-meta" style="color:var(--grn);padding:8px 0">Order saved to the program</div>';}catch(e){}
-}
-function dismissOrderOffer(){
-  _orderOffer=null;
-  try{const el=document.getElementById('sumOrderRow');if(el)el.innerHTML='';}catch(e){}
-}
-function toggleSessionView(){
-  S.settings.sessionView=(S.settings.sessionView==='list')?'focus':'list';
-  save();
-  try{renderEx();}catch(e){}
-  // A rest running across the switch must follow it: list view gets the
-  // mini-bar countdown (it previously got NOTHING — the stale focus overlay
-  // was hidden with focusRoot and the bar never re-rendered).
-  if(restInt!=null)try{focusRestSync(true);}catch(e){}
-  try{renderSessionBar();}catch(e){}
-}
 // ===== F1: CARD OPEN-STATE SURVIVES RE-RENDERS =====
 // autoOpen is recomputed every render; a manual open/close previously
 // lived only in the DOM and died on ANY re-render (logging out of order
@@ -4372,14 +4193,11 @@ function editCircuit(ei){
   const ex=S.activeSession&&S.activeSession.exercises[ei];if(!ex)return;
   ex.result=null;save();renderEx();
 }
-// One template serves both views (the focus card wraps it in .fcard).
 function circuitCardHTML(ex,ei,mode){
   const fmt=ex.format||'Circuit';
   const mins=ex.minutes||'?';
   const done=exDone(ex);
-  const readout=mode==='focus'
-    ?`<div class="fc-readout${done?' done':''}"><span class="fc-readout-w tnum">${mins}</span><span class="fc-readout-u">min</span><span class="fc-readout-x">${fmt}</span></div>`
-    :`<div class="circ-head tnum"><span class="circ-min">${mins}</span><span class="circ-min-u">min</span><span class="circ-fmt">${fmt}</span>${ex.loadKg?`<span class="circ-load">@ ${fmtW(ex.loadKg,'kg')}</span>`:''}</div>`;
+  const readout=`<div class="circ-head tnum"><span class="circ-min">${mins}</span><span class="circ-min-u">min</span><span class="circ-fmt">${fmt}</span>${ex.loadKg?`<span class="circ-load">@ ${fmtW(ex.loadKg,'kg')}</span>`:''}</div>`;
   let speedRow='';
   if(isSpeedCircuit(ex)){
     const last=speedHistory(ex.name,1)[0];
@@ -4392,12 +4210,12 @@ function circuitCardHTML(ex,ei,mode){
     </div>
     <div class="circ-speed-meta">${vs==='faster'?'<span class="cs-note">\u2191 faster than last</span>':vs==='matched'?'<span class="cs-note">= matched last</span>':(last?`<span>Last ${last.speed} ${esc(last.unit)} \u00b7 ${fmtDate(last.date)}</span>`:'<span>Speed \u2014 one value for the session</span>')}<button onclick="openFcDetail(${ei})">History</button></div>`;
   }
-  return `${mode==='focus'&&ex.loadKg?`<div class="fc-meta">@ ${fmtW(ex.loadKg,'kg')}</div>`:''}${readout}
+  return `${readout}
     <textarea class="circ-moves" rows="3" placeholder="Movements — e.g. 10 swings / 8 goblet squats / 40m carry" oninput="setCircuitField(${ei},'movements',this.value)">${esc(ex.movements||'')}</textarea>
     ${speedRow}
     ${done
       ?`<div class="circ-result-done"><span class="set-check">${icon('check',14)}</span><span class="tnum">${esc(ex.result)}</span><button class="set-edit" onclick="editCircuit(${ei})" aria-label="edit result">\u270e</button></div>`
-      :`<div class="circ-log-row"><input id="circRes${ei}" placeholder="Result — rounds / reps" aria-label="circuit result">${mode==='focus'?`<button class="fc-log" style="margin:0;flex:0 0 auto;width:auto;padding:0 20px" onclick="logCircuit(${ei})">Log result</button>`:`<button class="set-log ready" style="opacity:1" onclick="logCircuit(${ei})">Log result</button>`}</div>`}`;
+      :`<div class="circ-log-row"><input id="circRes${ei}" placeholder="Result — rounds / reps" aria-label="circuit result"><button class="set-log ready" style="opacity:1" onclick="logCircuit(${ei})">Log result</button></div>`}`;
 }
 // ===== SESSION SECTIONS (W4-A) =====
 // Exercise-level grouping: 'warmup' | 'main' (default) | 'finisher'.
@@ -4455,11 +4273,6 @@ function startDay(i){
   // dayId is the day's immutable identity — dayLabel alone is ambiguous when
   // two days share a label (the deload has two "Swim" days).
   S.activeSession={dayIndex:i,dayId:day.id,blockName:S.program.name,date:todayStr(),dayLabel:day.label,sessionType:st,startTime:Date.now(),exercises:[],notes:'',order:[],gymId:(S.settings&&S.settings.activeGymId)||null};
-  // A new session always opens on its first card. _focusIdx is module state:
-  // left over from the previous session it opened the NEW one on that
-  // session's last card (or the Finish card), and rest-end auto-advance then
-  // wrapped back to the start — the reported back-and-forward bounce.
-  _focusIdx=null;
   const _variant=day.alternating?dayVariantFor(day):null;
   const _resolved=dayExercises(day,_variant||undefined);
   if(_variant)S.activeSession.weekVariant=_variant;
@@ -4516,7 +4329,6 @@ function startDay(i){
         }
       }
     });
-    // Focus-mode display order: identity permutation at start (S4).
     // B: carry the check-in onto the session; a Tight back extends the opener.
   if(_backPending){
     S.activeSession.backStatus=_backPending;
@@ -4529,7 +4341,6 @@ function startDay(i){
     }
     _backPending=null;
   }
-  S.activeSession.order=S.activeSession.exercises.map((_,i)=>i);
     _wuCollapsed=null;
     _userOpened=new Set();_userClosed=new Set();
   }
@@ -4796,12 +4607,7 @@ function renderEx(){
 
   // Multi-modal dispatch: activity-log types render a single form, not cards.
   const st=sess.sessionType||'lifting';
-  // D4: settle the focus-on class BEFORE any early return — a stale class
-  // from the previous lifting session left #sessNotesWrap visible (with the
-  // previous session's note in it) over activity forms.
   try{
-    const _v=document.getElementById('vSession');
-    if(_v&&_v.classList)_v.classList.toggle('focus-on',!isActivityType(st)&&(S.settings.sessionView||'focus')!=='list');
     const _nw=document.getElementById('sessNotesWrap');
     if(_nw&&_nw.style)_nw.style.display=isActivityType(st)?'none':'';
     const _sp=document.getElementById('sessProgress');
@@ -4809,19 +4615,13 @@ function renderEx(){
   }catch(e){}
   if(isActivityType(st)){
     if((sess.exercises||[]).length){
-      // K7 hybrid: warm-up cards + the activity form, list layout only.
-      try{const v=document.getElementById('vSession');if(v&&v.classList)v.classList.remove('focus-on');}catch(e){}
+      // K7 hybrid: warm-up cards + the activity form.
       renderExList();return;
     }
     renderActivityLog(sess);return;
   }
-  // Focus ⇄ List dispatch (S5). List = the untouched v3.5 card path; focus =
-  // the full-screen card stack. Same mutation entry point either way.
-  const focus=(S.settings.sessionView||'focus')!=='list';
-  try{const v=document.getElementById('vSession');if(v&&v.classList)v.classList.toggle('focus-on',focus);}catch(e){}
-  try{const tb=document.getElementById('sViewToggle');if(tb)tb.textContent=focus?t('sess.list'):t('sess.focus');}catch(e){}
-  if(focus){renderFocus();return;}
-  try{const ft=document.getElementById('focusTrack');if(ft)ft.innerHTML='';const rl=document.getElementById('focusRail');if(rl)rl.innerHTML='';}catch(e){}
+  // The list is the ONLY session UI (focus view removed Oct 2026 by user
+  // verdict: "list format is better, remove other view").
   renderExList();
 }
 function renderExList(){
@@ -4983,179 +4783,6 @@ function renderExList(){
   }
 }
 
-// ===== FOCUS MODE RENDER LAYER (S5) =====
-// One exercise (or one display-adjacent superset chain) per full-screen card.
-// _focusIdx = the CURRENT card's first exercise index; transient by design —
-// it reseeds to the first incomplete unit on reload, which is correct resume
-// behaviour. -1 marks the wrap-up card.
-let _focusIdx=null;
-function focusUnits(sess){
-  if(!sess||!Array.isArray(sess.exercises))return[];
-  const ord=sessOrder(sess),exs=sess.exercises,out=[];
-  let i=0;
-  while(i<ord.length){
-    const eis=[ord[i]];
-    // W4-A: consecutive display-adjacent warm-up-section exercises merge
-    // into ONE compact unit (activations are quick — one card, one stop).
-    if(sectionOf(exs[ord[i]])==='warmup'){
-      while(i+eis.length<ord.length&&sectionOf(exs[ord[i+eis.length]])==='warmup')eis.push(ord[i+eis.length]);
-      out.push({eis,sec:'warmup'});
-      i+=eis.length;
-      continue;
-    }
-    // Merge runs that are BOTH array-adjacent (supersetNext semantics) and
-    // display-adjacent; a separated pair degrades to two cards, flag intact.
-    while(i+eis.length<ord.length){
-      const last=eis[eis.length-1],next=ord[i+eis.length];
-      if(exs[last]&&exs[last].supersetNext&&next===last+1)eis.push(next);else break;
-    }
-    out.push({eis,sec:sectionOf(exs[eis[0]])});
-    i+=eis.length;
-  }
-  return out;
-}
-function unitDone(sess,u){return u.eis.every(ei=>exResolved(sess.exercises[ei]));}
-// Interleaved logging sequence for a unit: each member's warm-ups first,
-// then working rows round-robin (A1,B1,A2,B2 …) — rows carry real (ei,si).
-function unitSeq(sess,u){
-  const seq=[];
-  u.eis.forEach(ei=>{((sess.exercises[ei]||{}).performed||[]).forEach((s2,si)=>{if(s2.type==='warmup')seq.push([ei,si]);});});
-  let k=0,more=true;
-  while(more){
-    more=false;
-    u.eis.forEach(ei=>{
-      const ws=((sess.exercises[ei]||{}).performed||[]).map((s2,si)=>[s2,si]).filter(r=>r[0].type==='working');
-      if(k<ws.length){seq.push([ei,ws[k][1]]);more=true;}
-    });
-    k++;
-  }
-  return seq;
-}
-function focusPos(){
-  const sess=S.activeSession;if(!sess)return 0;
-  const units=focusUnits(sess);
-  if(_focusIdx===-1)return units.length;
-  let p=units.findIndex(u=>u.eis.includes(_focusIdx));
-  if(p<0){
-    p=units.findIndex(u=>!unitDone(S.activeSession,u));
-    if(p<0)p=units.length;
-    _focusIdx=p<units.length?units[p].eis[0]:-1;
-  }
-  return p;
-}
-function applyFocusTransform(pos,animate){
-  const t=document.getElementById('focusTrack');if(!t||!t.style)return;
-  const reduced=(typeof matchMedia==='function')&&matchMedia('(prefers-reduced-motion: reduce)').matches;
-  try{if(!animate||reduced)t.classList.add('no-anim');else t.classList.remove('no-anim');}catch(e){}
-  t.style.transform='translateX(-'+(pos*100)+'%)';
-}
-// Rail taps are the PRIMARY navigation; swipe (S6) is the shortcut.
-function focusGoTo(pos){
-  const sess=S.activeSession;if(!sess)return;
-  const units=focusUnits(sess);
-  pos=Math.max(0,Math.min(units.length,pos));
-  _focusIdx=pos<units.length?units[pos].eis[0]:-1;
-  if(restInt!=null)restWake(); // navigating mid-rest: the new card is live, not dimmed
-  applyFocusTransform(pos,true);
-  try{renderFocusRail();}catch(e){}
-}
-function focusLogCurrent(p){
-  const sess=S.activeSession;if(!sess)return;
-  const u=focusUnits(sess)[p];if(!u)return;
-  const hit=unitSeq(sess,u).find(([ei,si])=>{const s2=sess.exercises[ei].performed[si];return s2&&!s2.logged&&!s2.skipped;});
-  if(hit)logSet(hit[0],hit[1]);
-}
-function renderFocus(){
-  const sess=S.activeSession;if(!sess)return;
-  const track=document.getElementById('focusTrack');if(!track)return;
-  // B6: never rebuild the track out from under the notes caret — a re-render
-  // mid-typing destroys the textarea, the caret and the keyboard.
-  try{
-    if(document.activeElement&&document.activeElement.id==='fNotes'){renderFocusRail();return;}
-  }catch(e){}
-  try{const l=document.getElementById('exList');if(l)l.innerHTML='';}catch(e){}
-  const units=focusUnits(sess);
-  const pos=focusPos();
-  track.innerHTML=units.map((u,p)=>focusCardHTML(u,p,sess,pos)).join('')+focusWrapCardHTML(sess);
-  applyFocusTransform(pos,false);
-  renderFocusRail();
-}
-function renderFocusRail(){
-  const rail=document.getElementById('focusRail');const sess=S.activeSession;
-  if(!rail)return;
-  if(!sess){rail.innerHTML='';return;}
-  const units=focusUnits(sess);
-  const pos=focusPos();
-  const chips=units.map((u,p)=>{
-    const done=unitDone(sess,u);
-    const names=u.sec==='warmup'?'Warm-up':u.eis.map(ei=>sess.exercises[ei].name).join(' \u29c9 ');
-    return `<button class="rail-chip${done?' done':''}${p===pos?' current':''}${u.eis.length>1&&u.sec!=='warmup'?' pair':''}${u.sec==='finisher'?' fin-sec':''}" data-pos="${p}" onclick="focusGoTo(${p})">${done?'\u2713 ':''}${names}</button>`;
-  }).join('');
-  const doneN=units.filter(u=>unitDone(sess,u)).length;
-  rail.innerHTML=`<div class="rail-scroll" id="railScroll">${chips}<button class="rail-chip fin${pos===units.length?' current':''}" onclick="focusGoTo(${units.length})">Finish</button></div><button class="rail-reorder" onclick="openReorderSheet()" aria-label="Reorder exercises">\u21c5</button><span class="rail-count tnum">${doneN}/${units.length}</span>`;
-}
-// One set row (focus template). Same handlers, ids and state classes as the
-// list rows — including .set-fields, which the keyboard-scroll fix keys off.
-function focusSetRowHTML(ex,ei,s,si,memberTag){
-  const wu=s.type==='warmup';
-  const ru=repsUnit(ex.prescribed.reps);
-  const repsDisp=ru?(s.reps+' '+ru):s.reps;
-  const wn=wu?'W':(ex.performed.slice(0,si).filter(x=>x.type==='working').length+1);
-  const tagChip=memberTag?`<span class="fc-member-tag">${memberTag}${wu?'w':wn}</span>`:'';
-  if(s.logged&&!s.skipped){
-    const isPR=s.type==='working'&&isSetPR(ex.name,s.weightKg,s.reps,ex.variant);
-    return `<div class="set-row ${s.skipped?'st-skip':'st-done'} compact${s._justLogged?' just-logged':''}">
-      <div class="set-num ${wu?'wu':''}">${tagChip}<span class="set-check">${icon('check',14)}</span>${s.tag==='top'?'<span class="top-chip">TOP</span>':''}</div>
-      <div class="set-summary">${fmtW(s.weightKg,ex.prescribed.unit)} <span class="td">\u00d7</span> ${repsDisp}${isPR?' <span class="pr-tag" role="img" aria-label="personal record" title="Personal record">PR</span>':''}</div>
-      ${s.type==='working'?`<button class="set-rpe ${s.rpe?'has':''}" onclick="showRpePicker(this,${ei},${si})" style="position:relative" aria-label="rate effort">${s.rpe?'@'+s.rpe:'RPE'}</button>`:''}
-      <button class="set-edit" onclick="editSet(${ei},${si})" title="Edit" aria-label="edit set">\u270e</button>
-    </div>`;
-  }
-  if(s.skipped){
-    return `<div class="set-row st-skip compact">
-      <div class="set-num ${wu?'wu':''}">${tagChip}${wn}</div>
-      <div class="set-summary td">SKIPPED${s.skipReason?' \u00b7 '+s.skipReason:''}</div>
-      <button class="set-edit" onclick="editSet(${ei},${si})" title="Unskip">\u270e</button>
-    </div>`;
-  }
-  const firstUnlogged=ex.performed.findIndex(pp=>!pp.logged&&!pp.skipped);
-  const rowState=si===firstUnlogged?' current':' pending';
-  const dispU=S.settings.unit||'kg';
-  const dw=s.weightKg===0?'':(dispU==='lb'?Math.round(s.weightKg*K2L):s.weightKg);
-  const wInputEl=document.getElementById(`w${ei}_${si}`);
-  const rInputEl=document.getElementById(`r${ei}_${si}`);
-  const wVal=(wInputEl&&document.activeElement===wInputEl)?wInputEl.value:dw;
-  const rVal=(rInputEl&&document.activeElement===rInputEl)?rInputEl.value:(s.reps||'');
-  return `<div class="set-row ${wu?'st-warmup':'st-working'}${rowState}">
-    <div class="set-num ${wu?'wu':''}">${tagChip}${wn}${s.tag==='top'?'<span class="top-chip">TOP</span>':''}</div>
-    <div class="set-fields">
-      <input type="number" step="0.5" value="${wVal}" placeholder="wt" id="w${ei}_${si}" oninput="stashSetInput(${ei},${si})" aria-label="weight">
-      <span class="x">\u00d7</span>
-      <input type="number" value="${rVal}" placeholder="${ru||'rps'}" id="r${ei}_${si}" oninput="stashSetInput(${ei},${si})" aria-label="reps">
-    </div>
-    <button class="set-log ready" onclick="logSet(${ei},${si})">${t('log.one')}</button>
-    <button class="set-skip" onclick="skipSet(${ei},${si})">${t('skip.set')}</button>
-    ${wu||si>=ex.prescribed.sets?`<button class="set-del" onclick="delSet(${ei},${si})">\u00d7</button>`:''}
-    ${rowState===' current'?`<div class="row-plates" id="pl${ei}_${si}">${rowPlateText(ex,wVal)}</div>`:''}
-  </div>`;
-}
-function focusMemberHeadHTML(ex,ei,tag){
-  const perSide=ex.tags.includes('per side')?' <span class="td" style="font-size:11px">/side</span>':ex.tags.includes('per hand')?' <span class="td" style="font-size:11px">/hand</span>':ex.tags.includes('per leg')?' <span class="td" style="font-size:11px">/leg</span>':'';
-  const rx=ex.prescribed.setScheme?schemeString(ex.prescribed.setScheme,ex.prescribed.unit)+' kg':`${ex.prescribed.sets}\u00d7${ex.prescribed.reps}${ex.prescribed.loadKg?' @ '+fmtW(ex.prescribed.loadKg,ex.prescribed.unit):''}`;
-  return `<div class="fc-member-block" id="ex${ei}">
-    <div class="fc-head">
-      ${tag?`<span class="fc-member-tag big">${tag}</span>`:''}
-      <div style="flex:1;min-width:0">
-        <div class="fc-name">${(ex.tags||[]).includes('bonus')?'<span style="color:var(--gold);font-size:12px;margin-right:4px">\u2605</span>':''}${ex.name}${cardChip(ex)}${perSide}</div>
-        <div class="fc-meta" onclick="openFcDetail(${ei})" role="button" aria-label="Exercise detail">${rx} <span class="fc-meta-more">\u2026</span></div>
-        ${ex.cue?`<div style="font-size:12px;color:var(--brand);margin-top:2px;line-height:1.4">${ex.cue}</div>`:''}
-      </div>
-      <button class="pain-flag${ex.painEvent&&ex.painEvent.severity!=='none'?' has':''}" onclick="openPainModal(${ei})" aria-label="Log pain for ${ex.name.replace(/"/g,'')}" title="Pain check">\u2691</button>
-      <button class="btn btn-sm btn-g" onclick="openExSheet(${ei})" aria-label="More">\u22ef</button>
-    </div>
-    ${variantSummaryChip(ex,ei)}
-  </div>`;
-}
 // C4: the card keeps ONE truncated meta line; everything deeper (plate math,
 // today/e1RM/target, last session) lives in a tap-to-open sheet.
 // D1: the card answers "what do I do RIGHT NOW" — everything else lives in
@@ -5329,150 +4956,9 @@ function openFcDetail(ei){
   }
   showModal('fcDetailSheet');
 }
-// C1: track the current readout so a set change can morph the number.
-let _lastReadoutKey=null;
-function focusCardHTML(u,p,sess,curPos){
-  const seq=unitSeq(sess,u);
-  const cur=seq.find(([ei,si])=>{const s2=sess.exercises[ei].performed[si];return s2&&!s2.logged&&!s2.skipped;});
-  const done=unitDone(sess,u);
-  // C1: the giant readout renders in EVERY card state — current set while
-  // active/between sets, the achieved top set once done. The number is the
-  // card's single display-type moment (budget gradient via text clip).
-  let readout='';
-  let morph='';
-  if(cur&&p===curPos){
-    const key=cur[0]+':'+cur[1];
-    if(_lastReadoutKey!==null&&_lastReadoutKey!==key)morph=' morph';
-    _lastReadoutKey=key;
-  }
-  if(cur){
-    const ex=sess.exercises[cur[0]],s2=ex.performed[cur[1]];
-    const dispU=S.settings.unit||'kg';
-    const dw=dispU==='lb'?Math.round(s2.weightKg*K2L):s2.weightKg;
-    const ru=repsUnit(ex.prescribed.reps);
-    readout=`<div class="fc-readout${morph}">${s2.weightKg>0?`<span class="fc-readout-w tnum">${dw}</span><span class="fc-readout-u">${dispU}</span>`:`<span class="fc-readout-w tnum">${s2.reps}</span><span class="fc-readout-u">${ru||'reps'}</span>`}${s2.weightKg>0?`<span class="fc-readout-x tnum">\u00d7 ${s2.reps}${ru?' '+ru:''}</span>`:''}${s2.type==='warmup'?'<span class="fc-readout-u">warm-up</span>':''}</div>`;
-  } else if(done){
-    // Top achieved working set, in the same display voice.
-    const tops=u.eis.map(ei=>sess.exercises[ei]).map(ex=>{
-      const w=(ex.performed||[]).filter(x=>x.type==='working'&&x.logged&&!x.skipped);
-      return w.length?w.reduce((m,x)=>(!m||x.weightKg>m.weightKg||(x.weightKg===m.weightKg&&x.reps>m.reps))?x:m,null):null;
-    }).filter(Boolean);
-    const t=tops[0];
-    const dispU=S.settings.unit||'kg';
-    readout=t?`<div class="fc-readout done"><span class="fc-readout-w tnum">${t.weightKg>0?(dispU==='lb'?Math.round(t.weightKg*K2L):t.weightKg):t.reps}</span><span class="fc-readout-u">${t.weightKg>0?dispU:'reps'}</span>${t.weightKg>0?`<span class="fc-readout-x tnum">\u00d7 ${t.reps}</span>`:''}<span class="fc-readout-u">\u2713 done</span></div>`
-             :`<div class="fc-readout done"><span class="fc-readout-x">\u2713 done</span></div>`;
-  } else {
-    readout=`<div class="fc-readout done"><span class="fc-readout-x">all sets resolved</span></div>`;
-  }
-  // Section decorations — declared BEFORE the circuit early-return below,
-  // which interpolates them (TDZ crash otherwise).
-  const secCls=u.sec==='warmup'?' fc-sec-warmup':u.sec==='finisher'?' fc-sec-finisher':'';
-  const secHdr=u.sec==='warmup'?`<div class="sec-hdr sec-hdr-wu" style="margin-top:4px">Warm-up</div>`:u.sec==='finisher'?`<div class="sec-hdr sec-hdr-fin" style="margin-top:4px">Finisher</div>`:'';
-  // W4-B: a circuit unit renders its own body — clock readout, movements,
-  // one result input. No set rows, no per-set Log.
-  if(u.eis.length===1&&sess.exercises[u.eis[0]]&&sess.exercises[u.eis[0]].entryType==='circuit'){
-    const cEx=sess.exercises[u.eis[0]],cEi=u.eis[0];
-    const cPains=cEx.painEvent?`<div style="margin-top:8px;padding:8px 12px;border-radius:var(--rs);background:var(--red-dim);font-size:12px;color:var(--red)">\u26a0 ${cEx.painEvent.severity} pain</div>`:'';
-    return `<div class="fcard${exDone(cEx)?' done':''}${secCls}" id="fcard${cEi}">${secHdr}
-      ${focusMemberHeadHTML(cEx,cEi,null)}
-      ${circuitCardHTML(cEx,cEi,'focus')}
-      ${cPains}
-    </div>`;
-  }
-  const members=u.eis.map((ei,mi)=>focusMemberHeadHTML(sess.exercises[ei],ei,u.eis.length>1?String.fromCharCode(65+mi):null)).join('');
-  const rows=seq.map(([ei,si])=>focusSetRowHTML(sess.exercises[ei],ei,sess.exercises[ei].performed[si],si,u.eis.length>1?String.fromCharCode(65+u.eis.indexOf(ei)):null)).join('');
-  // C1: the Log button no longer duplicates the readout's numbers.
-  const logLbl=cur?(sess.exercises[cur[0]].performed[cur[1]].type==='warmup'?t('log.wu'):(t('log.set')+(sess.exercises[cur[0]].performed.slice(0,cur[1]).filter(x=>x.type==='working').length+1))):null;
-  const prog=u.eis.map(ei=>sess.exercises[ei]).filter(ex=>done&&ex.progression).map(ex=>`<div class="prog-badge prog-${ex.progression==='increase'?'up':ex.progression==='flag'?'flag':ex.progression==='stall'?'stall':ex.progression==='skipped'?'skip':'hold'}"><span>${ex.progression==='increase'?'\u2191 Increase':ex.progression==='flag'?t('badge.flag'):ex.progression==='stall'?'\u23f8 Stall':ex.progression==='skipped'?'\u23ed Skipped':'\u2192 Hold'}</span>${ex.nextLoad&&ex.progression==='increase'?`<span class="tm">${imperiumOn()?machineCant('MACHINE SPIRIT COUNSELS:',fmtW(ex.nextLoad,ex.prescribed.unit)):fmtW(ex.nextLoad,ex.prescribed.unit)+perSideSuffix(ex.nextLoad,ex)}</span>`:''}</div>`).join('');
-  const pains=u.eis.map(ei=>sess.exercises[ei]).filter(ex=>ex.painEvent).map(ex=>`<div style="margin-top:8px;padding:8px 12px;border-radius:var(--rs);background:var(--red-dim);font-size:12px;color:var(--red)">\u26a0 ${ex.painEvent.severity} pain${ex.painEvent.action?' \u2014 '+ex.painEvent.action:''}</div>`).join('');
-  return `<div class="fcard${done?' done':''}${secCls}" id="fcard${u.eis[0]}">${secHdr}
-    ${members}
-    ${readout}
-    ${imperiumOn()&&cur&&sess.exercises[cur[0]].performed[cur[1]].tag==='top'?`<div class="t-meta" style="letter-spacing:.18em;margin:-2px 0 6px">${STRINGS.gothic['readout.top']}</div>`:''}
-    ${rows}
-    ${cur?`<button class="fc-log" onclick="focusLogCurrent(${p})">${logLbl}</button>`:''}
-    ${prog}${pains}
-  </div>`;
-}
-function focusWrapCardHTML(sess){
-  return `<div class="fcard fc-wrap">
-    <div class="t-h1" style="margin:8px 0 12px">${t('wrap.title')}</div>
-    <button class="btn btn-g btn-w" style="margin-top:12px;min-height:48px" onclick="openExtras()">+ Add Exercise</button>
-    <div class="field" style="margin-top:16px"><label>Session Notes</label><textarea id="fNotes" rows="4" placeholder="How did it feel? Anything to flag..." oninput="queueNotesSave(this.value)" style="font-size:13px">${esc(sess.notes||'')}</textarea></div>
-    <button class="btn btn-d btn-w" style="margin-top:16px;min-height:48px" onclick="endSession()">${t('wrap.end')}</button>
-  </div>`;
-}
-// ===== FOCUS GESTURES + REST (S6) =====
-// Swipe is the SHORTCUT; rail taps stay the primary navigation. Edge starts
-// are dead (iOS back-swipe guard), slop disambiguates vertical card scroll,
-// commit needs distance OR velocity.
-const FOCUS_SWIPE={edge:28,commit:56,velMin:0.5,slop:8};
-function wireFocusSwipe(track){
-  if(!track||typeof track.addEventListener!=='function')return;
-  let x0=0,y0=0,t0=0,state='idle',startPos=0;
-  const reduced=()=>((typeof matchMedia==='function')&&matchMedia('(prefers-reduced-motion: reduce)').matches);
-  track.addEventListener('pointerdown',e=>{
-    if(!S.activeSession){state='dead';return;}
-    const vw=(typeof window!=='undefined'&&window.innerWidth)||375;
-    if(e.clientX<FOCUS_SWIPE.edge||e.clientX>vw-FOCUS_SWIPE.edge){state='dead';return;}
-    if(e.target&&e.target.closest&&(e.target.closest('.fc-hscroll')||e.target.closest('input')||e.target.closest('button')||e.target.closest('.rpe-inline')||e.target.closest('.ex-menu'))){state='dead';return;}
-    x0=e.clientX;y0=e.clientY;t0=Date.now();state='pending';startPos=focusPos();
-  });
-  track.addEventListener('pointermove',e=>{
-    if(state==='dead'||state==='scrolling'||state==='idle'||!S.activeSession)return;
-    const dx=e.clientX-x0,dy=e.clientY-y0;
-    if(state==='pending'){
-      if(Math.abs(dy)>FOCUS_SWIPE.slop&&Math.abs(dy)>=Math.abs(dx)){state='scrolling';return;}
-      if(Math.abs(dx)>FOCUS_SWIPE.slop&&Math.abs(dx)>1.2*Math.abs(dy)){
-        state='dragging';
-        try{if(track.setPointerCapture)track.setPointerCapture(e.pointerId);}catch(err){}
-        try{track.classList.add('no-anim');}catch(err){}
-      } else return;
-    }
-    if(state==='dragging'){
-      if(e.preventDefault)e.preventDefault();
-      const units=focusUnits(S.activeSession);
-      let off=dx;
-      if((startPos===0&&dx>0)||(startPos>=units.length&&dx<0))off=dx/3; // rubber-band
-      track.style.transform='translateX(calc(-'+(startPos*100)+'% + '+off+'px))';
-    }
-  });
-  const settle=e=>{
-    if(state!=='dragging'){state='idle';return;}
-    state='idle';
-    const dx=e.clientX-x0,dt=Math.max(1,Date.now()-t0),v=Math.abs(dx)/dt;
-    const commit=Math.abs(dx)>=FOCUS_SWIPE.commit||(Math.abs(dx)>=24&&v>=FOCUS_SWIPE.velMin);
-    if(!reduced())try{track.classList.remove('no-anim');}catch(err){}
-    focusGoTo(startPos+(commit?(dx<0?1:-1):0));
-  };
-  track.addEventListener('pointerup',settle);
-  track.addEventListener('pointercancel',settle);
-}
-// Giant readout compresses while a card input owns the keyboard; 120ms
-// focusout debounce keeps the weight→reps hop flicker-free. Additive to the
-// existing .set-fields scrollIntoView handler (which fires at +150ms).
-let _kbT=null;
-document.addEventListener('focusin',e=>{
-  try{
-    const t=e.target;
-    if(t&&t.closest&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA')&&t.closest('.fcard')){
-      if(_kbT){clearTimeout(_kbT);_kbT=null;}
-      const fr=document.getElementById('focusRoot');if(fr&&fr.classList)fr.classList.add('kb-compact');
-    }
-  }catch(err){}
-});
+// F2: a textarea losing focus flushes its debounced notes save.
 document.addEventListener('focusout',e=>{
-  try{
-    if(e&&e.target&&e.target.tagName==='TEXTAREA')flushNotesSave(); // F2
-    if(_kbT)clearTimeout(_kbT);
-    _kbT=setTimeout(()=>{
-      _kbT=null;
-      const ae=document.activeElement;
-      if(!(ae&&ae.closest&&(ae.tagName==='INPUT'||ae.tagName==='TEXTAREA')&&ae.closest('.fcard'))){
-        const fr=document.getElementById('focusRoot');if(fr&&fr.classList)fr.classList.remove('kb-compact');
-      }
-    },120);
-  }catch(err){}
+  try{if(e&&e.target&&e.target.tagName==='TEXTAREA')flushNotesSave();}catch(err){}
 });
 // C2: long-press (300ms) on a pending set row reveals its skip/delete
 // actions; taps and swipes are untouched (the hold cancels on movement).
@@ -5490,190 +4976,6 @@ function wireRowReveal(track){
   track.addEventListener('pointermove',e=>{if(row&&(Math.abs(e.clientX-x0)>8||Math.abs(e.clientY-y0)>8))cancel();});
   track.addEventListener('pointerup',cancel);
   track.addEventListener('pointercancel',cancel);
-}
-// Rest-state sync for the focus overlay; #restBar stays untouched for list
-// mode and backgrounded sessions. On rest end, auto-advance if the current
-// unit is done (user navigation during rest naturally suppresses this).
-function focusRestSync(on){
-  const focus=!!S.activeSession&&(S.settings.sessionView||'focus')!=='list';
-  const dim=!!on&&focus&&!_restPeek;
-  try{const ov=document.getElementById('focusRestOverlay');if(ov&&ov.classList)ov.classList.toggle('on',dim);}catch(e){}
-  try{const tr=document.getElementById('focusTrack');if(tr&&tr.classList)tr.classList.toggle('resting',dim);}catch(e){}
-  if(!on){_restPeek=false;try{focusMaybeAdvance();}catch(e){}}
-}
-// N2: rest NEVER blocks the session. The focus-view dim is a peek-able
-// state, not a barrier: the first touch on the dimmed card wakes it (the
-// countdown moves to the mini-bar and keeps running). That touch's CLICK is
-// swallowed so a near-invisible Log button can't fire by accident; a swipe
-// or scroll in the same gesture proceeds normally (no preventDefault).
-let _restPeek=false,_wakeSwallow=false;
-function restDimmed(){
-  const sess=S.activeSession;
-  return restInt!=null&&!_restPeek&&!!sess&&!sess.activity&&(S.settings.sessionView||'focus')!=='list';
-}
-function restWake(){
-  if(restInt==null||_restPeek)return false;
-  _restPeek=true;
-  try{focusRestSync(true);}catch(e){}
-  renderSessionBar();
-  return true;
-}
-function wireRestWake(wrap){
-  if(!wrap||typeof wrap.addEventListener!=='function')return;
-  wrap.addEventListener('pointerdown',e=>{
-    if(!restDimmed())return;
-    if(e&&e.target&&e.target.closest&&e.target.closest('.fr-actions'))return;
-    restWake();
-    _wakeSwallow=true;setTimeout(()=>{_wakeSwallow=false;},600);
-  },true);
-  wrap.addEventListener('click',e=>{
-    if(!_wakeSwallow)return;
-    _wakeSwallow=false;
-    if(e&&e.preventDefault)e.preventDefault();
-    if(e&&e.stopPropagation)e.stopPropagation();
-  },true);
-}
-function focusMaybeAdvance(){
-  const sess=S.activeSession;if(!sess)return;
-  if((S.settings.sessionView||'focus')==='list')return;
-  const units=focusUnits(sess);
-  const p=focusPos();
-  if(p>=units.length||!unitDone(sess,units[p]))return;
-  const idxs=units.map((_,q)=>q);
-  const nxt=idxs.slice(p+1).concat(idxs.slice(0,p)).find(q=>!unitDone(sess,units[q]));
-  focusGoTo(nxt!=null?nxt:units.length);
-}
-// ===== FOCUS REORDER (S7) =====
-// Both entry points write S.activeSession.order immediately via
-// commitUnitOrder. Units (superset chains) move as ONE block, so pairs can
-// never be separated by the UI. exercises[] itself is never touched (S4).
-function commitUnitOrder(unitSeq){
-  const sess=S.activeSession;if(!sess)return;
-  sess.order=unitSeq.reduce((a,u)=>a.concat(u.eis),[]);
-  save();
-  try{renderEx();}catch(e){}
-  try{renderReorderRows();}catch(e){}
-}
-function moveUnit(p,d){
-  const sess=S.activeSession;if(!sess)return;
-  const units=focusUnits(sess);
-  const q=p+d;if(q<0||q>=units.length)return;
-  const t=units[p];units[p]=units[q];units[q]=t;
-  commitUnitOrder(units);
-}
-function openReorderSheet(){renderReorderRows();showModal('reorderSheet');}
-function renderReorderRows(){
-  const list=document.getElementById('roList');if(!list)return;
-  const sess=S.activeSession;
-  if(!sess){list.innerHTML='';return;}
-  const units=focusUnits(sess);
-  list.innerHTML=units.map((u,p)=>{
-    const names=u.sec==='warmup'?('Warm-up block ('+u.eis.length+')'):u.eis.map(ei=>sess.exercises[ei].name).join(' \u29c9 ');
-    const done=unitDone(sess,u);
-    return `<div class="ro-row${u.eis.length>1?' ro-pair':''}" data-pos="${p}">
-      <div class="ro-updown"><button class="ro-btn" onclick="moveUnit(${p},-1)" aria-label="Move ${names} up">\u25b2</button><button class="ro-btn" onclick="moveUnit(${p},1)" aria-label="Move ${names} down">\u25bc</button></div>
-      <div class="ro-name">${done?'\u2713 ':''}${names}${u.eis.length>1?' <span class="t-meta">superset</span>':''}</div>
-      <div class="ro-handle" aria-label="Drag to reorder">\u2261</div>
-    </div>`;
-  }).join('');
-}
-// PRIMARY: dedicated handles drag immediately (no hold — it's a handle).
-function wireReorderDrag(list){
-  if(!list||typeof list.addEventListener!=='function')return;
-  let dragRow=null;
-  list.addEventListener('pointerdown',e=>{
-    const h=e.target&&e.target.closest&&e.target.closest('.ro-handle');
-    if(!h)return;
-    dragRow=h.closest('.ro-row');
-    if(!dragRow)return;
-    if(e.preventDefault)e.preventDefault();
-    try{if(list.setPointerCapture)list.setPointerCapture(e.pointerId);}catch(err){}
-    dragRow.classList.add('dragging');
-    [...list.querySelectorAll('.ro-row')].forEach(r=>{if(r!==dragRow)r.classList.add('drag-dim');});
-  });
-  list.addEventListener('pointermove',e=>{
-    if(!dragRow)return;
-    if(e.preventDefault)e.preventDefault();
-    const rows=[...list.querySelectorAll('.ro-row')].filter(r=>r!==dragRow);
-    const tgt=rows.find(r=>{const b=r.getBoundingClientRect();return e.clientY<b.top+b.height/2;});
-    if(tgt)list.insertBefore(dragRow,tgt);else list.appendChild(dragRow);
-  });
-  const drop=()=>{
-    if(!dragRow)return;
-    dragRow.classList.remove('dragging');
-    [...list.querySelectorAll('.ro-row')].forEach(r=>r.classList.remove('drag-dim'));
-    dragRow=null;
-    const sess=S.activeSession;if(!sess)return;
-    const units=focusUnits(sess); // pre-commit snapshot: data-pos indexes it
-    const seq=[...list.querySelectorAll('.ro-row')].map(r=>units[+r.getAttribute('data-pos')]).filter(Boolean);
-    if(seq.length===units.length)commitUnitOrder(seq);
-  };
-  list.addEventListener('pointerup',drop);
-  list.addEventListener('pointercancel',drop);
-}
-// SECONDARY: 300ms long-press on a rail chip (haptic), rail scroll-locked
-// during the drag; a plain tap stays navigation.
-let _railHoldT=null;
-let _railDragged=false;
-function wireRailDrag(rail){
-  if(!rail||typeof rail.addEventListener!=='function')return;
-  let chip=null,armed=false,x0=0;
-  const clear=()=>{
-    if(_railHoldT){clearTimeout(_railHoldT);_railHoldT=null;}
-    try{
-      if(chip)chip.classList.remove('dragging');
-      rail.classList.remove('rail-locked');
-      [...rail.querySelectorAll('.rail-chip')].forEach(c=>c.classList.remove('drop-target','drag-dim'));
-    }catch(e){}
-    chip=null;armed=false;
-  };
-  rail.addEventListener('pointerdown',e=>{
-    const c=e.target&&e.target.closest&&e.target.closest('.rail-chip');
-    if(!c||!c.hasAttribute('data-pos'))return;
-    chip=c;x0=e.clientX;armed=false;
-    _railHoldT=setTimeout(()=>{
-      _railHoldT=null;armed=true;
-      if(navigator.vibrate)navigator.vibrate(10);
-      chip.classList.add('dragging');
-      rail.classList.add('rail-locked');
-      try{if(rail.setPointerCapture)rail.setPointerCapture(e.pointerId);}catch(err){}
-      [...rail.querySelectorAll('.rail-chip[data-pos]')].forEach(c2=>{if(c2!==chip)c2.classList.add('drag-dim');});
-    },300);
-  });
-  rail.addEventListener('pointermove',e=>{
-    if(!chip)return;
-    if(!armed){
-      if(Math.abs(e.clientX-x0)>10)clear(); // scroll intent kills the hold
-      return;
-    }
-    if(e.preventDefault)e.preventDefault();
-    const chips=[...rail.querySelectorAll('.rail-chip[data-pos]')].filter(c2=>c2!==chip);
-    chips.forEach(c2=>c2.classList.remove('drop-target'));
-    const tgt=chips.find(c2=>{const b=c2.getBoundingClientRect();return e.clientX<b.left+b.width/2;});
-    if(tgt)tgt.classList.add('drop-target');
-  });
-  const up=e=>{
-    const wasArmed=armed,c=chip;
-    if(!wasArmed){clear();return;}
-    const sess=S.activeSession;
-    const units=sess?focusUnits(sess):[];
-    const from=c?+c.getAttribute('data-pos'):NaN;
-    const chips=[...rail.querySelectorAll('.rail-chip[data-pos]')].filter(c2=>c2!==c);
-    const tgt=chips.find(c2=>{const b=c2.getBoundingClientRect();return e.clientX<b.left+b.width/2;});
-    const to=tgt?+tgt.getAttribute('data-pos'):units.length-1;
-    clear();
-    _railDragged=true;
-    if(!sess||isNaN(from)||from===to)return;
-    const seq=units.slice();
-    const m=seq.splice(from,1)[0];
-    const ins=tgt?(to>from?to-1:to):seq.length;
-    seq.splice(ins,0,m);
-    commitUnitOrder(seq);
-  };
-  rail.addEventListener('pointerup',up);
-  rail.addEventListener('pointercancel',()=>clear());
-  // A drag must not ALSO fire the chip's navigation onclick.
-  rail.addEventListener('click',e=>{if(_railDragged){_railDragged=false;if(e.stopPropagation)e.stopPropagation();if(e.preventDefault)e.preventDefault();}},true);
 }
 function activateBonus(bi){
   const sess=S.activeSession;if(!sess)return;
@@ -6548,36 +5850,44 @@ function playBeepLater(sec){
 function cancelBeep(){if(_restBeepTimer){clearTimeout(_restBeepTimer);_restBeepTimer=null}}
 
 // ===== REST TIMER =====
+// D2: the countdown tick. Named (not an inline closure) so the invariant is
+// testable: while a rest runs, its countdown is ALWAYS visible in the
+// mini-bar — if anything ever hid the strip, the next tick puts it back.
+function restTick(){
+  const rem=Math.max(0,Math.ceil((restEnd-Date.now())/1000));
+  const m=Math.floor(rem/60),s=rem%60;
+  document.getElementById('restDisp').textContent=`${m}:${String(s).padStart(2,'0')}`;
+  document.getElementById('restProg').style.width=((restDur-rem)/restDur*100)+'%';
+  try{
+    const rb=document.getElementById('restBar'),sb=document.getElementById('sessBar');
+    if(rb&&rb.classList&&rb.classList.contains&&!rb.classList.contains('on'))rb.classList.add('on');
+    if(sb&&sb.classList&&sb.classList.contains&&!sb.classList.contains('on'))renderSessionBar();
+  }catch(e){}
+  if(rem<=0){
+    document.getElementById('restDisp').classList.add('go');
+    document.getElementById('restDisp').textContent='GO';
+    if(navigator.vibrate)navigator.vibrate([200,100,200]);
+    // Schedule a single auto-stop. The interval keeps firing every 250ms
+    // while rem<=0; without the guard we'd queue ~12 deferred stops per
+    // 3-second GO window. The handle is also cleared in stopRest() so a
+    // new rest started within the window cannot be killed by a stale
+    // auto-stop from the prior rest.
+    if(!_restAutoStopTimer){
+      _restAutoStopTimer=setTimeout(()=>{_restAutoStopTimer=null;stopRest();},3000);
+    }
+  }
+}
 function startRest(sec){
-  stopRest();_restPeek=false;restDur=sec;restEnd=Date.now()+sec*1000;
+  stopRest();restDur=sec;restEnd=Date.now()+sec*1000;
   const bar=document.getElementById('restBar');bar.classList.add('on');
   document.getElementById('restDisp').classList.remove('go');
-  try{focusRestSync(true);}catch(e){}
-  restInt=setInterval(()=>{
-    const rem=Math.max(0,Math.ceil((restEnd-Date.now())/1000));
-    const m=Math.floor(rem/60),s=rem%60;
-    document.getElementById('restDisp').textContent=`${m}:${String(s).padStart(2,'0')}`;
-    const _fd=document.getElementById('focusRestDisp');if(_fd)_fd.textContent=rem<=0?'GO':`${m}:${String(s).padStart(2,'0')}`;
-    document.getElementById('restProg').style.width=((restDur-rem)/restDur*100)+'%';
-    if(rem<=0){
-      document.getElementById('restDisp').classList.add('go');
-      document.getElementById('restDisp').textContent='GO';
-      if(navigator.vibrate)navigator.vibrate([200,100,200]);
-      // Schedule a single auto-stop. The interval keeps firing every 250ms
-      // while rem<=0; without the guard we'd queue ~12 deferred stops per
-      // 3-second GO window. The handle is also cleared in stopRest() so a
-      // new rest started within the window cannot be killed by a stale
-      // auto-stop from the prior rest.
-      if(!_restAutoStopTimer){
-        _restAutoStopTimer=setTimeout(()=>{_restAutoStopTimer=null;stopRest();},3000);
-      }
-    }
-  },250);
+  restInt=setInterval(restTick,250);
   // AFTER restInt is set — renderSessionBar keys "resting" off restInt, so an
   // earlier call would leave the strip hidden for the whole rest.
   renderSessionBar();
+  restTick(); // paint the first value immediately (no stale number for 250ms)
 }
-function stopRest(){cancelBeep();if(_restAutoStopTimer){clearTimeout(_restAutoStopTimer);_restAutoStopTimer=null}if(restInt)clearInterval(restInt);restInt=null;document.getElementById('restBar').classList.remove('on');try{focusRestSync(false)}catch(e){};renderSessionBar()}
+function stopRest(){cancelBeep();if(_restAutoStopTimer){clearTimeout(_restAutoStopTimer);_restAutoStopTimer=null}if(restInt)clearInterval(restInt);restInt=null;document.getElementById('restBar').classList.remove('on');renderSessionBar()}
 function skipRest(){cancelBeep();stopRest()}
 function addRest(s){if(restEnd){restEnd+=s*1000;restDur+=s;// reschedule beep to new end
   if(_restBeepTimer)clearTimeout(_restBeepTimer);
@@ -6947,10 +6257,6 @@ function confirmRpe(){
     }
   });
 
-  // Focus-mode reorder (S4): capture the offer AFTER write-back — the mapped
-  // array reuses the SAME program objects, so the bumps above travel with it.
-  // Applied only from the summary row, never here.
-  try{_orderOffer=(!_wbDay||_wbDay.alternating)?null:(sessOrderDiffers(sess)?{dayIndex:sess.dayIndex,exercises:mapSessionOrderToProgram(sessOrder(sess),sess.exercises,_wbDay.exercises||[])}:null);}catch(e){_orderOffer=null;}
 
   S.activeSession=null;save();
   // Phase C: increment rotation counter
@@ -6963,11 +6269,6 @@ function confirmRpe(){
 // ===== SUMMARY =====
 function renderSummary(rec){
   document.getElementById('sumSub').textContent=`${rec.dayLabel} · ${fmtDate(rec.date)} · ${rec.duration} min · RPE ${rec.rpe||'—'}`;
-  // Focus-mode reorder (S7): inline offer when session order ≠ program.
-  try{
-    const orow=document.getElementById('sumOrderRow');
-    if(orow)orow.innerHTML=_orderOffer?`<div class="sum-order-row"><span class="t-body">Keep this order?</span><div style="display:flex;gap:8px"><button class="btn btn-sm btn-g" style="min-height:48px" onclick="dismissOrderOffer()">Just today</button><button class="btn btn-sm btn-p" style="min-height:48px" onclick="applyOrderOffer()">Save to program</button></div></div>`:'';
-  }catch(e){}
   document.getElementById('sumExs').innerHTML=rec.exercises.map(ex=>{
     const w=(ex.performed||[]).filter(s=>s.type==='working');
     const wu=(ex.performed||[]).filter(s=>s.type==='warmup');
@@ -8269,10 +7570,10 @@ document.querySelectorAll('.overlay').forEach(o=>{
 document.addEventListener('focusin',e=>{
   try{
     const t=e.target;
-    // B6: textareas (session notes, focus wrap-up) get the same keyboard
-    // rescue as set inputs — they sit at the bottom of their screens.
+    // B6: the session-notes textarea gets the same keyboard rescue as set
+    // inputs — it sits at the bottom of its screen.
     const isSetInput=t&&t.tagName==='INPUT'&&t.closest&&t.closest('.set-fields');
-    const isNotes=t&&t.tagName==='TEXTAREA'&&(t.id==='sessNotes'||t.id==='fNotes'||(t.closest&&t.closest('.fcard')));
+    const isNotes=t&&t.tagName==='TEXTAREA'&&t.id==='sessNotes';
     if(!isSetInput&&!isNotes)return;
     if(typeof t.scrollIntoView==='function')setTimeout(()=>t.scrollIntoView({block:'center',behavior:'smooth'}),150);
   }catch(err){}
@@ -8282,12 +7583,8 @@ document.addEventListener('focusin',e=>{
 function init(){
   // iOS standalone PWA: extend #app into the dead space below the CSS viewport
   load();
-  // Focus-mode swipe (S6): the track is static DOM — wire once, mock-guarded.
-  try{const _ft=document.getElementById('focusTrack');wireFocusSwipe(_ft);wireRowReveal(_ft);wireRestWake(document.getElementById('focusTrackWrap'));}catch(e){}
+  // Long-press reveal on the session list — static container, wired once.
   try{wireRowReveal(document.getElementById('exList'));}catch(e){}
-  // Reorder surfaces (S7): static containers — listeners survive re-renders.
-  try{wireReorderDrag(document.getElementById('roList'));}catch(e){}
-  try{wireRailDrag(document.getElementById('focusRail'));}catch(e){}
   if(S.activeSession){
     sessionStart=S.activeSession.startTime||Date.now();startTimer();
     showView('vSession');renderEx();

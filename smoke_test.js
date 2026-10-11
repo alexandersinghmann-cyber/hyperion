@@ -37,17 +37,10 @@ const patched = js
   .replace(/\blet sessionStart\s*=/g, 'var sessionStart =')
   .replace(/\blet _painArea\s*=/g, 'var _painArea =')
   .replace(/\blet _painSessionMode\s*=/g, 'var _painSessionMode =')
-  .replace(/\blet _orderOffer\s*=/g, 'var _orderOffer =')
-  .replace(/\blet _focusIdx\s*=/g, 'var _focusIdx =')
-  .replace(/\bconst FOCUS_SWIPE\s*=/g, 'var FOCUS_SWIPE =')
-  .replace(/\blet _kbT\s*=/g, 'var _kbT =')
   .replace(/\bconst AVOID_VARIANTS\s*=/g, 'var AVOID_VARIANTS =')
-  .replace(/\blet _lastReadoutKey\s*=/g, 'var _lastReadoutKey =')
   .replace(/\blet _rowHoldT\s*=/g, 'var _rowHoldT =')
-  .replace(/\blet _railHoldT\s*=/g, 'var _railHoldT =')
   .replace(/\blet _wuCollapsed\s*=/g, 'var _wuCollapsed =')
   .replace(/\blet _pausedOpen\s*=/g, 'var _pausedOpen =')
-  .replace(/\blet _railDragged\s*=/g, 'var _railDragged =')
   .replace(/\blet _userOpened\s*=/g, 'var _userOpened =')
   .replace(/\blet _userClosed\s*=/g, 'var _userClosed =')
   .replace(/\blet _notesT\s*=/g, 'var _notesT =')
@@ -60,7 +53,6 @@ const patched = js
   .replace(/\blet _backReadiness\s*=/g, 'var _backReadiness =')
   .replace(/\blet _backPending\s*=/g, 'var _backPending =')
   .replace(/\blet _backStartIdx\s*=/g, 'var _backStartIdx =')
-  .replace(/\blet _restPeek\s*=/g, 'var _restPeek =')
   .replace(/\bconst ACTIVITY_TYPES\s*=/g, 'var ACTIVITY_TYPES =')
   .replace(/\bconst MODALITY_TYPES\s*=/g, 'var MODALITY_TYPES =')
   .replace(/\blet _reachCache\s*=/g, 'var _reachCache =')
@@ -357,7 +349,6 @@ console.log('[K2 WeekAB]');
   assert(Array.isArray(rep2), 'K2: validateProgram runs over alternating days without throwing');
   S.program=_sp;S.sessions=[];
 })();
-assert(/if\(day&&day\.alternating\)\{_orderOffer=null;return;\}/.test(html), 'K2: applyOrderOffer refuses alternating days');
 
 // ---- K3 (v12 chain): maintain-phase gate ----
 console.log('[K3 Maintain]');
@@ -2652,8 +2643,8 @@ assert(/button:focus-visible[^{]*\{outline:2px solid var\(--brand\)/.test(html),
 // K9/D1: the card secondary line is GONE — cards are name + one chip + one
 // tappable rx line; the deep context renders in the fcDetail sheet only.
 assert(!/class="ex-sub"/.test(html), 'K9/D1: no ex-sub secondary line on cards (context moved to the detail sheet)');
-assert((html.match(/openFcDetail\(\$\{i\}\)/g)||[]).length===1&&(html.match(/openFcDetail\(\$\{ei\}\)/g)||[]).length===2&&/<button onclick="openFcDetail\(\$\{ei\}\)">History<\/button>/.test(html), 'K9/D1+N3: both card views open the detail sheet from the rx line; the Intervals card adds exactly one History link');
-assert((html.match(/fc-meta-more/g)||[]).length>=3, 'K9/D1: ellipsis affordance on list rx, focus meta and variant chip');
+assert((html.match(/openFcDetail\(\$\{i\}\)/g)||[]).length===1&&(html.match(/openFcDetail\(\$\{ei\}\)/g)||[]).length===1&&/<button onclick="openFcDetail\(\$\{ei\}\)">History<\/button>/.test(html), 'K9/D1+N3: the list card opens the detail sheet from the rx line; the Intervals card adds exactly one History link');
+assert((html.match(/fc-meta-more/g)||[]).length>=2, 'K9/D1: ellipsis affordance on the list rx line and the variant chip');
 // quote: single t-meta italic line
 assert(/id="greeting" style="margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"/.test(html), 'D6: stoic quote is a single ellipsised line');
 
@@ -2853,119 +2844,57 @@ assert(/class="planet"/.test(html)&&/class="planet-lbl tnum"/.test(html)&&/plane
 assert(/\{Squat:\{color:'var\(--lift-sq\)'/.test(html), 'S3: e1RM chart consolidated onto the lift-hue tokens');
 assert(/\.club2-n\{font:500 26px var\(--display\)/.test(html), 'S3: goal headline number set in the display face');
 
-// ===== S4: FOCUS DATA LAYER — ORDER MODEL + sessionView =====
-assert(typeof sessOrder==='function'&&typeof sessOrderDiffers==='function'&&typeof mapSessionOrderToProgram==='function'&&typeof applyOrderOffer==='function'&&typeof toggleSessionView==='function', 'S4: order-model API defined');
-// 1. backfill: session without order → identity
-(()=>{const sess={exercises:[{},{},{}]};assert(JSON.stringify(sessOrder(sess))==='[0,1,2]', 'S4: missing order heals to identity');})();
-// 2. self-heal: partial + out-of-range
-(()=>{const sess={exercises:[{},{},{},{}],order:[2,0,9]};assert(JSON.stringify(sessOrder(sess))==='[2,0,1,3]', 'S4: partial order appends missing, drops out-of-range. Got '+JSON.stringify(sessOrder(sess)));})();
-assert(sessOrderDiffers({exercises:[{},{}],order:[0,1]})===false&&sessOrderDiffers({exercises:[{},{}],order:[1,0]})===true, 'S4: sessOrderDiffers identity check');
-// 3. round-trip: order + sessionView survive export
-(()=>{
-  S.activeSession={dayIndex:0,dayId:1,blockName:S.program.name,date:'2026-07-28',dayLabel:'Bench',sessionType:'lifting',startTime:1,notes:'',exercises:[{name:'A',performed:[]},{name:'B',performed:[]}],order:[1,0]};
-  const blob=JSON.parse(buildExportPayload(1));
-  assert(JSON.stringify(blob.activeSession.order)==='[1,0]'&&blob.settings.sessionView, 'S4: order + sessionView round-trip the export payload');
-  S.activeSession=null;
-})();
-// 4. out-of-order logging: set state keys off ARRAY index, not display position
-(()=>{
-  S.activeSession={dayIndex:0,dayId:1,blockName:S.program.name,date:'2026-07-28',dayLabel:'X',sessionType:'lifting',startTime:1,notes:'',
-    exercises:[{name:'A',cat:'push',prescribed:{sets:1,reps:'5',loadKg:10,unit:'kg'},performed:[{type:'working',weightKg:10,reps:5,logged:false}],tags:[],progression:null,nextLoad:null},
-               {name:'B',cat:'pull',prescribed:{sets:1,reps:'5',loadKg:10,unit:'kg'},performed:[{type:'working',weightKg:10,reps:5,logged:false}],tags:[],progression:null,nextLoad:null}],order:[1,0]};
-  _skipSetCtx={ei:0,si:0};confirmSkipSet('time');
-  assert(S.activeSession.exercises[0].performed[0].skipped===true&&!S.activeSession.exercises[1].performed[0].skipped, 'S4: skip lands on exercises[0] (array identity) despite display order [1,0]');
-  S.activeSession=null;
-})();
-// 5. mapping: same object references, unmatched appended in original order
-(()=>{
-  const A={name:'A'},B={name:'B'},C={name:'C'};
-  const out=mapSessionOrderToProgram([1,0],[{name:'A',tags:[]},{name:'B',tags:[]}],[A,B,C]);
-  assert(out.length===3&&out[0]===B&&out[1]===A&&out[2]===C, 'S4: order maps by reference, unmatched program entries keep tail order');
-})();
-// 6. save-to-program preserves the write-back bump (same refs) + confirmRpe capture
-(()=>{
-  S.sessions=[]; // R1: no non-alternating multi-exercise lifting day ships —
-  // synthesize one (offers are suppressed for alternating days by design).
-  S.program.days[2]={id:3,label:'OrderTest',defaultDay:'Wednesday',dayOfWeek:'Wednesday',sessionType:'lifting',dur:60,exercises:[
-    {id:'ot1',name:'Leg Press',cat:'squat',sets:1,reps:'5',loadKg:20,unit:'kg',rest:60,tags:[],equipmentClass:'machine'},
-    {id:'ot2',name:'DB Curl',cat:'isolation',sets:1,reps:'5',loadKg:20,unit:'kg',rest:60,tags:[],equipmentClass:'db'}
-  ]};
-  const d0=S.program.days[2];
-  const mkEx=(name)=>({name,cat:'push',prescribed:{sets:1,reps:'5',loadKg:20,unit:'kg'},performed:[{type:'working',weightKg:20,reps:5,rpe:7,logged:true}],tags:[],progression:'hold',nextLoad:20,nextTarget:null,variant:null,painEvent:null,notes:''});
-  S.activeSession={dayIndex:2,dayId:d0.id,blockName:S.program.name,date:'2026-08-19',dayLabel:d0.label,sessionType:'lifting',startTime:1,notes:'',
-    exercises:[mkEx(d0.exercises[0].name),mkEx(d0.exercises[1].name)],order:[1,0]};
-  selRpe=7;confirmRpe();
-  assert(_orderOffer&&_orderOffer.dayIndex===2, 'S4: confirmRpe captures the order offer when order differs');
-  assert(_orderOffer.exercises[0]===d0.exercises[1]&&_orderOffer.exercises[1]===d0.exercises[0], 'S4: offer reuses the program day\'s own objects');
-  const prevFirst=d0.exercises[1];
-  applyOrderOffer();
-  assert(S.program.days[2].exercises[0]===prevFirst&&_orderOffer===null, 'S4: Save-to-program re-sequences the day in place');
-  // restore program + state for later tests
-  S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.activeSession=null;
-})();
-// 9. sessionView default + flip
-assert(S.settings.sessionView==='focus'||S.settings.sessionView==='list', 'S4: sessionView present');
-(()=>{const was=S.settings.sessionView;toggleSessionView();assert(S.settings.sessionView!==was, 'S4: toggleSessionView flips');toggleSessionView();assert(S.settings.sessionView===was, 'S4: and flips back');})();
-assert(/if\(!S\.settings\.sessionView\)S\.settings\.sessionView='focus';/.test(html), 'S4: load() backfills sessionView');
-assert(/id="sViewBtn"/.test(html)&&/Session view</.test(html), 'S4: Settings row present');
-assert(/_orderOffer=\(!_wbDay\|\|_wbDay\.alternating\)\?null:\(sessOrderDiffers\(sess\)/.test(html), 'S4/K2: offer captured after write-back — suppressed for alternating days (array replace would clobber the sibling variant)');
+// ===== Q1 (Oct 2026): FOCUS VIEW REMOVED — the list is the only session UI =====
+console.log('[Q1 FocusRemoved]');
+['renderFocus','focusUnits','focusCardHTML','focusGoTo','focusPos','wireFocusSwipe','focusRestSync','focusMaybeAdvance','restWake','wireRestWake','toggleSessionView','sessOrder','applyOrderOffer','moveUnit','openReorderSheet','wireRailDrag','wireReorderDrag'].forEach(fn=>{
+  assert(!new RegExp('function '+fn+'\\(').test(html), 'Q1: '+fn+'() deleted');
+});
+assert(!/id="focusRoot"|id="focusTrack"|id="focusRail"|id="focusRestOverlay"|id="sViewToggle"|id="sViewBtn"|id="reorderSheet"|id="sumOrderRow"/.test(html), 'Q1: focus DOM, view toggle, settings row, reorder sheet and order-offer row are gone');
+assert(!/focus-on|\.fcard|\.fc-log|\.fc-readout|\.rail-chip|\.fr-count|kb-compact|_focusIdx|_restPeek|_orderOffer|sessionView\s*=|sessionView\|\|/.test(html), 'Q1: no focus CSS / state / setting reads remain');
+assert(/delete S\.settings\.sessionView;/.test(html), 'Q1: the stored view setting is dropped on load');
+assert(/function renderEx\(\)\{[\s\S]{0,1600}renderExList\(\);\n\}/.test(html)&&typeof renderExList==='function', 'Q1: renderEx dispatches straight to the list');
+assert(/\.fc-detail-row\{/.test(html)&&/\.fc-meta-more\{/.test(html)&&typeof openFcDetail==='function'&&typeof wireRowReveal==='function', 'Q1: shared pieces survive (detail sheet, long-press reveal)');
+assert(/document\.addEventListener\('focusout',e=>\{\n  try\{if\(e&&e\.target&&e\.target\.tagName==='TEXTAREA'\)flushNotesSave\(\);\}catch\(err\)\{\}\n\}\);/.test(html), 'Q1/F2: textarea blur still flushes the notes save');
 
-// ===== S5: FOCUS VIEW SHELL =====
-assert(typeof renderFocus==='function'&&typeof renderExList==='function'&&typeof focusUnits==='function'&&typeof focusCardHTML==='function'&&typeof renderFocusRail==='function'&&typeof focusGoTo==='function', 'S5: focus render API defined');
-// superset pair → ONE unit; chain of 3 → one unit
-(()=>{
-  const sess={exercises:[{supersetNext:true,performed:[]},{performed:[]},{performed:[]}],order:[0,1,2]};
-  const u=focusUnits(sess);
-  assert(u.length===2&&JSON.stringify(u[0].eis)==='[0,1]'&&JSON.stringify(u[1].eis)==='[2]', 'S5: display-adjacent pair renders as one unit. Got '+JSON.stringify(u));
-  const sess3={exercises:[{supersetNext:true,performed:[]},{supersetNext:true,performed:[]},{performed:[]}],order:[0,1,2]};
-  assert(focusUnits(sess3).length===1&&focusUnits(sess3)[0].eis.length===3, 'S5: a 3-chain is one unit');
+// ---- Q2/D2: a running rest ALWAYS shows in the bottom mini-bar ----
+console.log('[Q2 RestMiniBar]');
+assert(/const show=resting\|\|showSummary;/.test(html), 'D2: the strip shows whenever a rest runs — no view/mode condition can hide it');
+assert(/restInt=setInterval\(restTick,250\);/.test(html)&&typeof restTick==='function', 'D2: the tick is a named, testable function');
+(function(){
+  const els={};
+  const mk=id=>{const cls=new Set();return {id,textContent:'',innerHTML:'',style:{},classList:{add:c=>cls.add(c),remove:c=>cls.delete(c),toggle:(c,f)=>{const on=f===undefined?!cls.has(c):!!f;on?cls.add(c):cls.delete(c);return on;},contains:c=>cls.has(c)}};};
+  const _gid=document.getElementById,_qs=document.querySelector,_qsa=document.querySelectorAll;
+  document.getElementById=id=>els[id]||(els[id]=mk(id));
+  document.querySelector=q=>null;
+  const has=(id,c)=>document.getElementById(id).classList.contains(c);
+  const _as=S.activeSession,_re=global.renderEx,_rt=global.renderTrain;
+  global.renderEx=()=>{};global.renderTrain=()=>{};
+  S.activeSession={dayIndex:0,sessionType:'lifting',dayLabel:'Gym',date:todayStr(),startTime:1,exercises:[
+    {name:'Back Squat',cat:'squat',section:'main',prescribed:{sets:2,reps:'5',loadKg:100,unit:'kg'},performed:[{type:'working',weightKg:100,reps:5,logged:true},{type:'working',weightKg:100,reps:5,logged:false}],tags:[]},
+    {name:'Strict Pull-Up',cat:'pull',section:'main',prescribed:{sets:1,reps:'6',loadKg:0,unit:'bw'},performed:[{type:'working',weightKg:0,reps:6,logged:false}],tags:[]}]};
+  startRest(90);
+  assert(restInt!=null&&has('sessBar','on')&&has('restBar','on'), 'D2: rest starts in the mini-bar');
+  assert(/^1:(30|29)$/.test(document.getElementById('restDisp').textContent), 'D2: the countdown paints immediately. Got '+document.getElementById('restDisp').textContent);
+  // every way of "clicking off" keeps the countdown on screen
+  hideModal('rpeModal');hideModal('fcDetailSheet');
+  assert(has('sessBar','on'), 'D2: dismissing a sheet/modal leaves the countdown up');
+  const _uo=_userOpened,_uc=_userClosed;_userOpened=new Set();_userClosed=new Set();
+  toggleCardOpen(1);
+  assert(has('sessBar','on')&&restInt!=null, 'D2: opening another exercise mid-rest leaves the countdown up');
+  _userOpened=_uo;_userClosed=_uc;
+  go('Train');
+  assert(has('sessBar','on'), 'D2: leaving the session screen keeps the countdown (backgrounded)');
+  resumeSession();
+  assert(has('sessBar','on'), 'D2: returning to the session keeps the countdown');
+  // self-heal: if ANYTHING hides the strip, the next tick restores it
+  document.getElementById('sessBar').classList.remove('on');document.getElementById('restBar').classList.remove('on');
+  restTick();
+  assert(has('sessBar','on')&&has('restBar','on'), 'D2: a hidden strip REAPPEARS on the next tick while rest runs');
+  stopRest();
+  assert(restInt===null&&!has('restBar','on'), 'D2: ending the rest (Skip) is the only thing that removes it');
+  document.getElementById=_gid;document.querySelector=_qs;document.querySelectorAll=_qsa;global.renderEx=_re;global.renderTrain=_rt;
+  S.activeSession=_as;
 })();
-// separated pair degrades to singles, flag untouched
-(()=>{
-  const sess={exercises:[{supersetNext:true,performed:[]},{performed:[]},{performed:[]}],order:[1,0,2]};
-  const u=focusUnits(sess);
-  assert(u.length===3, 'S5: display-separated pair degrades to single cards. Got '+u.length);
-  assert(sess.exercises[0].supersetNext===true, 'S5: degradation never clears the pairing flag');
-})();
-// interleave: warm-ups first per member, then A1,B1,A2,B2
-(()=>{
-  const sess={exercises:[
-    {supersetNext:true,performed:[{type:'warmup'},{type:'working'},{type:'working'}]},
-    {performed:[{type:'working'},{type:'working'}]}],order:[0,1]};
-  const seq=unitSeq(sess,{eis:[0,1]});
-  assert(JSON.stringify(seq)==='[[0,0],[0,1],[1,0],[0,2],[1,1]]', 'S5: warmups lead, working rows interleave round-robin. Got '+JSON.stringify(seq));
-})();
-// out-of-order current: focusPos seeds to first INCOMPLETE unit in display order
-(()=>{
-  _focusIdx=null;
-  S.activeSession={dayIndex:0,dayLabel:'X',sessionType:'lifting',startTime:1,notes:'',exercises:[
-    {name:'A',performed:[{type:'working',logged:true}]},
-    {name:'B',performed:[{type:'working',logged:false}]},
-    {name:'C',performed:[{type:'working',logged:false}]}],order:[2,0,1]};
-  assert(focusPos()===0&&_focusIdx===2, 'S5: seeds to first incomplete in DISPLAY order (C first). Got pos '+focusPos()+' idx '+_focusIdx);
-  focusGoTo(2);
-  assert(_focusIdx===1, 'S5: rail tap moves the current index');
-  _focusIdx=null;S.activeSession=null;
-})();
-assert(/id="focusRoot"/.test(html)&&/id="focusTrack"/.test(html)&&/id="focusRail"/.test(html), 'S5: focus DOM present');
-assert(/id="sViewToggle"/.test(html), 'S5: Focus/List toggle in the session head');
-assert(/#vSession\.focus-on #exList\{display:none\}/.test(html), 'S5: list layer hidden under focus (no duplicate ids)');
-assert(/\.fc-readout-w\{[^}]*var\(--display\);background:var\(--solar\);-webkit-background-clip:text/.test(html), 'S5: giant readout number carries the gradient via text clip');
-assert(/\.fc-log\{[^}]*min-height:52px[^}]*background:var\(--solar\)/.test(html), 'S5: full-width gradient Log button (second focus surface)');
-assert(/class="set-fields"/.test(focusSetRowHTML({prescribed:{reps:'5',sets:3,unit:'kg'},performed:[{type:'working',weightKg:10,reps:5}],tags:[],name:'T'},0,{type:'working',weightKg:10,reps:5,logged:false},0,null)), 'S5: focus rows keep .set-fields (keyboard-scroll contract)');
-
-// ===== S6: GESTURES + KEYBOARD COMPRESSION + REST OVERLAY =====
-assert(FOCUS_SWIPE.edge===28&&FOCUS_SWIPE.commit===56&&FOCUS_SWIPE.velMin===0.5&&FOCUS_SWIPE.slop===8, 'S6: swipe-safety constants per spec (28px edge guard, 56px commit, velocity check)');
-assert(typeof wireFocusSwipe==='function'&&typeof focusRestSync==='function'&&typeof focusMaybeAdvance==='function', 'S6: gesture + rest API defined');
-wireFocusSwipe(null);wireFocusSwipe({}); // mock-safe: bails without addEventListener
-assert(true, 'S6: wireFocusSwipe bails on mock elements');
-assert(/clientX<FOCUS_SWIPE\.edge\|\|e\.clientX>vw-FOCUS_SWIPE\.edge/.test(html), 'S6: both screen edges are dead zones');
-assert(/closest\('\.fc-hscroll'\)/.test(html), 'S6: card-internal horizontal scrollers stop the swipe');
-assert(/Math\.abs\(dx\)>=FOCUS_SWIPE\.commit\|\|\(Math\.abs\(dx\)>=24&&v>=FOCUS_SWIPE\.velMin\)/.test(html), 'S6: commit = distance OR velocity');
-assert(/#focusRoot\.kb-compact \.fc-readout\{[^}]*min-height:0/.test(html)&&/#vSession\.focus-on #focusRoot\.kb-compact #focusRail\{display:none\}/.test(html), 'S6: keyboard compression collapses readout + hides rail');
-assert(/@keyframes frglow/.test(html)&&/\.fr-count\{[^}]*var\(--display\)[^}]*animation:frglow/.test(html), 'S6: rest countdown in the display face with the slow glow pulse');
-assert(/id="focusRestDisp"/.test(html)&&/_fd\.textContent=rem<=0\?'GO'/.test(html), 'S6: rest tick mirrors into the focus overlay');
-assert(/resting&&\(!focusOnSession\|\|_restPeek\)/.test(html), 'S6: rest strip suppressed on-session in focus (until the card is woken); backgrounded mini-bar unchanged');
 
 // ---- N3 (Sep 28): sprint speed on Intervals circuits ----
 console.log('[N3 SprintSpeed]');
@@ -3014,117 +2943,6 @@ console.log('[N3 SprintSpeed]');
   S.program=_sp;S.sessions=_ss;S.activeSession=_as;
 })();
 
-// ---- N2 (Sep 28): the rest timer NEVER blocks the session ----
-console.log('[N2 RestNonBlocking]');
-// CSS census: no pointer barrier, no scroll lock keyed to rest
-assert(/#focusTrack\.resting\{opacity:\.1\}/.test(html)&&!/#focusTrack\.resting\{[^}]*pointer-events:none/.test(html), 'N2: the dimmed focus track keeps pointer events (swipe/scroll live)');
-assert(/#focusRestOverlay\{[^}]*pointer-events:none/.test(html)&&/\.fr-actions\{[^}]*pointer-events:auto/.test(html), 'N2: the rest layer is click-through except its own +30s/Skip controls');
-assert(!/\.resting[^{]*\{[^}]*overflow:hidden/.test(html)&&!/rest[^{]*\{[^}]*touch-action:none/.test(html), 'N2: no scroll lock keyed to rest');
-(function(){
-  // stateful DOM: persistent elements with real class sets
-  const els={};
-  const mk=id=>{const cls=new Set();return {id,textContent:'',innerHTML:'',style:{},classList:{add:c=>cls.add(c),remove:c=>cls.delete(c),toggle:(c,f)=>{const on=f===undefined?!cls.has(c):!!f;on?cls.add(c):cls.delete(c);return on;},contains:c=>cls.has(c)},_cls:cls};};
-  const _gid=document.getElementById,_qs=document.querySelector;
-  document.getElementById=id=>els[id]||(els[id]=mk(id));
-  let onSession=true;
-  document.querySelector=q=>(q==='#vSession.on'&&onSession)?{}:null;
-  const has=(id,c)=>document.getElementById(id).classList.contains(c);
-  const _as=S.activeSession,_sv=S.settings.sessionView,_re=global.renderEx;
-  global.renderEx=()=>{};
-  S.activeSession={dayIndex:0,sessionType:'lifting',dayLabel:'Gym',date:todayStr(),startTime:1,order:[0,1],exercises:[
-    {name:'Back Squat',cat:'squat',section:'main',prescribed:{sets:2,reps:'5',loadKg:100,unit:'kg'},performed:[{type:'working',weightKg:100,reps:5,logged:true},{type:'working',weightKg:100,reps:5,logged:false}],tags:[]},
-    {name:'Strict Pull-Up',cat:'pull',section:'main',prescribed:{sets:1,reps:'6',loadKg:0,unit:'bw'},performed:[{type:'working',weightKg:0,reps:6,logged:false}],tags:[]}]};
-  // --- focus view: dimmed but live ---
-  S.settings.sessionView='focus';_focusIdx=0;
-  startRest(90);
-  assert(restInt!=null&&has('focusRestOverlay','on')&&has('focusTrack','resting'), 'N2: focus rest starts in its dimmed state');
-  assert(!has('sessBar','on'), 'N2: focus on-session: no duplicate countdown in the strip while dimmed');
-  assert(restDimmed()===true, 'N2: dimmed predicate on');
-  // wake via a touch on the dimmed card (capture listeners)
-  const h={};const wrap={addEventListener:(t,fn,cap)=>{h[t]=fn;}};
-  wireRestWake(wrap);
-  const cardTarget={closest:q=>null};
-  h.pointerdown({target:cardTarget});
-  assert(restInt!=null, 'N2: waking never stops the rest — it keeps counting');
-  assert(!has('focusRestOverlay','on')&&!has('focusTrack','resting'), 'N2: first touch lifts the dim (card live, scroll/swipe proceed)');
-  assert(has('sessBar','on'), 'N2: woken rest counts down in the mini-bar');
-  let pd=0,sp=0;
-  h.click({preventDefault:()=>pd++,stopPropagation:()=>sp++});
-  assert(pd===1&&sp===1, 'N2: the waking tap\'s click is swallowed (no accidental Log on the hidden card)');
-  h.click({preventDefault:()=>pd++,stopPropagation:()=>sp++});
-  assert(pd===1&&sp===1, 'N2: only ONE click is swallowed — the next tap acts normally');
-  // overlay's own controls never wake/swallow
-  stopRest();startRest(90);
-  h.pointerdown({target:{closest:q=>q==='.fr-actions'?{}:null}});
-  assert(has('focusRestOverlay','on')&&_restPeek===false, 'N2: +30s/Skip taps act on the rest, not as a wake');
-  // navigating mid-rest (rail tap / swipe) opens the other card live
-  focusGoTo(1);
-  assert(_focusIdx===1&&restInt!=null&&!has('focusTrack','resting')&&has('sessBar','on'), 'N2: navigating to another exercise mid-rest opens it undimmed; rest continues in the mini-bar');
-  stopRest();
-  assert(_restPeek===false&&!has('focusRestOverlay','on'), 'N2: rest end clears the peek state');
-  // --- list view: countdown ONLY in the mini-bar ---
-  S.settings.sessionView='list';
-  startRest(90);
-  assert(!has('focusRestOverlay','on')&&!has('focusTrack','resting'), 'N2: list rest draws NO overlay/dim');
-  assert(has('sessBar','on')&&has('restBar','on'), 'N2: list rest counts down in the mini-bar');
-  // open another exercise card mid-rest
-  const _uo=_userOpened,_uc=_userClosed;_userOpened=new Set();_userClosed=new Set();
-  toggleCardOpen(1);
-  assert(cardOpen(S.activeSession,1)===true&&restInt!=null, 'N2: tapping another card mid-rest opens it (rest keeps running)');
-  _userOpened=_uo;_userClosed=_uc;
-  stopRest();
-  // --- focus → list switch mid-rest follows the rest ---
-  S.settings.sessionView='focus';
-  startRest(90);
-  assert(has('focusRestOverlay','on')&&!has('sessBar','on'), 'N2: focus rest dimmed before the switch');
-  toggleSessionView();
-  assert(S.settings.sessionView==='list'&&!has('focusRestOverlay','on')&&!has('focusTrack','resting')&&has('sessBar','on'), 'N2: switching to list mid-rest moves the countdown to the mini-bar (was: no countdown anywhere)');
-  toggleSessionView();
-  assert(S.settings.sessionView==='focus'&&has('focusRestOverlay','on')&&!has('sessBar','on'), 'N2: switching back re-dims the focus card');
-  stopRest();
-  document.getElementById=_gid;document.querySelector=_qs;global.renderEx=_re;
-  S.activeSession=_as;S.settings.sessionView=_sv;_focusIdx=null;
-})();
-// focusMaybeAdvance: advances past a completed unit at rest end, wraps to earlier incomplete
-(()=>{
-  S.activeSession={dayIndex:0,dayLabel:'X',sessionType:'lifting',startTime:1,notes:'',exercises:[
-    {name:'A',performed:[{type:'working',logged:false}]},
-    {name:'B',performed:[{type:'working',logged:true}]},
-    {name:'C',performed:[{type:'working',logged:false}]}],order:[0,1,2]};
-  _focusIdx=1; // sitting on the (done) B card
-  focusMaybeAdvance();
-  assert(_focusIdx===2, 'S6: rest-end advance moves to the next incomplete unit. Got '+_focusIdx);
-  _focusIdx=1;S.activeSession.exercises[2].performed[0].logged=true;
-  focusMaybeAdvance();
-  assert(_focusIdx===0, 'S6: advance wraps to EARLIER incomplete units (out-of-order first-class). Got '+_focusIdx);
-  _focusIdx=null;S.activeSession=null;
-})();
-assert(/function stopRest\(\)\{[\s\S]{0,300}?focusRestSync\(false\)[\s\S]{0,40}?renderSessionBar\(\)\}/.test(html), 'S6: stopRest syncs the overlay and still ends with renderSessionBar');
-
-// ===== S7: REORDER =====
-assert(typeof commitUnitOrder==='function'&&typeof moveUnit==='function'&&typeof openReorderSheet==='function'&&typeof wireReorderDrag==='function'&&typeof wireRailDrag==='function', 'S7: reorder API defined');
-wireReorderDrag(null);wireRailDrag({}); // mock-safe bails
-(()=>{ // moveUnit keeps pairs as one block and writes order immediately
-  S.activeSession={dayIndex:0,dayLabel:'X',sessionType:'lifting',startTime:1,notes:'',exercises:[
-    {name:'A',supersetNext:true,performed:[{type:'working',logged:false}]},
-    {name:'B',performed:[{type:'working',logged:false}]},
-    {name:'C',performed:[{type:'working',logged:false}]}],order:[0,1,2]};
-  moveUnit(1,-1); // C above the A+B pair
-  assert(JSON.stringify(S.activeSession.order)==='[2,0,1]', 'S7: pair moved as one block. Got '+JSON.stringify(S.activeSession.order));
-  assert(focusUnits(S.activeSession).length===2, 'S7: pair still one unit after reorder');
-  moveUnit(0,1);
-  assert(JSON.stringify(S.activeSession.order)==='[0,1,2]', 'S7: move back restores identity');
-  moveUnit(0,-1);
-  assert(JSON.stringify(S.activeSession.order)==='[0,1,2]', 'S7: clamped at the top edge');
-  S.activeSession=null;
-})();
-assert(/id="reorderSheet"/.test(html)&&/id="roList"/.test(html)&&/class="ro-handle"/.test(html), 'S7: bottom sheet with drag handles present');
-assert(/class="rail-reorder"/.test(html)&&/openReorderSheet\(\)/.test(html), 'S7: rail carries the primary reorder button');
-assert(/_railHoldT=setTimeout\(/.test(html)&&/,300\);/.test(html)&&/navigator\.vibrate\(10\)/.test(html), 'S7: rail long-press arms at 300ms with haptic');
-assert(/#focusRail\.rail-locked \.rail-scroll\{overflow-x:hidden;touch-action:none\}/.test(html), 'S7: rail scroll-locked during drag');
-assert(/id="sumOrderRow"/.test(html)&&/Keep this order\?/.test(html)&&/Just today/.test(html)&&/Save to program/.test(html), 'S7: summary inline row (not a modal) wired');
-assert(/\.ro-btn\{min-width:48px;min-height:40px/.test(html)&&/\.ro-handle\{min-width:48px;min-height:48px/.test(html), 'S7: reorder controls meet tap-target sizes');
-
 // ===== S8: DESIGN-LAW AUDIT =====
 // Gradient budget: 2 surfaces per screen. Style block carries only the
 // --solar token + .start-btn; every other gradient is an SVG def. A surface
@@ -3145,8 +2963,6 @@ assert(!/backdrop-filter/.test(html.match(/<style>([\s\S]*?)<\/style>/)[1]), 'S8
 // Motion: only the two tokens + reduced-motion blanket
 assert(/--motion:200ms cubic-bezier\(\.2,0,0,1\)/.test(html)&&/--motion-hero:320ms cubic-bezier\(\.2,0,0,1\)/.test(html), 'S8 law: motion tokens 200/320 single easing');
 assert(/@media \(prefers-reduced-motion: reduce\)/.test(html), 'S8 law: reduced-motion blanket present');
-// A11y: new focus-mode controls meet 48px
-assert(/\.rail-chip\{[^}]*min-height:48px/.test(html)&&/\.fr-ghost\{min-height:48px/.test(html)&&/\.fc-log\{[^}]*min-height:52px/.test(html), 'S8 a11y: focus-mode tap targets >=48px');
 assert(/button:focus-visible[^{]*\{outline:2px solid var\(--brand\)/.test(html), 'S8 a11y: focus indicators visible');
 // Progression/e1RM/validator functions untouched: canary asserts
 assert(typeof evalProg==='function'&&typeof e1rm==='function'&&typeof validateSession==='function'&&typeof validateProgram==='function', 'S8: engine canaries intact');
@@ -3259,16 +3075,9 @@ assert(FIXED_MAINS.includes('Bench Press'), 'B5: FIXED_MAINS not weakened (avoid
 (()=>{const av=getAvoided('Machine Chest Press').map(a=>a.name);assert(av.includes('Bench Press'), 'B5: excluded expander lists Bench Press for hpush slots. Got '+av.join(','));})();
 // B6: escaping round-trip
 assert(esc('</textarea><b>&"')==='&lt;/textarea&gt;&lt;b&gt;&amp;&quot;', 'B6: esc() covers &<>\"');
-assert(/id="fNotes"[^>]*>\$\{esc\(sess\.notes\|\|''\)\}<\/textarea>/.test(html), 'B6: wrap-up notes interpolation escaped');
 assert(/Notes: \$\{esc\(sx\.notes\)\}/.test(html), 'B6: last-hint notes escaped');
-(()=>{ // focusWrapCardHTML survives hostile notes
-  const out=focusWrapCardHTML({dayIndex:0,notes:'</textarea><b>pwn'});
-  assert(!/<\/textarea><b>pwn/.test(out)&&/&lt;\/textarea&gt;/.test(out), 'B6: hostile notes cannot break out of the textarea');
-})();
-// B6: keyboard handlers cover textareas; renderFocus guards the caret
+// B6: keyboard rescue covers the notes textarea
 assert(/isNotes=t&&t\.tagName==='TEXTAREA'/.test(html), 'B6: scrollIntoView rescue covers notes textareas');
-assert(/\(t\.tagName==='INPUT'\|\|t\.tagName==='TEXTAREA'\)&&t\.closest\('\.fcard'\)/.test(html), 'B6: kb-compact covers card textareas');
-assert(/document\.activeElement\.id==='fNotes'\)\{renderFocusRail\(\);return;\}/.test(html), 'B6: renderFocus never rebuilds under the notes caret');
 
 // ===== B6: PROGRAM-INTEGRATION EXTRAS =====
 // B6 W1 DL warm-ups come from the BAR-AWARE GENERATOR (no authored array);
@@ -3299,49 +3108,20 @@ assert(/document\.activeElement\.id==='fNotes'\)\{renderFocusRail\(\);return;\}/
 // K9: the chip literal is centralized in cardChip (frozen > full-depth > role,
 // never more than one chip) and BOTH templates render through it.
 assert(/full-depth-standard'\)\)return ' <span class="std-chip">Full depth standard<\/span>'/.test(html), 'W3/K9: full-depth chip wired via cardChip');
-assert((html.match(/\$\{ex\.name\}\$\{cardChip\(ex\)\}/g)||[]).length===2, 'W3/K9: cardChip on BOTH list + focus name lines');
+assert((html.match(/\$\{ex\.name\}\$\{cardChip\(ex\)\}/g)||[]).length===1, 'W3/K9: cardChip on the list name line');
 assert(cardChip({frozen:true,tags:['full-depth-standard'],prescribed:{}}).indexOf(t('badge.frozen'))>=0&&cardChip({frozen:true,tags:['full-depth-standard'],prescribed:{}}).indexOf('Full depth')<0, 'K9: one chip max — frozen outranks full-depth');
 assert(/\.std-chip\{[^}]*var\(--warn\)/.test(html), 'W3: chip warn-tinted (no new colour)');
 
-// ===== W4: FOCUS POLISH C1-C7 =====
-// C1: readout renders in EVERY card state
-(()=>{
-  const mk=(logged)=>({dayIndex:0,dayLabel:'X',sessionType:'lifting',startTime:1,notes:'',exercises:[
-    {name:'Leg Press',cat:'squat',prescribed:{sets:1,reps:'10',loadKg:160,unit:'kg'},equipmentClass:'machine',tags:[],variant:null,painEvent:null,progression:logged?'hold':null,nextLoad:null,
-     performed:[{type:'working',weightKg:160,reps:10,rpe:7,logged:logged}]}],order:[0]});
-  S.activeSession=mk(false);_lastReadoutKey=null;
-  const active=focusCardHTML({eis:[0]},0,S.activeSession,0);
-  assert(/fc-readout/.test(active)&&/160/.test(active), 'C1: active card carries the giant readout');
-  S.activeSession=mk(true);
-  const done=focusCardHTML({eis:[0]},0,S.activeSession,0);
-  assert(/fc-readout done/.test(done)&&/160/.test(done)&&/done/.test(done), 'C1: done card keeps the readout (top set). Got '+done.slice(0,120));
-  assert(!/Log 160/.test(active)&&/Log set 1|Log warm-up/.test(active), 'C1: Log button no longer duplicates the readout numbers');
-  S.activeSession=null;
-})();
-assert(/@keyframes fcmorph/.test(html)&&/\.fc-readout\.morph \.fc-readout-w\{animation:fcmorph 300ms/.test(html), 'C1: 300ms number morph wired (reduced-motion blanket kills it)');
-// C2: single lit Log — ghosts + hidden current-row Log + reveal
-assert(/\.fcard \.set-row \.set-log\{opacity:\.35\}/.test(html), 'C2: row Logs ghost at 35%');
-assert(/\.fcard \.set-row\.current \.set-log\{display:none\}/.test(html), 'C2: current row cedes to the ONE solar fc-log');
-assert(/\.fcard \.set-row:not\(\.current\):not\(\.reveal\) \.set-skip\{display:none\}/.test(html), 'C2: skip hidden until current or revealed');
 assert(typeof wireRowReveal==='function', 'C2: long-press reveal wired');
 wireRowReveal(null);wireRowReveal({});
 // C3: neutral header label; chrome free of --acc (charts/pace exempt by list)
 assert(/<div class="t-meta" id="sDayLbl">/.test(html)&&/sLbl\.style\.color='var\(--tx3\)'/.test(html), 'C3: Day-N header label is neutral meta');
 // C4: one-line meta + detail sheet
-assert(/\.fc-meta\{[^}]*white-space:nowrap[^}]*text-overflow:ellipsis/.test(html), 'C4: meta is one truncated line');
 assert(/onclick="openFcDetail\(\$\{ei\}\)"/.test(html)&&typeof openFcDetail==='function'&&/id="fcDetailSheet"/.test(html), 'C4: tap opens the detail sheet');
 assert(!/\$\{getLastHint\(ex\)\}\n  <\/div>`;/.test(html), 'C4: last-session detail moved off the card into the sheet');
-// C6: rest scene
-assert(/#focusTrack\.resting\{opacity:\.1\}/.test(html), 'C6/N2: rest dims to 10% — pointers stay LIVE (N2 supersedes the old mute: the dim is a wakeable peek, never a barrier)');
-assert(/class="fr-skip"/.test(html)&&/\.fr-skip\{[^}]*border:1px solid var\(--tx3\)/.test(html), 'C6: Skip is a neutral outline — never the Log colour');
-assert(!/fr-actions[^<]*<button class="btn btn-p"/.test(html), 'C6: no solid brand button in the rest overlay');
-// C7: rail ellipsis + fade + outside controls
-assert(/\.rail-chip\{max-width:12ch/.test(html)&&/\.rail-chip\.pair\{max-width:16ch\}/.test(html), 'C7: chip text ellipsis at 12ch (pairs 16)');
-assert(/\.rail-scroll\{padding-right:24px;mask-image:linear-gradient/.test(html), 'C7: right-edge fade mask + clearance padding');
-assert(/<\/div><button class="rail-reorder"/.test(html), 'C7: reorder button outside the scroll area');
 
 // ===== W5: C8 UNIFIED ADD SHEET + C9 LABELS + C10 DISCIPLINE =====
-assert((html.match(/onclick="openExtras\(\)">\+ Add Exercise</g)||[]).length===2, 'C8: ONE ghost add button per session view (list tail + wrap card; the day-preview editor keeps its own). Got '+(html.match(/onclick="openExtras\(\)">\+ Add Exercise</g)||[]).length);
+assert((html.match(/onclick="openExtras\(\)">\+ Add Exercise</g)||[]).length===1, 'C8: ONE ghost add button in the session list tail (the day-preview editor keeps its own). Got '+(html.match(/onclick="openExtras\(\)">\+ Add Exercise</g)||[]).length);
 assert(!/\+ Add Extra </.test(html)&&!/btn-gold btn-w" style="margin-top:12px" onclick="openExtras/.test(html), 'C8: legacy gold banner deleted');
 assert(!/\+ Custom Exercise</.test(html), 'C8: separate custom button retired (lives in the sheet)');
 assert(/id="extrasSuggested"/.test(html)&&/class="sug-hdr">Suggested for today</.test(html), 'C8: sheet leads with Suggested for today');
@@ -3354,12 +3134,6 @@ assert(/const top3=scored\.slice\(\)\.sort\(\(a,b\)=>b\.score-a\.score\)\.slice\
 assert(/\.ex-cat\{[^}]*text-transform:capitalize/.test(html), 'C9: category chips capitalize');
 assert(/\.tagm\{[^}]*text-transform:capitalize/.test(html), 'C9: goal manual tag capitalizes');
 assert(!/text-transform:uppercase/.test(html.match(/<style>([\s\S]*?)<\/style>/)[0].replace(/#blockHdr\{[^}]*\}/,'')), 'C9: #blockHdr remains the only uppercase (re-check)');
-// C10: neutral ghosts — no greens/gold in the ghost/outline controls
-(()=>{const st=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-  ['fr-ghost','fr-skip','rail-chip{','ro-btn'].forEach(sel=>{
-    const i=st.indexOf(sel);const rule=st.slice(i,st.indexOf('}',i));
-    assert(!/var\(--grn\)|var\(--gold\)|#3[0-9a-f]{5}/i.test(rule), 'C10: '+sel+' stays neutral. Got '+rule.slice(0,80));
-  });})();
 
 // ===== HOTFIX: iOS always-bounce scroll tail =====
 assert(/\.view\{position:relative\}/.test(html)&&/\.view::after\{content:'';position:absolute;top:100%;left:0;width:1px;height:1px;pointer-events:none\}/.test(html), 'Scroll: absolute 1px tail past 100% keeps every view scrollable so iOS always rubber-bands');
@@ -3367,16 +3141,6 @@ assert(/\.view\{position:relative\}/.test(html)&&/\.view::after\{content:'';posi
 // ===== V1: SESSION SECTIONS =====
 assert(typeof sectionOf==='function'&&typeof toggleWuSection==='function', 'V1: section API defined');
 assert(sectionOf({})==='main'&&sectionOf({section:'warmup'})==='warmup'&&sectionOf(null)==='main', 'V1: default main, null-safe');
-// focus: consecutive warm-up exercises merge into one unit; finisher tagged
-(()=>{
-  const sess={exercises:[
-    {name:'Cat-Camel',section:'warmup',performed:[]},
-    {name:'Wall Slide',section:'warmup',performed:[]},
-    {name:'Back Squat',performed:[]},
-    {name:'Circuit',section:'finisher',performed:[]}],order:[0,1,2,3]};
-  const u=focusUnits(sess);
-  assert(u.length===3&&JSON.stringify(u[0].eis)==='[0,1]'&&u[0].sec==='warmup'&&u[1].sec==='main'&&u[2].sec==='finisher', 'V1: warmup mega-unit + section tags. Got '+JSON.stringify(u));
-})();
 // startDay carries section; record carries section
 assert(/section:ex\.section\|\|'main',/.test(html), 'V1: startDay carries section');
 assert(/section:ex\.section\|\|'main',\.\.\.\(ex\.entryType==='circuit'/.test(html), 'V1+V2: session record carries section + circuit fields');
@@ -3405,11 +3169,6 @@ assert(typeof exDone==='function'&&typeof exResolved==='function'&&typeof circui
   c.result='12 rounds';
   assert(exDone(c)===true&&exResolved(c)===true, 'V2: result string completes the block');
   assert(exDone({performed:[{logged:true}]})===true, 'V2: normal exercises unchanged');
-})();
-// units + estimator
-(()=>{
-  const sess={exercises:[{name:'C',entryType:'circuit',format:'AMRAP',minutes:25,performed:[],section:'main'}],order:[0]};
-  assert(focusUnits(sess).length===1&&unitDone(sess,focusUnits(sess)[0])===false, 'V2: circuit unit pending until result');
 })();
 assert(estimateExTime({entryType:'circuit',minutes:12})===14, 'V2: circuit bills clock+2. Got '+estimateExTime({entryType:'circuit',minutes:12}));
 // report line
@@ -3527,28 +3286,12 @@ assert(sF1.activity.notes==='activity-notes', 'F2: activity notes land synchrono
 flushNotesSave();
 S.activeSession=null;
 assert(/id="sessNotes"[^>]*queueNotesSave/.test(html), 'F2: sessNotes debounced');
-assert(/oninput="queueNotesSave\(this\.value\)"/.test(html), 'F2: fNotes debounced');
 assert(/id="actNotes"/.test(html)&&/oninput="queueNotesSave\(this\.value,'activity'\)"/.test(html), 'F2: activity notes box has an id + debounced route');
 assert(/activeElement\.id==='actNotes'\)return;/.test(html), 'F2: renderActivityLog never rebuilds under the notes caret');
 assert(!/saveSessionNotes/.test(html), 'F2: per-keystroke saver removed');
-assert(/tagName==='TEXTAREA'\)flushNotesSave\(\); \/\/ F2/.test(html), 'F2: focusout flushes pending notes');
+assert(/tagName==='TEXTAREA'\)flushNotesSave\(\);\}catch/.test(html), 'F2: focusout flushes pending notes');
 assert(/function endSession\(\)\{\n  flushNotesSave\(\);/.test(html)&&/function cancelSession\(\)\{\n  flushNotesSave\(\);/.test(html)&&/function finalizeActivity\(\)\{\n  flushNotesSave\(\);/.test(html), 'F2: end/cancel/finalize flush before teardown');
 
-// ===== G1: focusCardHTML must not throw on a circuit unit (TDZ regression) =====
-console.log('\n--- G1: focus circuit TDZ hotfix ---');
-S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.activeSession=null;
-(()=>{
-  S.activeSession={dayIndex:0,dayId:99,blockName:S.program.name,date:todayStr(),dayLabel:'TDZ',sessionType:'lifting',startTime:1,notes:'',
-    exercises:[{name:'KB Finisher',entryType:'circuit',format:'EMOM',minutes:12,movements:'',result:null,loadKg:24,section:'finisher',performed:[],tags:[],prescribed:{sets:0,reps:'',loadKg:24,unit:'kg'},progression:null,nextLoad:null,painEvent:null,notes:''}],
-    order:[0]};
-  const units=focusUnits(S.activeSession);
-  let html2='',threw=null;
-  try{html2=focusCardHTML(units[0],0,S.activeSession,[0,0]);}catch(e){threw=e;}
-  assert(threw===null, 'G1: circuit unit focus card renders without throwing. Got: '+(threw&&threw.message));
-  assert(/circRes0|Log result/.test(html2), 'G1: circuit body present in focus card');
-  assert(/fc-sec-finisher/.test(html2)&&/sec-hdr-fin/.test(html2), 'G1: finisher section class + header render on the circuit card');
-  S.activeSession=null;
-})();
 
 // ===== G2: kb + rest SESSION TYPES =====
 console.log('\n--- G2: kb + rest session types ---');
@@ -3671,7 +3414,7 @@ confirmRpe(7);
 S.activeSession=null;
 // K11/D8: the overflow popover is a bottom sheet — ONE builder serves both
 // card views, so freeze lives exactly once, inside exSheetHTML.
-assert((html.match(/openExSheet\(\$\{i\}\)/g)||[]).length===1&&(html.match(/openExSheet\(\$\{ei\}\)/g)||[]).length===1, 'G4/K11: both card views open the exercise sheet');
+assert((html.match(/openExSheet\(\$\{i\}\)/g)||[]).length===1&&(html.match(/openExSheet\(\$\{ei\}\)/g)||[]).length===0, 'G4/K11: the list card opens the exercise sheet (one call site)');
 assert((html.match(/toggleFreeze\(\$\{ei\}\)/g)||[]).length===1&&/function exSheetHTML\(ei\)\{[\s\S]*?toggleFreeze\(\$\{ei\}\)/.test(html), 'G4/K11: freeze toggle lives once, in the sheet builder');
 assert(/\.role-chip\{/.test(html), 'G4: role chip styled');
 assert(/roleTag\}\$\{stateTag\}/.test(html), 'G4: report prints role + state tags');
@@ -3763,7 +3506,6 @@ console.log('\n--- G6: planner UI ---');
 })();
 assert(/openAddSession\('\$\{r\.date\}'\)/.test(html), 'G6: every week row carries a + button');
 assert(/confirmRemoveWeekDay\(\$\{dayIdx\}\)/.test(html)&&/Remove from this week/.test(html), 'G6: session sheet offers week-scoped delete with confirm');
-assert(/setPointerCapture\(e\.pointerId\)/.test(html), 'G6: drag captures the pointer');
 assert(true, 'G6: (drag scroll guard retired with the planner drag paths — K3)');
 
 // ===== G7: BLOCK BANNER VERSIONING + STALE MOBILITY REMOVAL =====
@@ -3923,21 +3665,6 @@ assert(rankForTotal(699)==='Aspirant'&&rankForTotal(700)==='Neophyte'&&rankForTo
 // --- machine-cant unit: label uppercased, payload untouched ---
 assert(machineCant('Machine Spirit counsels:','126')==='++ MACHINE SPIRIT COUNSELS: 126 ++', 'H6: cant wraps and uppercases the label');
 assert(machineCant('discord detected:','Back Squat <36h')==='++ DISCORD DETECTED: Back Squat <36h ++', 'H6: payload (exercise names) passes through as-is');
-// --- gothic render spot-check: the top-set line in the focus card ---
-(()=>{
-  const mkS=()=>({dayIndex:0,dayLabel:'X',sessionType:'lifting',startTime:1,notes:'',order:[0],exercises:[
-    {name:'Back Squat',cat:'squat',prescribed:{sets:1,reps:'5',loadKg:115,unit:'kg'},equipmentClass:'barbell',tags:[],variant:null,painEvent:null,progression:null,nextLoad:null,
-     performed:[{type:'working',weightKg:115,reps:5,tag:'top',logged:false}]}]});
-  const saveImp=S.settings.imperium;
-  S.settings.imperium=true;S.activeSession=mkS();_lastReadoutKey=null;
-  const goth=focusCardHTML({eis:[0]},0,S.activeSession,0);
-  assert(/THE EMPEROR PROTECTS/.test(goth), 'H6: top-set readout carries the protection line (gothic)');
-  assert(/Record set 1/.test(goth), 'H6: gothic Record label');
-  S.settings.imperium=false;S.activeSession=mkS();_lastReadoutKey=null;
-  const plain=focusCardHTML({eis:[0]},0,S.activeSession,0);
-  assert(!/THE EMPEROR PROTECTS/.test(plain)&&/Log set 1/.test(plain), 'H6: plain mode carries no protection line');
-  S.activeSession=null;S.settings.imperium=saveImp===undefined?false:saveImp;
-})();
 // --- no audio added: baseline is the single rest-beep feature detect ---
 assert((html.match(/AudioContext/g)||[]).length===2&&!/new Audio\(/.test(html), 'H6: no audio APIs added — baseline is the single rest-beep feature-detect line (2 substring hits)');
 // --- reduced-motion guards ---
@@ -3947,20 +3674,10 @@ assert(/matchMedia\('\(prefers-reduced-motion: reduce\)'\)\.matches/.test((html.
 console.log('[N1 StartNav]');
 (function(){
   assert(!/history\.(pushState|replaceState)|location\.hash\s*=/.test(html), 'N1: no History-API / hash churn anywhere in the app');
-  const _sp=JSON.parse(JSON.stringify(S.program)),_ss=S.sessions,_sv=S.settings.sessionView;
+  const _sp=JSON.parse(JSON.stringify(S.program)),_ss=S.sessions;
   const _svw=global.showView,_hero=global.showSessionHero,_va=global.veilAnimates,_vc=global.veilCross;
-  S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.activeSession=null;S.settings.sessionView='focus';
+  S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.activeSession=null;
   global.startTimer=()=>{};global.confirm=window.confirm=()=>true;
-  // stale Finish-card index from a previous session
-  _focusIdx=-1;
-  startDay(0);
-  assert(focusPos()===0, 'N1: a new session opens on its FIRST card even when the last one ended on Finish. Got pos '+focusPos());
-  cancelSession();
-  // stale mid-session index
-  _focusIdx=7;
-  startDay(0);
-  assert(focusPos()===0, 'N1: a stale mid-session index never carries into a new session. Got pos '+focusPos());
-  cancelSession();
   // exactly one view switch per start; hero only when no veil runs
   let views=0,heroes=0;
   global.showView=id=>{views++;};global.showSessionHero=()=>{heroes++;};global.veilCross=fn=>fn();
@@ -3973,7 +3690,7 @@ console.log('[N1 StartNav]');
   assert(views===1&&heroes===1, 'N1: plain start = ONE view switch + the hero as its single transition. Got views '+views+' heroes '+heroes);
   S.activeSession=null;
   global.showView=_svw;global.showSessionHero=_hero;global.veilAnimates=_va;global.veilCross=_vc;
-  S.program=_sp;S.sessions=_ss;S.settings.sessionView=_sv;_focusIdx=null;
+  S.program=_sp;S.sessions=_ss;
 })();
 assert(/@media \(prefers-reduced-motion: no-preference\)\{\s*\n?\s*\.imperium #vSession\.on::before/.test(html), 'H6: scanlines gated behind no-preference');
 // --- STRINGS hygiene + coverage ---
@@ -3982,7 +3699,7 @@ assert(/@media \(prefers-reduced-motion: no-preference\)\{\s*\n?\s*\.imperium #v
   Object.keys(all).forEach(k=>{
     assert(/^[^<>"&]*$/.test(all[k]), 'H6: STRINGS value html-safe: '+k);
   });
-  ['tab.train','tab.week','tab.progress','sess.end','sess.cancel','rest.label','rest.skip','set.title','set.grpTraining','set.grpData','set.grpApp','set.grpAdvanced','banner.newBlock','banner.review','banner.skip','start.pre','train.upNext','train.completed','goal.g1','goal.swim','goal.paused','report.title','report.generate','report.copied','pain.s1','pain.s2','pain.s3','badge.flag','valid.clean','wrap.end','log.one','log.all','week.title','goals.h1','menu.report','menu.retro','excl.title','notes.ph','skipset.title','summary.title']
+  ['tab.train','tab.week','tab.progress','sess.end','sess.cancel','rest.label','rest.skip','set.title','set.grpTraining','set.grpData','set.grpApp','set.grpAdvanced','banner.newBlock','banner.review','banner.skip','start.pre','train.upNext','train.completed','goal.g1','goal.swim','goal.paused','report.title','report.generate','report.copied','pain.s1','pain.s2','pain.s3','badge.flag','valid.clean','log.one','log.all','week.title','goals.h1','menu.report','menu.retro','excl.title','notes.ph','skipset.title','summary.title']
     .forEach(k=>assert(STRINGS.plain[k]!==undefined&&STRINGS.gothic[k]!==undefined, 'H6: canonical key covered in both registers: '+k));
 })();
 assert(!/`[^`]*data-t=/.test(html.match(/<script>([\s\S]*?)<\/script>/)[1]), 'H6: no data-t inside JS template literals (static-only rule)');
@@ -4081,18 +3798,17 @@ console.log('\n--- K7: kb-hybrid ---');
   window.confirm=()=>true;S.activeSession=null;
   S.program=saveP;S.sessions=saveS;
 })();
-assert(/K7 hybrid: warm-up cards \+ the activity form/.test(html)&&/classList\.remove\('focus-on'\)/.test(html), 'K7: hybrid dispatch forces the list path');
+assert(/K7 hybrid: warm-up cards \+ the activity form\.\n      renderExList\(\);return;/.test(html), 'K7: hybrid days render cards + the activity form through the list');
 assert(/list\.innerHTML\+=activityFormHTML\(sess\)/.test(html), 'K7: freeform card appended below the warm-up cards');
 
 // ===== K8: D3 + D4 + D7 =====
 console.log('\n--- K8: superset dump / stale notes / warmup RPE ---');
 assert(!/supersetHints/.test(html), 'D3: header superset dump deleted (markers on cards remain)');
 assert(/\.ex-card\.ss-top/.test(html), 'D3: pair-chain markers kept');
-assert(/_v\.classList\.toggle\('focus-on',!isActivityType\(st\)/.test(html), 'D4: focus-on settled BEFORE the activity early-return');
 assert(/_sn\.value='';/.test(html), 'D4: startDay clears the static notes box');
 assert(/_nw\.style\.display=isActivityType\(st\)\?'none'/.test(html), 'D4: notes wrap hidden for activity sessions (they own #actNotes)');
 // D7: warm-up rows show no RPE control in either view
-assert((html.match(/\$\{s\.type==='working'\?`<button class="set-rpe/g)||[]).length===2, 'D7: RPE affordance gated to working rows in both views');
+assert((html.match(/\$\{s\.type==='working'\?`<button class="set-rpe/g)||[]).length===1, 'D7: RPE affordance gated to working rows');
 
 // ---- K9: D1 detail sheet + D2 per-row plates + D5 variant sheet ----
 console.log('[K9 CardTest]');
@@ -4103,16 +3819,16 @@ assert(/const bits=metaBits\(ex\);/.test(html), 'K9/D1: openFcDetail renders thr
   assert(bits.length>=1&&bits.join('|').indexOf('bar')>=0, 'K9/D1: metaBits carries the plate readout for barbell lifts. Got: '+bits.join('|'));
 })();
 // D2: current-row-only plate line, both templates
-assert((html.match(/\$\{rowState===' current'\?`<div class="row-plates"/g)||[]).length===2, 'K9/D2: row-plates rendered in the CURRENT row only, both views');
+assert((html.match(/\$\{rowState===' current'\?`<div class="row-plates"/g)||[]).length===1, 'K9/D2: row-plates rendered in the CURRENT row only');
 assert(/const pl=document\.getElementById\(`pl\$\{ei\}_\$\{si\}`\);\n  if\(pl\)pl\.textContent=rowPlateText\(ex,wi\?wi\.value:s\.weightKg\);/.test(html), 'K9/D2: stashSetInput live-patches the plate line as weight is typed');
-assert(/\.row-plates\{flex-basis:100%;order:99/.test(html)&&/\.row-plates:empty\{display:none\}/.test(html)&&/\.fcard \.set-row\.current\{flex-wrap:wrap\}/.test(html), 'K9/D2: focus row wraps its plate line; list renders it as a sibling annotation');
+assert(/\.row-plates\{flex-basis:100%;order:99/.test(html)&&/\.row-plates:empty\{display:none\}/.test(html), 'K9/D2: the list renders the plate line as a sibling annotation under the current row');
 assert(/<\/div>\$\{rowState===' current'&&s\.tag==='top'&&imperiumOn\(\)\?`<div class="row-protect"/.test(html)&&/\$\{rowState===' current'\?`<div class="row-plates" id="pl\$\{i\}_\$\{si\}"/.test(html), 'K9/D2+K17: list annotations (protect line, plate line) sit OUTSIDE the flex row');
 assert(/dowOf\(dayEffectiveDate\(o\.d,wd\[0\]\)\)\.slice\(0,3\)/.test(html), 'K5: checklist day abbreviation follows the EFFECTIVE date (moved days relabel)');
 assert(rowPlateText({equipmentClass:'barbell',name:'Deadlift'},128.5)==='128.5 = 25 + 20 + 1.25 /side', 'K9/D2: W3 deadlift top row math. Got: '+rowPlateText({equipmentClass:'barbell',name:'Deadlift'},128.5));
 // D5: summary chip + sheet host variantChips unchanged
 assert(typeof variantSummaryChip==='function'&&typeof openVariantSheet==='function', 'K9/D5: variant sheet API defined');
 assert(/id="variantSheet"/.test(html)&&/id="variantSheetBody"/.test(html), 'K9/D5: variant sheet markup exists');
-assert((html.match(/\$\{variantSummaryChip\(ex,i\)\}/g)||[]).length===1&&(html.match(/\$\{variantSummaryChip\(ex,ei\)\}/g)||[]).length===1, 'K9/D5: summary chip on both card views (full chip rows off the card)');
+assert((html.match(/\$\{variantSummaryChip\(ex,i\)\}/g)||[]).length===1, 'K9/D5: summary chip on the list card (full chip rows off the card)');
 assert(!/\$\{variantChips\(ex,i\)\}/.test(html)&&!/fc-hscroll">\$\{variantChips/.test(html), 'K9/D5: raw variantChips no longer inlined on cards');
 assert(variantSummaryChip({equipmentClass:'kb',name:'KB Swing',tags:[],prescribed:{}},0)===''&&variantSummaryChip({equipmentClass:'bw',name:'Pull-Up',tags:[],prescribed:{}},0)==='', 'K9/D5: kb/bw exercises carry no variant chip');
 (function(){
@@ -4169,8 +3885,8 @@ console.log('[K12 PerSide]');
 assert(perSideSuffix(120,{equipmentClass:'barbell',name:'Back Squat'})===' = 50/side', 'K12/E1: counsel suffix "= 50/side" for 120 on the 20 kg gym bar. Got: "'+perSideSuffix(120,{equipmentClass:'barbell',name:'Back Squat'})+'"');
 assert(perSideSuffix(128.5,{equipmentClass:'barbell',name:'Deadlift'})===' = 46.25/side', 'K12/E1: W3 deadlift counsel 128.5 on the 36 bar → 46.25/side. Got: "'+perSideSuffix(128.5,{equipmentClass:'barbell',name:'Deadlift'})+'"');
 assert(perSideSuffix(50,{equipmentClass:'db',name:'DB Row'})===''&&perSideSuffix(20,{equipmentClass:'barbell',name:'Bench Press'})==='', 'K12/E1: non-barbell and empty-bar loads get no suffix');
-assert((html.match(/fmtW\(ex\.nextLoad,ex\.prescribed\.unit\)\+perSideSuffix\(ex\.nextLoad,ex\)/g)||[]).length===2, 'K12/E1: suffix at BOTH counsel call sites (plain branch only)');
-assert((html.match(/machineCant\('MACHINE SPIRIT COUNSELS:',fmtW\(ex\.nextLoad,ex\.prescribed\.unit\)\)/g)||[]).length===2, 'K12/E1: machineCant branch byte-untouched');
+assert((html.match(/fmtW\(ex\.nextLoad,ex\.prescribed\.unit\)\+perSideSuffix\(ex\.nextLoad,ex\)/g)||[]).length===1, 'K12/E1: suffix at the counsel call site (plain branch only)');
+assert((html.match(/machineCant\('MACHINE SPIRIT COUNSELS:',fmtW\(ex\.nextLoad,ex\.prescribed\.unit\)\)/g)||[]).length===1, 'K12/E1: machineCant branch byte-untouched');
 // incrementKg override: session exercise value beats EX_META
 S.sessions=[];
 if(S.program)S.program.phase='build'; // K3
@@ -4210,7 +3926,7 @@ console.log('[K13 R1Days]');
   S.program=JSON.parse(JSON.stringify(DEF_PROGRAM));migrateV3();S.sessions=[];S.activeSession=null;
   // Anchor the block to THIS week so the run date never flips the parity
   // (Back Extension is Week-A only) — no date-rollover bomb.
-  S.program.startDate=weekOfDate(todayStr());
+  S.program.startDate=weekOfDate(dayEffectiveDate(S.program.days[0]));
   startDay(0); // Monday gym
   const sess=S.activeSession;
   const v=sess.weekVariant;
@@ -4567,9 +4283,9 @@ assert(/quoteText'\)\.textContent=maxim\[0\];/.test(html)&&!/maxim\[0\]\+'\u201d
 assert(!/\.emperor-line,\{\}/.test(html), 'K17: broken leftover CSS rule removed');
 assert(LITANIES.length===18, 'K17: litany pool expanded to 18. Got: '+LITANIES.length);
 assert(LITANIES.every(l=>typeof l==='string'&&l.length>8), 'K17: litany entries well-formed');
-// the protection line renders in BOTH session views on the top set —
-// key references only; the four canonical literals stay four (pin 3317)
-assert(/tag==='top'\?`<div class="t-meta" style="letter-spacing:\.18em;margin:-2px 0 6px">\$\{STRINGS\.gothic\['readout\.top'\]\}/.test(html), 'K17: focus top-set protection line wired');
+// the protection line renders on the list's current top-set row — key
+// reference only; the four canonical literals stay four
+assert(/s\.tag==='top'&&imperiumOn\(\)\?`<div class="row-protect">\$\{STRINGS\.gothic\['readout\.top'\]\}<\/div>`/.test(html), 'K17: list top-set protection line wired');
 assert(/\.row-protect\{font:600 10px var\(--mono\)/.test(html), 'K17: list top-set protection line styled');
 
 console.log('\n=== All tests passed ===');
