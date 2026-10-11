@@ -502,6 +502,25 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .wk-pill.skipped{opacity:.5;text-decoration:line-through}
 .wk-pill-l{flex:1}
 .wk-ic{display:inline-flex;align-items:center;flex-shrink:0}
+/* ===== ON-DEMAND HOME + HISTORY CALENDAR (Oct 2026) ===== */
+.od-sub{display:flex;align-items:center;gap:16px;margin:2px 2px 4px}
+.od-link{background:none;border:none;padding:0;min-height:44px;color:var(--tx2);font:600 13px var(--sans);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.od-link.od-plan{margin-left:auto;color:var(--tx3);font-weight:500}
+.od-last{margin:0 2px 14px}
+.od-ticks{display:flex;gap:8px;margin:4px 0 16px}
+.qt-chip{flex:1;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:48px;padding:0 12px;border-radius:24px;border:1px solid var(--s3);background:var(--s1);color:var(--tx2);font:600 13px var(--sans);cursor:pointer}
+.qt-chip.on{border-color:var(--grn);color:var(--grn);background:color-mix(in srgb,var(--grn) 8%,var(--s1))}
+.hist-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:20px}
+.hist-dow{font:600 10px var(--sans);color:var(--tx3);text-align:center;padding-bottom:2px}
+.hist-cell{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-radius:var(--rs);background:var(--s1);border:1px solid transparent}
+.hist-cell.today{border-color:var(--brand)}
+.hist-cell.future{opacity:.3}
+.hist-n{font:500 11px var(--mono);color:var(--tx3)}
+.hist-cell.has .hist-n{color:var(--tx)}
+.hist-dots{display:flex;gap:2px;justify-content:center;flex-wrap:wrap;min-height:6px}
+.hist-dot{display:block;width:6px;height:6px;border-radius:50%}
+.hist-row{display:flex;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid var(--line)}
+.hist-l{flex:1;min-width:0;font:600 14px var(--sans);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .history-item{border-radius:var(--rs)}
 .sheet-btn{display:block;width:100%;min-height:48px;padding:12px;margin-top:6px;background:var(--s2);border:1px solid var(--s3);border-radius:var(--rs);color:var(--tx);font:600 14px var(--sans);cursor:pointer;text-align:left}
 .sheet-btn:disabled{opacity:.45;cursor:not-allowed}
@@ -899,8 +918,8 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   <!-- ===== WEEK VIEW ===== -->
   <div class="view pad" id="vWeek">
     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
-      <div class="t-h1" data-t="week.title">This Week</div>
-      <button class="btn btn-sm btn-p" onclick="openComposer()" data-t="week.compose">Compose week</button>
+      <div class="t-h1" id="weekTitle" data-t="week.title">This Week</div>
+      <button class="btn btn-sm btn-p" id="weekComposeBtn" onclick="openComposer()" data-t="week.compose">Compose week</button>
     </div>
     <div class="t-meta" id="weekRange" style="margin-bottom:14px"></div>
     <div id="weekList"></div>
@@ -1420,7 +1439,7 @@ plain:{
  'set.title':'Settings','set.grpTraining':'Training','set.grpData':'Data','set.grpApp':'App','set.grpAdvanced':'Advanced',
  'set.export':'Export','set.import':'Import',
  'pain.title':'Pain check —','pain.s1':'1 · Twinge','pain.s2':'2 · Painful','pain.s3':'3 · Sharp — stop',
- 'week.title':'This Week','week.compose':'Compose week',
+ 'week.title':'This Week','week.compose':'Compose week','hist.title':'History','od.next':'Next: ','od.or':'or ',
  'goals.h1':'Goals','goals.small':'Goals',
  'report.title':'Coach Report','report.generate':'Generate','report.copied':'Copied to clipboard',
  'menu.report':'Copy coach report','menu.retro':'Log a past session','retro.title':'Log a past session',
@@ -1443,7 +1462,7 @@ gothic:{
  'set.title':'Administratum','set.grpTraining':'Armoury','set.grpData':'Archivum','set.grpApp':'Rites of the Machine','set.grpAdvanced':'Inner Sanctum',
  'set.export':'Commit to Archive','set.import':'Receive Records',
  'pain.title':'Wounds —','pain.s1':'Graze','pain.s2':'Wound','pain.s3':'Grievous wound',
- 'week.title':'Campaign Ledger','week.compose':'Muster',
+ 'week.title':'Campaign Ledger','week.compose':'Muster','hist.title':'Chronicle','od.next':'Next: ','od.or':'or ',
  'goals.h1':'Great Vows','goals.small':'Great Vows',
  'report.title':'Dispatch','report.generate':'Scribe the Dispatch','report.copied':'Committed to the vox',
  'menu.report':'Scribe the Dispatch','menu.retro':'Record a past rite','retro.title':'Record a past rite',
@@ -2020,59 +2039,52 @@ function recommendSupersets(exList){
 // F1: version is the block's ORDER. The banner offers a sync only when the
 // shipped version is NEWER than the installed one — a stale cached HTML can
 // never re-offer an old block ("Jul 27 W2" over "Aug 3 W3").
-// v14 "Sep 28 Recomp W4": ONE gym day (Monday) on the TRIMMED alternating
-// definition (~60 min target). Sunday is REST by design — Sunday gyms died 3
-// of 4 weeks; the schedule now tells the truth. Wednesday's run is optional
-// (a lever, not an obligation): never owed, never 'missed'. DB Curl leaves
-// the program permanently (it stays in EX_META for pickers).
-const DEF_PROGRAM={name:"Sep 28 Recomp W4",version:14,active:true,startDate:"2026-09-28",phase:"maintain",days:[
-{id:1,label:"Gym",defaultDay:"Monday",dayOfWeek:"Monday",sessionType:"lifting",dur:60,alternating:true,
-  variantLabels:{A:"Squat emphasis",B:"Deadlift emphasis"},exercises:[
-  {id:"r4d1e1",name:"90/90 Hip Switch",cat:"rehab",section:"warmup",sets:1,reps:"8",loadKg:0,unit:"bw",rest:20,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"r4d1e2",name:"Couch Stretch",cat:"rehab",section:"warmup",sets:1,reps:"45s",loadKg:0,unit:"bw",rest:20,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"r4d1e3",name:"Glute Bridge",cat:"rehab",section:"warmup",sets:2,reps:"10",loadKg:0,unit:"bw",rest:30,tags:[],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"r4d1e4",name:"Bird Dog",cat:"core",section:"warmup",sets:2,reps:"8",loadKg:0,unit:"bw",rest:30,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"r4d1e5",name:"Back Squat",cat:"squat",week:"A",sets:4,reps:"8-10",loadKg:100,unit:"kg",rest:150,
-    tags:["RPE-7-8","full-depth-standard"],angle:null,grip:null,equipmentClass:"barbell"},
-  {id:"r4d1e6",name:"Trap Bar Deadlift",cat:"hinge",week:"A",sets:2,reps:"5",loadKg:100,unit:"kg",rest:180,
-    tags:["reset-every-rep","5s-max"],angle:null,grip:null,equipmentClass:"barbell",barKg:36},
-  {id:"r4d1e7",name:"Trap Bar Deadlift",cat:"hinge",week:"B",sets:4,reps:"5",loadKg:100,unit:"kg",rest:180,
-    tags:["5s-max-forever","reset-every-rep"],angle:null,grip:null,equipmentClass:"barbell",barKg:36},
-  {id:"r4d1e8",name:"Back Squat",cat:"squat",week:"B",sets:2,reps:"8",loadKg:90,unit:"kg",rest:150,
-    tags:["full-depth-standard"],angle:null,grip:null,equipmentClass:"barbell"},
-  {id:"r4d1e9",name:"Bulgarian Split Squat",cat:"squat",week:"B",sets:2,reps:"8",loadKg:15,unit:"kg",rest:90,tags:["per hand"],angle:null,grip:null,equipmentClass:"db"},
-  {id:"r4d1e10",name:"Strict Pull-Up",cat:"pull",sets:3,reps:"6-8",loadKg:0,unit:"bw",rest:120,tags:["straight-sets"],supersetNext:true,angle:null,grip:null,equipmentClass:"bw"},
-  {id:"r4d1e11",name:"Press-Up",cat:"push",sets:3,reps:"12",loadKg:0,unit:"bw",rest:90,tags:["twinge-gate"],
-    cue:"Stop on any twinge \u2014 Dip is the substitute, not the default",angle:null,grip:null,equipmentClass:"bw"},
-  // No overhead pressing on the gym day — the KB classes carry the overhead
-  // dose; gym stays horizontal. Iso-Lateral Bench: the proven pain-free press.
-  {id:"r4d1e12",name:"Iso-Lateral Bench Press",cat:"push",sets:3,reps:"8",loadKg:60,unit:"kg",rest:90,tags:["twinge-gate","controlled-negatives"],role:"hypertrophy",angle:null,grip:null,equipmentClass:"machine"},
-  {id:"r4d1e13",name:"Narrow-Grip Cable Pulldown",cat:"pull",week:"A",sets:3,reps:"8",loadKg:37.5,unit:"kg",rest:90,tags:["double-pulley"],
+// v15 "Recomp On-Demand": the scheduling layer is gone (mode:'on-demand').
+// Two gym sessions, taken when the user chooses; the home offers whichever
+// was NOT completed most recently. KB and swims are self-managed quick-ticks,
+// not program days. Iso-Lateral Bench sits at POSITION 3 in both sessions
+// (right after the mains) — user note "no chest for a month": it was dying
+// at the tail. Trap Bar Deadlift moves to 103.5 on the micro-progression
+// rule (101 @ RPE 7 on Sep 21 + Sep 28). DB Curl stays out of the program.
+const GYM_OPENER=[
+  {name:"90/90 Hip Switch",cat:"rehab",section:"warmup",sets:1,reps:"8",loadKg:0,unit:"bw",rest:20,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
+  {name:"Couch Stretch",cat:"rehab",section:"warmup",sets:1,reps:"45s",loadKg:0,unit:"bw",rest:20,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
+  {name:"Glute Bridge",cat:"rehab",section:"warmup",sets:2,reps:"10",loadKg:0,unit:"bw",rest:30,tags:[],angle:null,grip:null,equipmentClass:"bw"},
+  {name:"Bird Dog",cat:"core",section:"warmup",sets:2,reps:"8",loadKg:0,unit:"bw",rest:30,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"}
+];
+const GYM_FINISHER={name:"Sprints",cat:"cardio",section:"finisher",entryType:"circuit",format:"Intervals",minutes:8,
+  movements:"Sprints 5\u00d730s hard / 90s easy",sets:0,reps:"",loadKg:0,unit:"bw",rest:0,tags:[],angle:null,grip:null,equipmentClass:"bw"};
+const _ISO_BENCH={name:"Iso-Lateral Bench Press",cat:"push",sets:3,reps:"8",loadKg:60,unit:"kg",rest:90,tags:["twinge-gate","controlled-negatives"],role:"hypertrophy",angle:null,grip:null,equipmentClass:"machine"};
+const _PULLUP={name:"Strict Pull-Up",cat:"pull",sets:3,reps:"6-8",loadKg:0,unit:"bw",rest:120,tags:["straight-sets"],supersetNext:true,angle:null,grip:null,equipmentClass:"bw"};
+const _PRESSUP={name:"Press-Up",cat:"push",sets:3,reps:"15",loadKg:0,unit:"bw",rest:90,tags:["twinge-gate"],
+  cue:"Stop on any twinge \u2014 Dip is the substitute, not the default",angle:null,grip:null,equipmentClass:"bw"};
+const _HLR={name:"Hanging Leg Raise",cat:"core",sets:3,reps:"10",loadKg:0,unit:"bw",rest:60,tags:[],angle:null,grip:null,equipmentClass:"bw"};
+// Each day gets its own deep copies with stable per-day ids (r5a1.. / r5b1..).
+const _gymDay=(pfx,main)=>GYM_OPENER.concat(main,[GYM_FINISHER]).map((e,i)=>Object.assign(JSON.parse(JSON.stringify(e)),{id:pfx+(i+1)}));
+const DEF_PROGRAM={name:"Recomp On-Demand",version:15,active:true,startDate:"2026-10-11",phase:"maintain",mode:"on-demand",days:[
+{id:1,label:"Gym A",sessionType:"lifting",dur:75,gymVariant:"A",exercises:_gymDay("r5a",[
+  {name:"Back Squat",cat:"squat",sets:4,reps:"8-10",loadKg:100,unit:"kg",rest:150,tags:["RPE-7-8","full-depth-standard"],angle:null,grip:null,equipmentClass:"barbell"},
+  {name:"Trap Bar Deadlift",cat:"hinge",sets:2,reps:"5",loadKg:103.5,unit:"kg",rest:180,tags:["reset-every-rep","5s-max"],angle:null,grip:null,equipmentClass:"barbell",barKg:36},
+  _ISO_BENCH,_PULLUP,_PRESSUP,
+  {name:"Narrow-Grip Cable Pulldown",cat:"pull",sets:3,reps:"8",loadKg:68,unit:"kg",rest:90,tags:["double-pulley"],
     angle:null,grip:null,equipmentClass:"cable",variant:{pulley:"double",grip:null,angle:null,machine:null,attachment:null}},
-  {id:"r4d1e14",name:"Cable Low Row",cat:"pull",week:"B",sets:3,reps:"10",loadKg:61,unit:"kg",rest:120,tags:["single-pulley"],
+  _HLR,
+  {name:"Pallof Press",cat:"core",sets:2,reps:"12",loadKg:20,unit:"kg",rest:60,tags:["per side"],role:"skill/anti-rotation",angle:null,grip:null,equipmentClass:"cable"},
+  {name:"Back Extension",cat:"hinge",sets:2,reps:"12",loadKg:0,unit:"bw",rest:60,tags:["neutral-only","no-hyperextension"],
+    frozen:true,cue:"Pad at hip crease \u00b7 hinge at hips \u00b7 rise to a straight line ONLY \u2014 never past",angle:null,grip:null,equipmentClass:"bw"}
+])},
+{id:2,label:"Gym B",sessionType:"lifting",dur:80,gymVariant:"B",exercises:_gymDay("r5b",[
+  {name:"Trap Bar Deadlift",cat:"hinge",sets:4,reps:"5",loadKg:103.5,unit:"kg",rest:180,tags:["5s-max-forever","reset-every-rep"],angle:null,grip:null,equipmentClass:"barbell",barKg:36},
+  {name:"Back Squat",cat:"squat",sets:2,reps:"8",loadKg:90,unit:"kg",rest:150,tags:["full-depth-standard"],angle:null,grip:null,equipmentClass:"barbell"},
+  _ISO_BENCH,
+  {name:"Bulgarian Split Squat",cat:"squat",sets:2,reps:"8",loadKg:15,unit:"kg",rest:90,tags:["per hand"],angle:null,grip:null,equipmentClass:"db"},
+  _PULLUP,_PRESSUP,
+  {name:"Cable Low Row",cat:"pull",sets:3,reps:"10",loadKg:61,unit:"kg",rest:120,tags:["single-pulley"],
     angle:null,grip:null,equipmentClass:"cable",variant:{pulley:"single",grip:null,angle:null,machine:null,attachment:null}},
-  {id:"r4d1e15",name:"Hanging Leg Raise",cat:"core",sets:3,reps:"10",loadKg:0,unit:"bw",rest:60,tags:[],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"r4d1e16",name:"Pallof Press",cat:"core",week:"A",sets:2,reps:"12",loadKg:20,unit:"kg",rest:60,tags:["per side"],role:"skill/anti-rotation",angle:null,grip:null,equipmentClass:"cable"},
-  {id:"r4d1e17",name:"Back Extension",cat:"hinge",week:"A",sets:2,reps:"12",loadKg:0,unit:"bw",rest:60,tags:["neutral-only","no-hyperextension"],
-    frozen:true,cue:"Pad at hip crease \u00b7 hinge at hips \u00b7 rise to a straight line ONLY \u2014 never past",angle:null,grip:null,equipmentClass:"bw"},
-  {id:"r4d1e18",name:"Suitcase Carry",cat:"core",week:"B",sets:2,reps:"30m",loadKg:27.5,unit:"kg",rest:60,tags:["one hand"],angle:null,grip:null,equipmentClass:"db"},
-  {id:"r4d1e19",name:"Side Extension",cat:"core",week:"B",sets:2,reps:"12",loadKg:0,unit:"bw",rest:45,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"},
-  {id:"r4d1e20",name:"Sprints",cat:"cardio",section:"finisher",entryType:"circuit",format:"Intervals",minutes:8,
-    movements:"Sprints 5\u00d730s hard / 90s easy",
-    sets:0,reps:"",loadKg:0,unit:"bw",rest:0,tags:[],angle:null,grip:null,equipmentClass:"bw"}
-]},
-{id:2,label:"KB Class",defaultDay:"Tuesday",dayOfWeek:"Tuesday",sessionType:"kb",dur:45,exercises:[],
-  note:"KB class \u2014 log duration, bells, and what you did (tick-friendly)."},
-{id:3,label:"Run (optional)",defaultDay:"Wednesday",dayOfWeek:"Wednesday",sessionType:"run",dur:30,optional:true,exercises:[],
-  note:"Easy 30 min zone 2 \u2014 a lever, not a race"},
-{id:4,label:"KB Class",defaultDay:"Thursday",dayOfWeek:"Thursday",sessionType:"kb",dur:45,exercises:[],
-  note:"KB class \u2014 log duration, bells, and what you did (tick-friendly)."},
-{id:5,label:"Swim",defaultDay:"Friday",dayOfWeek:"Friday",sessionType:"swim",dur:45,exercises:[],
-  note:"Pace day"},
-{id:6,label:"KB Class",defaultDay:"Saturday",dayOfWeek:"Saturday",sessionType:"kb",dur:45,exercises:[],
-  note:"KB class \u2014 log duration, bells, and what you did (tick-friendly)."},
-{id:7,label:"Rest",defaultDay:"Sunday",dayOfWeek:"Sunday",sessionType:"rest",dur:0,exercises:[],
-  note:"Scheduled rest \u2014 recovery is training."}
+  _HLR,
+  {name:"Suitcase Carry",cat:"core",sets:2,reps:"30m",loadKg:27.5,unit:"kg",rest:60,tags:["one hand"],angle:null,grip:null,equipmentClass:"db"},
+  {name:"Side Extension",cat:"core",sets:2,reps:"12",loadKg:0,unit:"bw",rest:45,tags:["per side"],angle:null,grip:null,equipmentClass:"bw"}
+])}
 ]};
 
 // ===== EXTRAS LIBRARY =====
@@ -2560,6 +2572,7 @@ function dayCompoundPats(daySessions){
 // concern the old type-only check missed (e.g. hpull on Sun and Mon).
 // Returns [{date,warnings:[{level,msg}]}].
 function validateWeek(weekDates,todayDate){
+  if(isOnDemand())return []; // no schedule = no cross-day placement to validate
   const wd=weekDates||weekDatesFor(weekAnchor());
   const today=todayDate||todayStr();
   const rows=buildWeek(wd,today);
@@ -2826,7 +2839,9 @@ function migrateV3(){
   // 'Press re-entry' note retires.
   if(!S.settings._gymRevSep21){
     try{
-      (S.program.days||[]).forEach(d=>{
+      // Only the v12/v13 gym day it was written for — on later programs it
+      // would 'restore' Iso-Bench/Pallof into days that deliberately lack them.
+      ((S.program.version===12||S.program.version===13)?(S.program.days||[]):[]).forEach(d=>{
         if(d.sessionType==='kb'&&/Press re-entry/.test(d.note||''))d.note=d.note.replace(/\s*Press re-entry:.*$/,'');
         if(d.sessionType!=='lifting')return;
         const exs=d.exercises||[];
@@ -3345,8 +3360,103 @@ function sessionForDay(day){
   const wk=weekDatesFor(todayStr());
   return S.sessions.find(s=>recMatchesDay(s,day)&&(s.blockName===bn||(bn==='Apr 11–16 Block'&&!s.blockName))&&(!s.retro||wk.includes(s.date)))||null;
 }
-function isDayDone(dayIdx){const day=S.program.days[dayIdx];if(!day)return false;return !!sessionForDay(day)}
-function isDaySkipped(dayIdx){return !!getDaySkip(dayIdx)}
+// ===== ON-DEMAND MODE (Oct 2026) =====
+// program.mode==='on-demand' removes the scheduling layer: no default days,
+// no owed/missed states, no sessions-vs-planned count. The home offers the
+// NEXT gym session (whichever of Gym A / Gym B was NOT completed most
+// recently — driven by the last completed session, never by the calendar)
+// plus one-tap ticks for self-managed KB and swim. The Week tab is a plain
+// history calendar. All weekly-schedule machinery stays for legacy blocks
+// and is gated off here.
+function isOnDemand(){return !!(S.program&&S.program.mode==='on-demand');}
+function gymDays(){return (S.program.days||[]).map((d,i)=>({d,i})).filter(o=>o.d&&o.d.gymVariant&&!o.d.oneOff&&(o.d.sessionType||'lifting')==='lifting');}
+const _leadLift=exs=>{const e=(exs||[]).find(x=>x&&(x.section||'main')==='main'&&x.entryType!=='circuit');return e?canonName(e.name):null;};
+// Records made before the stamp existed are matched by their lead lift
+// against the current gym definitions (squat-led = A, trap-bar-led = B).
+function inferGymVariant(rec){
+  if(!rec)return null;
+  if(rec.gymVariant)return rec.gymVariant;
+  const lead=_leadLift(rec.exercises);if(!lead)return null;
+  const hit=gymDays().find(o=>_leadLift(o.d.exercises)===lead);
+  return hit?hit.d.gymVariant:null;
+}
+function lastGym(){
+  const recs=(S.sessions||[]).filter(r=>r&&r.date&&!r.ticked&&(r.sessionType||'lifting')==='lifting'&&(r.exercises||[]).length)
+    .slice().sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:(String(a.id||'')<String(b.id||'')?1:-1));
+  for(const r of recs){const v=inferGymVariant(r);if(v)return {variant:v,date:r.date,label:r.dayLabel||''};}
+  return null;
+}
+function nextGymIdx(){
+  const g=gymDays();if(!g.length)return -1;
+  const last=lastGym();
+  const hit=last?g.find(o=>o.d.gymVariant!==last.variant):null;
+  return (hit||g[0]).i;
+}
+// One tap = one ticked session dated today (self-managed training, recorded
+// without ceremony). A second tap the same day takes it back (no duplicates).
+const QUICK_TICKS={kb:'KB session',swim:'Swim'};
+function quickTickedToday(type){const d=todayStr();return (S.sessions||[]).some(r=>r&&r.quickTick&&r.sessionType===type&&r.date===d);}
+function quickTick(type){
+  if(!QUICK_TICKS[type])return;
+  const d=todayStr();
+  const i=(S.sessions||[]).findIndex(r=>r&&r.quickTick&&r.sessionType===type&&r.date===d);
+  if(i>=0){S.sessions.splice(i,1);save();try{renderTrain();}catch(e){}toast(QUICK_TICKS[type]+' tick removed');return;}
+  S.sessions.push({
+    id:'s_'+Date.now(),date:d,dayLabel:QUICK_TICKS[type],dayId:null,
+    blockName:S.program.name,sessionType:type,
+    duration:0,exercises:[],painEvents:[],status:'complete',ticked:true,quickTick:true,
+    activity:{durationMin:0,distance:0,effort:null,notes:''}
+  });
+  save();
+  try{renderTrain();}catch(e){}
+  toast(QUICK_TICKS[type]+' logged');
+}
+function onDemandHomeHTML(){
+  let html='';
+  const g=gymDays(),ni=nextGymIdx(),last=lastGym();
+  if(S.activeSession){
+    html+=`<button class="start-btn" onclick="resumeSession()">${t('start.resume')} \u2014 ${esc(S.activeSession.dayLabel||'Session')}</button><div style="height:8px"></div>`;
+  } else if(ni>=0){
+    const nd=S.program.days[ni];
+    const alt=g.find(o=>o.i!==ni);
+    html+=`<button class="start-btn" id="odNextBtn" onclick="openBackCheckin(${ni})">${t('od.next')}${esc(nd.label)}</button>`;
+    // Train's second (and final) gradient surface: the top-set chip.
+    try{
+      const _main=dayExercises(nd).find(ex=>FIXED_MAINS.includes(canonName(ex.name)));
+      const _top=_main?(schemeTop(_main.setScheme)||{loadKg:_main.loadKg,reps:parseInt(_main.reps)||5}):null;
+      if(_top&&_top.loadKg)html+=`<div class="topset-chip tnum">TOP ${fmtW(_top.loadKg,S.settings.unit)} \u00d7 ${_top.reps}</div>`;
+    }catch(e){}
+    html+=`<div class="od-sub">${alt?`<button class="od-link" onclick="openBackCheckin(${alt.i})">${t('od.or')}${esc(alt.d.label)}</button>`:''}<button class="od-link od-plan" onclick="showDayPreview(${ni})">view plan</button></div>`;
+    if(last)html+=`<div class="t-meta od-last">Last: ${esc((gymDays().find(o=>o.d.gymVariant===last.variant)||{d:{label:last.label}}).d.label)} \u00b7 ${fmtDate(last.date)}</div>`;
+  }
+  html+=`<div class="od-ticks">${Object.keys(QUICK_TICKS).map(tp=>{const on=quickTickedToday(tp);return `<button class="qt-chip${on?' on':''}" onclick="quickTick('${tp}')" aria-pressed="${on?'true':'false'}"><span class="wk-ic">${icon(tp,14)}</span>${QUICK_TICKS[tp]} \u2713</button>`;}).join('')}</div>`;
+  try{const lo=leftoverRowHTML();if(lo)html+=`<div class="goal-card wk-check">${lo}</div>`;}catch(e){}
+  return html;
+}
+// Week tab in on-demand mode: a plain calendar of what HAPPENED — no plan,
+// no owed days, nothing about what "should" have.
+function historyCalendarHTML(today,weeks){
+  const n=weeks||6;
+  const start=dateAddDays(weekDatesFor(today)[0],-7*(n-1));
+  const byDate={};
+  (S.sessions||[]).forEach(r=>{if(r&&r.date)(byDate[r.date]=byDate[r.date]||[]).push(r);});
+  let h='<div class="hist-grid">'+['M','T','W','T','F','S','S'].map(d=>`<div class="hist-dow">${d}</div>`).join('');
+  for(let i=0;i<n*7;i++){
+    const d=dateAddDays(start,i),ss=byDate[d]||[];
+    h+=`<div class="hist-cell${d===today?' today':''}${d>today?' future':''}${ss.length?' has':''}" data-date="${d}"><span class="hist-n tnum">${+d.slice(8)}</span><span class="hist-dots">${ss.map(r=>`<i class="hist-dot" style="background:${modalityColor(r.sessionType||'lifting')}"></i>`).join('')}</span></div>`;
+  }
+  h+='</div>';
+  const recent=(S.sessions||[]).filter(r=>r&&r.date).slice().sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:(String(a.id||'')<String(b.id||'')?1:-1)).slice(0,20);
+  if(!recent.length)return h+'<div class="t-meta" style="padding:8px 2px">Nothing logged yet.</div>';
+  h+='<div class="section-hdr">Recent</div>'+recent.map(r=>{
+    const tp=r.sessionType||'lifting',a=r.activity||{};
+    const bits=[fmtDate(r.date),r.ticked?'ticked':null,(!r.ticked&&r.duration?r.duration+' min':null),(a.distance?a.distance+(tp==='swim'?' m':' km'):null)].filter(Boolean).join(' \u00b7 ');
+    return `<div class="hist-row"><span class="wk-ic" style="color:${modalityColor(tp)}">${icon(tp==='lifting'?'lifting':tp,14)}</span><span class="hist-l">${esc(r.dayLabel||tp)}</span><span class="t-meta">${bits}</span></div>`;
+  }).join('');
+  return h;
+}
+function isDayDone(dayIdx){if(isOnDemand())return false;const day=S.program.days[dayIdx];if(!day)return false;return !!sessionForDay(day)}
+function isDaySkipped(dayIdx){if(isOnDemand())return false;return !!getDaySkip(dayIdx)}
 function getDaySkip(dayIdx){const day=S.program.days[dayIdx];if(!day)return null;const bn=S.program.name;return (S.skips||[]).find(sk=>recMatchesDay(sk,day)&&sk.blockName===bn)||null}
 // Next unfinished (not-done, not-skipped) day starting from today's day-of-week, wrapping forward through the week.
 function getNextAvailableDayIdx(){
@@ -3435,6 +3545,21 @@ function restoreDay(dayIdx){const d=S.program.days[dayIdx];if(!d)return;delete d
 // ===== WEEK VIEW RENDER =====
 let _rescheduleDayIdx=null;
 function renderWeek(){
+  // On-demand: the tab is a plain history calendar (what happened — nothing
+  // about what "should" have). The planner below is for weekly blocks only.
+  const _od=isOnDemand();
+  try{
+    const wt=document.getElementById('weekTitle');
+    if(wt){if(wt.setAttribute)wt.setAttribute('data-t',_od?'hist.title':'week.title');wt.textContent=t(_od?'hist.title':'week.title');}
+    const cb=document.getElementById('weekComposeBtn');if(cb&&cb.style)cb.style.display=_od?'none':'';
+  }catch(e){}
+  if(_od){
+    const td=todayStr(),wk0=dateAddDays(weekDatesFor(td)[0],-35);
+    const rg=document.getElementById('weekRange');if(rg)rg.textContent=fmtDate(wk0)+' \u2013 '+fmtDate(td);
+    const wl=document.getElementById('weekList');if(wl)wl.innerHTML=historyCalendarHTML(td,6);
+    const cc0=document.getElementById('composerCard');if(cc0)cc0.innerHTML='';
+    return;
+  }
   const today=todayStr();
   const dates=weekDatesFor(weekAnchor(today)); // planning week (rolls to next week on Sunday)
   const rows=buildWeek(dates,today);
@@ -3653,6 +3778,7 @@ function blockDisplayName(name){
   return name||'Training Block';
 }
 function blockDateRange(){
+  if(isOnDemand())return fmtDate(todayStr()); // no planning week to span — just today
   const dates=weekDatesFor(weekAnchor());
   const fmt=(ds)=>{const d=new Date(ds+'T12:00:00');return {m:d.getMonth(),day:d.getDate()};};
   const mn=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -3664,6 +3790,62 @@ function blockDateRange(){
   return mn[a.m]+' '+a.day+' – '+mn[b.m]+' '+b.day;
 }
 
+// The Train banners, shared by both home modes. Schedule-bound ones
+// (recovery conflict, week complete / wrapped) render only when a weekly
+// plan exists — on-demand mode has no plan to conflict with or complete.
+function trainBannersHTML(scheduled){
+  let html='';
+  // H5: weekly commemoration — ONE line, shield + chapter name. The motto
+  // quote was dropped (user: two stacked quotes on Train read as clutter —
+  // the greeting litany is the screen's single quote moment).
+  if(imperiumOn()){
+    const _ch=chapterOfWeek(todayStr());
+    html+=`<div class="commem-card">${shieldIcon(_ch.varA,_ch.varB,22)}<div style="min-width:0"><div class="t-meta" style="color:var(--tx2)">This week the record keeps vigil in honour of the <span class="ch-name">${_ch.name}</span>.</div></div></div>`;
+  }
+  // New-block banner (surfaces when the built-in default differs from the loaded block)
+  if(DEF_PROGRAM.version>(S.program.version??0) && S.settings._dismissedProgramVersion!==DEF_PROGRAM.version){
+    html+=`<div class="block-banner"><div><div class="t-meta" style="color:var(--gold)">${t('banner.newBlock')}</div><div style="font:600 14px var(--sans);margin-top:2px">${DEF_PROGRAM.name}</div></div><div style="display:flex;gap:6px"><button class="btn btn-sm btn-p" onclick="event.stopPropagation();reviewNewBlock()">${t('banner.review')}</button><button class="btn btn-sm btn-g" onclick="event.stopPropagation();dismissNewBlock()">${t('banner.skip')}</button></div></div>`;
+  }
+  if(scheduled){
+  // Cross-session recovery conflicts (validateWeek) — warn banner if the
+  // scheduled week double-trains a movement pattern within 24h.
+  try{
+    const vw=validateWeek().filter(r=>r.warnings.some(w=>w.level==='warn'));
+    if(vw.length){
+      const msgs=vw.flatMap(r=>r.warnings.filter(w=>w.level==='warn').map(w=>w.msg));
+      html+=`<div class="conflict-banner">${icon('pause',16)}<div><div class="t-meta" style="color:var(--warn)">Recovery conflict</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">${msgs[0]}</div></div></div>`;
+    }
+  }catch(e){}
+  // Week complete → one-tap coach report (calendar week, NOT weekAnchor —
+  // Sunday evening after the deadlift is exactly when this must fire) +
+  // the Week Wrapped card (once per week; dismiss stamps wrappedSeen).
+  try{
+    const _wd=weekDatesFor(todayStr());
+    if(isWeekComplete(_wd)){
+      html+=`<div class="block-banner"><div><div class="t-meta" style="color:var(--gold)">Week complete</div><div style="font:600 14px var(--sans);margin-top:2px">All sessions done — send it to the coach</div></div><button class="btn btn-sm btn-gold" onclick="event.stopPropagation();copyWeeklyReport()">Copy Coach Report</button></div>`;
+      if(S.settings.wrappedSeen!==_wd[0]){
+        html+=`<div class="block-banner" style="background:var(--brand-dim);border-color:var(--brand)"><div><div class="t-meta" style="color:var(--brand)">Week wrapped</div><div style="font:600 14px var(--sans);margin-top:2px">View your week</div></div><button class="btn btn-sm btn-p" onclick="event.stopPropagation();showWeekWrapped()">View</button></div>`;
+      }
+    }
+  }catch(e){}
+  }
+  // Chronic-skip cards: skipped on the last 3 appearances → make it visible.
+  try{
+    chronicSkips().forEach(cs=>{
+      html+=`<div class="conflict-banner" style="align-items:center"><div style="flex:1"><div class="t-meta" style="color:var(--warn)">Skipped ${cs.count}×</div><div style="font:600 14px var(--sans);color:var(--tx);margin-top:2px">${cs.name}</div></div><div style="display:flex;gap:5px;flex-shrink:0"><button class="btn btn-sm btn-g" onclick="event.stopPropagation();chronicMoveEarlier('${cs.name.replace(/'/g,"\\'")}')">Move earlier</button><button class="btn btn-sm btn-g" onclick="event.stopPropagation();chronicDropFromBlock('${cs.name.replace(/'/g,"\\'")}')">Drop</button><button class="btn btn-sm btn-g" onclick="event.stopPropagation();chronicDismiss('${cs.name.replace(/'/g,"\\'")}')">Keep</button></div></div>`;
+    });
+  }catch(e){}
+  // E4: weekly backup nudge — 7+ days since the last export, dismiss snoozes
+  // until next week. One tap runs the existing export (which clears it).
+  try{
+    const _lx=S.settings.lastExportAt;
+    const _wkMon2=weekOfDate(todayStr());
+    if(_lx&&todayStr()>=dateAddDays(_lx,7)&&S.settings.exportNudgeSnooze!==_wkMon2){
+      html+=`<div class="block-banner"><div><div class="t-meta" style="color:var(--tx2)">${t('nudge.backup')}</div><div style="font:600 14px var(--sans);margin-top:2px">Last export ${_lx}</div></div><div style="display:flex;gap:6px"><button class="btn btn-sm btn-p" onclick="event.stopPropagation();syncData();renderTrain()">Export</button><button class="btn btn-sm btn-g" onclick="event.stopPropagation();S.settings.exportNudgeSnooze='${_wkMon2}';save();renderTrain()">Later</button></div></div>`;
+    }
+  }catch(e){}
+  return html;
+}
 function renderTrain(){
   // Stoic quote — optional via Settings (default ON).
   const showQuote=S.settings.showQuote!==false;
@@ -3690,10 +3872,11 @@ function renderTrain(){
     }
   }catch(e){}
 
+  const container=document.getElementById('blockDays');
+  if(isOnDemand()){container.innerHTML=trainBannersHTML(false)+onDemandHomeHTML();return;}
   // Block days
   const todayIdx=getTodayDayIdx();
   const startIdx=getNextAvailableDayIdx();
-  const container=document.getElementById('blockDays');
   const upcoming=[],completed=[];
   // E5: number ONLY the surviving queue — filter done/skipped/rest/removed
   // FIRST, then rank by effective date, so Up next always reads 1..n.
@@ -3781,54 +3964,7 @@ function renderTrain(){
   // The soonest one is also the gold Start button above — shown in both so the
   // full week is always visible.
   upcoming.sort((a,b)=>a.sort<b.sort?-1:a.sort>b.sort?1:a.idx-b.idx);
-  let html='';
-  // H5: weekly commemoration — ONE line, shield + chapter name. The motto
-  // quote was dropped (user: two stacked quotes on Train read as clutter —
-  // the greeting litany is the screen's single quote moment).
-  if(imperiumOn()){
-    const _ch=chapterOfWeek(todayStr());
-    html+=`<div class="commem-card">${shieldIcon(_ch.varA,_ch.varB,22)}<div style="min-width:0"><div class="t-meta" style="color:var(--tx2)">This week the record keeps vigil in honour of the <span class="ch-name">${_ch.name}</span>.</div></div></div>`;
-  }
-  // New-block banner (surfaces when the built-in default differs from the loaded block)
-  if(DEF_PROGRAM.version>(S.program.version??0) && S.settings._dismissedProgramVersion!==DEF_PROGRAM.version){
-    html+=`<div class="block-banner"><div><div class="t-meta" style="color:var(--gold)">${t('banner.newBlock')}</div><div style="font:600 14px var(--sans);margin-top:2px">${DEF_PROGRAM.name}</div></div><div style="display:flex;gap:6px"><button class="btn btn-sm btn-p" onclick="event.stopPropagation();reviewNewBlock()">${t('banner.review')}</button><button class="btn btn-sm btn-g" onclick="event.stopPropagation();dismissNewBlock()">${t('banner.skip')}</button></div></div>`;
-  }
-  // Cross-session recovery conflicts (validateWeek) — warn banner if the
-  // scheduled week double-trains a movement pattern within 24h.
-  try{
-    const vw=validateWeek().filter(r=>r.warnings.some(w=>w.level==='warn'));
-    if(vw.length){
-      const msgs=vw.flatMap(r=>r.warnings.filter(w=>w.level==='warn').map(w=>w.msg));
-      html+=`<div class="conflict-banner">${icon('pause',16)}<div><div class="t-meta" style="color:var(--warn)">Recovery conflict</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">${msgs[0]}</div></div></div>`;
-    }
-  }catch(e){}
-  // Week complete → one-tap coach report (calendar week, NOT weekAnchor —
-  // Sunday evening after the deadlift is exactly when this must fire) +
-  // the Week Wrapped card (once per week; dismiss stamps wrappedSeen).
-  try{
-    const _wd=weekDatesFor(todayStr());
-    if(isWeekComplete(_wd)){
-      html+=`<div class="block-banner"><div><div class="t-meta" style="color:var(--gold)">Week complete</div><div style="font:600 14px var(--sans);margin-top:2px">All sessions done — send it to the coach</div></div><button class="btn btn-sm btn-gold" onclick="event.stopPropagation();copyWeeklyReport()">Copy Coach Report</button></div>`;
-      if(S.settings.wrappedSeen!==_wd[0]){
-        html+=`<div class="block-banner" style="background:var(--brand-dim);border-color:var(--brand)"><div><div class="t-meta" style="color:var(--brand)">Week wrapped</div><div style="font:600 14px var(--sans);margin-top:2px">View your week</div></div><button class="btn btn-sm btn-p" onclick="event.stopPropagation();showWeekWrapped()">View</button></div>`;
-      }
-    }
-  }catch(e){}
-  // Chronic-skip cards: skipped on the last 3 appearances → make it visible.
-  try{
-    chronicSkips().forEach(cs=>{
-      html+=`<div class="conflict-banner" style="align-items:center"><div style="flex:1"><div class="t-meta" style="color:var(--warn)">Skipped ${cs.count}×</div><div style="font:600 14px var(--sans);color:var(--tx);margin-top:2px">${cs.name}</div></div><div style="display:flex;gap:5px;flex-shrink:0"><button class="btn btn-sm btn-g" onclick="event.stopPropagation();chronicMoveEarlier('${cs.name.replace(/'/g,"\\'")}')">Move earlier</button><button class="btn btn-sm btn-g" onclick="event.stopPropagation();chronicDropFromBlock('${cs.name.replace(/'/g,"\\'")}')">Drop</button><button class="btn btn-sm btn-g" onclick="event.stopPropagation();chronicDismiss('${cs.name.replace(/'/g,"\\'")}')">Keep</button></div></div>`;
-    });
-  }catch(e){}
-  // E4: weekly backup nudge — 7+ days since the last export, dismiss snoozes
-  // until next week. One tap runs the existing export (which clears it).
-  try{
-    const _lx=S.settings.lastExportAt;
-    const _wkMon2=weekOfDate(todayStr());
-    if(_lx&&todayStr()>=dateAddDays(_lx,7)&&S.settings.exportNudgeSnooze!==_wkMon2){
-      html+=`<div class="block-banner"><div><div class="t-meta" style="color:var(--tx2)">${t('nudge.backup')}</div><div style="font:600 14px var(--sans);margin-top:2px">Last export ${_lx}</div></div><div style="display:flex;gap:6px"><button class="btn btn-sm btn-p" onclick="event.stopPropagation();syncData();renderTrain()">Export</button><button class="btn btn-sm btn-g" onclick="event.stopPropagation();S.settings.exportNudgeSnooze='${_wkMon2}';save();renderTrain()">Later</button></div></div>`;
-    }
-  }catch(e){}
+  let html=trainBannersHTML(true);
   // Gold start button — the soonest session in the planning week (startIdx
   // computed above; it's the gold CTA and is excluded from the Up-next list).
   if(startIdx>=0){
@@ -3919,7 +4055,7 @@ function showDayPreview(i){
   const done=isDayDone(i);
   const session=done?sessionForDay(day):null;
 
-  document.getElementById('pvDayLbl').textContent='Day '+(i+1)+' · '+day.dayOfWeek;
+  document.getElementById('pvDayLbl').textContent=day.dayOfWeek?('Day '+(i+1)+' · '+day.dayOfWeek):'On demand';
   document.getElementById('pvTitle').textContent=day.label;
   document.getElementById('pvMeta').textContent=day.sessionType==='rest'?'Rest day — recovery':isActivityType(day.sessionType)?(day.sessionType==='kb'?'Kettlebell session':day.sessionType)+' · ~'+day.dur+' min':dayExercises(day).length+' exercises · ~'+day.dur+' min'+(day.alternating?' · '+dayVariantLabel(day):'');
   try{const pn=document.getElementById('pvNote');if(pn){pn.textContent=day.note||'';pn.style.display=day.note?'block':'none';}}catch(e){}
@@ -3994,7 +4130,7 @@ function showDayPreview(i){
     startBtn.style.display='none';
   } else {
     skipInfo.style.display='none';
-    skipBtn.style.display=(done||day.sessionType==='rest')?'none':'block';
+    skipBtn.style.display=(done||day.sessionType==='rest'||isOnDemand())?'none':'block'; // nothing to skip without a schedule
     unskipBtn.style.display='none';
     startBtn.style.display=day.sessionType==='rest'?'none':'block';
   }
@@ -4284,6 +4420,7 @@ function startDay(i){
   const _variant=day.alternating?dayVariantFor(day):null;
   const _resolved=dayExercises(day,_variant||undefined);
   if(_variant)S.activeSession.weekVariant=_variant;
+  if(day.gymVariant)S.activeSession.gymVariant=day.gymVariant; // on-demand: drives the Next button
   const _hybrid=isActivityType(st)&&_resolved.length>0;
   if(isActivityType(st)){
     // Activity-log session: the form — plus warm-up cards when authored (K7).
@@ -4609,7 +4746,7 @@ function renderEx(){
   const dayMeta=S.program.days[sess.dayIndex];
   const sLbl=document.getElementById('sDayLbl');
   const _dw=(dayMeta&&(dayMeta.defaultDay||dayMeta.dayOfWeek))||'';
-  sLbl.textContent='Day '+(sess.dayIndex+1)+' · '+(imperiumOn()?_dw.slice(0,3):_dw);
+  sLbl.textContent=_dw?('Day '+(sess.dayIndex+1)+' · '+(imperiumOn()?_dw.slice(0,3):_dw)):fmtDate(sess.date);
   sLbl.style.color='var(--tx3)'; // C3: neutral — modality colour here was leftover cyan chrome
   document.getElementById('sTitle').textContent=sess.dayLabel;
 
@@ -6268,7 +6405,7 @@ function confirmRpe(){
   const dur=sess.retro?((S.program.days[sess.dayIndex]&&S.program.days[sess.dayIndex].dur)||0):Math.round((Date.now()-(sess.startTime||Date.now()))/60000);
   sess.exercises.forEach((ex,i)=>{if(!ex.progression&&ex.performed.some(s=>s.logged))evalProg(i)});
 
-  const rec={id:'s_'+Date.now(),date:sess.date,retro:sess.retro||undefined,dayLabel:sess.dayLabel,dayId:sess.dayId!=null?sess.dayId:null,gymId:sess.gymId||(S.settings&&S.settings.activeGymId)||null,blockName:S.program.name,duration:dur,rpe:selRpe,status:'complete',backStatus:sess.backStatus||null,readiness:sess.readiness!=null?sess.readiness:null,
+  const rec={id:'s_'+Date.now(),date:sess.date,retro:sess.retro||undefined,gymVariant:sess.gymVariant||undefined,dayLabel:sess.dayLabel,dayId:sess.dayId!=null?sess.dayId:null,gymId:sess.gymId||(S.settings&&S.settings.activeGymId)||null,blockName:S.program.name,duration:dur,rpe:selRpe,status:'complete',backStatus:sess.backStatus||null,readiness:sess.readiness!=null?sess.readiness:null,
     sessionNotes:sess.notes||'',
     exercises:sess.exercises.map(ex=>({name:ex.name,cat:ex.cat,section:ex.section||'main',...(ex.entryType==='circuit'?{entryType:'circuit',format:ex.format,minutes:ex.minutes,movements:ex.movements||'',result:ex.result||null,loadKg:ex.prescribed&&ex.prescribed.loadKg||ex.loadKg||null,speed:+ex.speed>0?+ex.speed:null,speedUnit:+ex.speed>0?(ex.speedUnit||'km/h'):null,incline:(ex.incline!=null&&ex.incline!=='')?+ex.incline:null}:{}),prescribed:ex.prescribed,performed:ex.performed.filter(s=>s.logged),notes:ex.notes,progression:ex.progression,progressionReason:ex.progressionReason||null,role:ex.role||null,target:ex.target||null,frozen:ex.frozen||undefined,nextLoad:ex.nextLoad,nextTarget:ex.nextTarget||null,counsel:ex.counsel||null,variant:ex.variant||null,painEvent:ex.painEvent,tags:ex.tags})),
     painEvents:sess.exercises.filter(e=>e.painEvent&&e.painEvent.severity!=='none').map(e=>({exercise:e.name,...e.painEvent}))
@@ -7284,6 +7421,7 @@ function maybeAdvanceBrandSafe(){try{if(typeof maybeAdvanceBrand==='function')ma
 function weeklyScheduled(weekDates,today){
   // What this week holds: program days placed by buildWeek + dated recurring.
   let prog=0,rec=0,opt=0,recTypes=[];
+  if(isOnDemand())return {prog,rec,opt,recTypes}; // no planned count in on-demand mode
   try{
     buildWeek(weekDates,today||todayStr()).forEach(row=>(row.sessions||[]).forEach(s=>{
       if(s.source==='program'&&s.type!=='rest'){
@@ -7323,6 +7461,7 @@ function dayWeekStatus(d,wd){
 // once its date passes. Doing it still counts.
 function isOptionalDay(d){return !!(d&&d.optional);}
 function isWeekComplete(weekDates){
+  if(isOnDemand())return false; // nothing is owed, so no week is ever "complete"
   const wd=weekDates||weekDatesFor(todayStr());
   const sts=(S.program.days||[]).map(d=>isOptionalDay(d)&&dayWeekStatus(d,wd)==='pending'?'optional':dayWeekStatus(d,wd));
   const owed=sts.filter(st=>st!=='removed'&&st!=='rest'&&st!=='preblock'&&st!=='optional');
@@ -7356,7 +7495,7 @@ function buildCoachReport(sessions,program,weekDates){
   const sched=weeklyScheduled(weekDates,weekDates[0]);
   const schedTotal=sched.prog+sched.rec;
   const schedNote=sched.rec?` (${sched.prog} program + ${sched.rec} ${sched.recTypes.join('/')})`:'';
-  let r=`## COACH REPORT — Week ${fmtDate(weekDates[0])} – ${fmtDate(weekDates[6])}\nBlock: ${program.name||'Unnamed Block'}\nSessions: ${wk.length} / ${schedTotal} scheduled${schedNote}${sched.opt?' (+'+sched.opt+' optional)':''}\n\n`;
+  let r=`## COACH REPORT — Week ${fmtDate(weekDates[0])} – ${fmtDate(weekDates[6])}\nBlock: ${program.name||'Unnamed Block'}\nSessions: ${wk.length}${program&&program.mode==='on-demand'?'':` / ${schedTotal} scheduled${schedNote}${sched.opt?' (+'+sched.opt+' optional)':''}`}\n\n`;
   if(!wk.length)return r+'No sessions recorded this week.\n';
   const blockSessions=wk.slice().sort((a,b)=>a.date<b.date?-1:1);
 
