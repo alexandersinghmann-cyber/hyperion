@@ -4781,7 +4781,7 @@ function renderExList(){
         ${ex.painEvent?`<div style="margin-top:8px;padding:8px 10px;border-radius:var(--rs);background:var(--red-dim);font-size:12px;color:var(--red)">⚠ ${ex.painEvent.severity} pain${ex.painEvent.action?' — '+ex.painEvent.action:''}</div>`:''}
         ${allDone&&ex.progression?`<div class="prog-badge prog-${ex.progression==='increase'?'up':ex.progression==='flag'?'flag':ex.progression==='stall'?'stall':ex.progression==='skipped'?'skip':'hold'}">
           <span>${ex.progression==='increase'?'↑ Increase':ex.progression==='flag'?t('badge.flag'):ex.progression==='stall'?'⏸ Stall':ex.progression==='skipped'?'⏭ Skipped':'→ Hold'}</span>
-          ${ex.nextLoad&&ex.progression==='increase'?`<span class="tm">${imperiumOn()?machineCant('MACHINE SPIRIT COUNSELS:',fmtW(ex.nextLoad,ex.prescribed.unit)):fmtW(ex.nextLoad,ex.prescribed.unit)+perSideSuffix(ex.nextLoad,ex)}</span>`:ex.nextTarget&&ex.progression==='increase'?`<span class="tm">next ${ex.nextTarget}${/^\d+$/.test(ex.nextTarget)?' reps':''}</span>`:''}
+          ${ex.nextLoad&&ex.progression==='increase'?`<span class="tm">${imperiumOn()?machineCant('MACHINE SPIRIT COUNSELS:',fmtW(ex.nextLoad,ex.prescribed.unit)):fmtW(ex.nextLoad,ex.prescribed.unit)+perSideSuffix(ex.nextLoad,ex)}</span>`:ex.nextTarget&&ex.progression==='increase'?`<span class="tm">next ${ex.nextTarget}${/^\d+$/.test(ex.nextTarget)?' reps':''}</span>`:ex.counsel&&ex.progression==='hold'?`<span class="tm">${imperiumOn()?machineCant('MACHINE SPIRIT COUNSELS:',counselText(ex)):counselText(ex)}</span>`:''}
         </div>${(ex.progression==='flag'||ex.progression==='hold')&&ex.progressionReason?`<div style="margin-top:6px;padding:7px 10px;background:var(--s2);border-left:2px solid ${ex.progression==='flag'?'var(--warn)':'var(--line)'};border-radius:var(--rs);font:500 11px var(--mono);color:var(--tx2);line-height:1.4">${imperiumOn()?machineCant('MACHINE SPIRIT SPEAKS:',ex.progressionReason):ex.progressionReason}</div>`:''}`:''}
       </div>
     </div>`;
@@ -5993,12 +5993,39 @@ function toggleFreeze(i){
   save();renderEx();
   toast(ex.frozen?'Frozen — suggestions off until you unfreeze':'Unfrozen — progression back on');
 }
+// C (Oct 2026): micro-progression inside the maintain phase. A HELD load
+// whose working sets ALL read RPE <=7 in TWO consecutive completed sessions
+// on the same exercise+variant track earns a COUNSEL of +2.5 kg. It is a
+// suggestion only: progression stays 'hold', so the write-back (which fires
+// solely on 'increase') can never apply it. The counselled load is snapped
+// to something the gym can actually load (plates / stack / DB grid).
+const MICRO_STEP_KG=2.5;
+function allSetsEasy(sets){return sets.length>0&&sets.every(p=>p.rpe!=null&&p.rpe<=7);}
+function microCounsel(ex,working,topW){
+  if(!(topW>0)||ex.prescribed.unit==='bw'||ex.equipmentClass==='bw')return null;
+  if(!allSetsEasy(working))return null;
+  const vKey=variantKey(ex.variant);
+  const prior=(trackSessions(ex.name,vKey)||[]).slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  const last=prior[prior.length-1];if(!last)return null;
+  const pe=(last.exercises||[]).find(e2=>histMatch(e2,ex.name,vKey));if(!pe)return null;
+  const pw=(pe.performed||[]).filter(p=>p.type==='working'&&p.logged!==false&&!p.skipped);
+  if(!allSetsEasy(pw))return null;
+  if(pw.reduce((m,p)=>p.weightKg>m?p.weightKg:m,0)!==topW)return null; // not a HELD load
+  const cls=ex.equipmentClass||inferEquipmentClass(ex.name);
+  const next=Math.round(snapSuggestion(topW+MICRO_STEP_KG,cls,ex)*100)/100;
+  if(!(next>topW))return null; // nothing loadable above the held load
+  return {loadKg:next,deltaKg:Math.round((next-topW)*100)/100};
+}
+function counselText(ex){
+  const c=ex&&ex.counsel;if(!c)return '';
+  return '+'+c.deltaKg+' kg \u2192 '+fmtW(c.loadKg,ex.prescribed&&ex.prescribed.unit);
+}
 function evalProg(ei){
   const ex=S.activeSession.exercises[ei];
   if(ex.progression==='skipped')return;
   // Clear any prior reason so a re-eval doesn't carry stale text into a
   // non-flag outcome.
-  ex.progressionReason=null;
+  ex.progressionReason=null;ex.counsel=null;
   const working=ex.performed.filter(s=>s.type==='working'&&s.logged&&!s.skipped);
   if(!working.length)return;
   const rr=repRange(ex.prescribed.reps);
@@ -6052,6 +6079,8 @@ function evalProg(ei){
   if(S.program&&S.program.phase==='maintain'&&!(ex.tags||[]).includes('build')&&!(ex.painEvent&&ex.painEvent.severity!=='none')){
     ex.progression='hold';ex.nextLoad=isBW?null:(topW||ex.prescribed.loadKg);ex.nextTarget=null;
     ex.progressionReason='Maintain phase \u2014 holding load';
+    ex.counsel=microCounsel(ex,working,topW);
+    if(ex.counsel)ex.progressionReason='Two sessions at RPE \u22647 \u2014 counsel +'+ex.counsel.deltaKg+' kg (suggestion, not applied)';
     save();return;
   }
 
@@ -6241,7 +6270,7 @@ function confirmRpe(){
 
   const rec={id:'s_'+Date.now(),date:sess.date,retro:sess.retro||undefined,dayLabel:sess.dayLabel,dayId:sess.dayId!=null?sess.dayId:null,gymId:sess.gymId||(S.settings&&S.settings.activeGymId)||null,blockName:S.program.name,duration:dur,rpe:selRpe,status:'complete',backStatus:sess.backStatus||null,readiness:sess.readiness!=null?sess.readiness:null,
     sessionNotes:sess.notes||'',
-    exercises:sess.exercises.map(ex=>({name:ex.name,cat:ex.cat,section:ex.section||'main',...(ex.entryType==='circuit'?{entryType:'circuit',format:ex.format,minutes:ex.minutes,movements:ex.movements||'',result:ex.result||null,loadKg:ex.prescribed&&ex.prescribed.loadKg||ex.loadKg||null,speed:+ex.speed>0?+ex.speed:null,speedUnit:+ex.speed>0?(ex.speedUnit||'km/h'):null,incline:(ex.incline!=null&&ex.incline!=='')?+ex.incline:null}:{}),prescribed:ex.prescribed,performed:ex.performed.filter(s=>s.logged),notes:ex.notes,progression:ex.progression,progressionReason:ex.progressionReason||null,role:ex.role||null,target:ex.target||null,frozen:ex.frozen||undefined,nextLoad:ex.nextLoad,nextTarget:ex.nextTarget||null,variant:ex.variant||null,painEvent:ex.painEvent,tags:ex.tags})),
+    exercises:sess.exercises.map(ex=>({name:ex.name,cat:ex.cat,section:ex.section||'main',...(ex.entryType==='circuit'?{entryType:'circuit',format:ex.format,minutes:ex.minutes,movements:ex.movements||'',result:ex.result||null,loadKg:ex.prescribed&&ex.prescribed.loadKg||ex.loadKg||null,speed:+ex.speed>0?+ex.speed:null,speedUnit:+ex.speed>0?(ex.speedUnit||'km/h'):null,incline:(ex.incline!=null&&ex.incline!=='')?+ex.incline:null}:{}),prescribed:ex.prescribed,performed:ex.performed.filter(s=>s.logged),notes:ex.notes,progression:ex.progression,progressionReason:ex.progressionReason||null,role:ex.role||null,target:ex.target||null,frozen:ex.frozen||undefined,nextLoad:ex.nextLoad,nextTarget:ex.nextTarget||null,counsel:ex.counsel||null,variant:ex.variant||null,painEvent:ex.painEvent,tags:ex.tags})),
     painEvents:sess.exercises.filter(e=>e.painEvent&&e.painEvent.severity!=='none').map(e=>({exercise:e.name,...e.painEvent}))
   };
   S.sessions.push(rec);
@@ -6296,7 +6325,7 @@ function renderSummary(rec){
         </div>
         <div class="${pc}" style="font-weight:700;font-size:16px">${pi}</div>
       </div>
-      ${ex.nextLoad&&ex.progression==='increase'?`<div style="font-size:11px;color:var(--grn);margin-top:3px">Next: ${fmtW(dispSuggest(ex.nextLoad,ex.equipmentClass||inferEquipmentClass(ex.name),'increase',ex),ex.prescribed?.unit)}</div>`:ex.nextTarget&&ex.progression==='increase'?`<div style="font-size:11px;color:var(--grn);margin-top:3px">Next: ${ex.nextTarget}${/^\d+$/.test(ex.nextTarget)?' reps':''}</div>`:''}
+      ${ex.nextLoad&&ex.progression==='increase'?`<div style="font-size:11px;color:var(--grn);margin-top:3px">Next: ${fmtW(dispSuggest(ex.nextLoad,ex.equipmentClass||inferEquipmentClass(ex.name),'increase',ex),ex.prescribed?.unit)}</div>`:ex.nextTarget&&ex.progression==='increase'?`<div style="font-size:11px;color:var(--grn);margin-top:3px">Next: ${ex.nextTarget}${/^\d+$/.test(ex.nextTarget)?' reps':''}</div>`:ex.counsel&&ex.progression==='hold'?`<div style="font-size:11px;color:var(--tx2);margin-top:3px">Counsel: ${counselText(ex)}</div>`:''}
       ${(ex.progression==='flag'||ex.progression==='hold')&&ex.progressionReason?`<div style="font-size:11px;color:${ex.progression==='flag'?'var(--warn)':'var(--tx2)'};margin-top:3px;line-height:1.4">${ex.progressionReason}${imperiumOn()&&/deload/i.test(ex.progressionReason)?' \u2014 '+STRINGS.gothic['prog.deload']:''}</div>`:''}
     </div>`;
   }).join('')+(imperiumOn()?`<div class="t-meta" style="text-align:center;margin-top:14px;letter-spacing:.08em">${STRINGS.gothic['summary.final']}</div>`:'');
@@ -7380,7 +7409,7 @@ function buildCoachReport(sessions,program,weekDates){
       const topPerf=w.reduce((m,s2)=>!s2.skipped&&s2.weightKg>m?s2.weightKg:m,0);
       if(ex.progression==='increase'&&ex.nextLoad)r+=` → next ${dispSuggest(ex.nextLoad,ex.equipmentClass||inferEquipmentClass(ex.name),'increase',ex)} kg`;
       else if(ex.progression==='increase'&&ex.nextTarget)r+=` → next ${ex.nextTarget}${/^\d+$/.test(ex.nextTarget)?' reps':''}`;
-      else if(ex.progression==='hold'&&ex.nextLoad)r+=` → hold ${ex.nextLoad} kg`;
+      else if(ex.progression==='hold'&&ex.nextLoad)r+=` → hold ${ex.nextLoad} kg`+(ex.counsel?` \u00b7 counsel +${ex.counsel.deltaKg} \u2192 ${ex.counsel.loadKg} kg (2\u00d7 RPE \u22647, not applied)`:'');
       else if(ex.progression==='flag'&&ex.nextLoad)r+=(ex.nextLoad>=topPerf&&topPerf>0)?` → hold ${ex.nextLoad} kg`:` → deload to ${dispSuggest(ex.nextLoad,ex.equipmentClass||inferEquipmentClass(ex.name),'flag',ex)} kg`;
       r+='\n';
       if(wu.length)r+=`    w: ${wu.map(s=>fmtW(s.weightKg,ex.prescribed?.unit)+'×'+s.reps).join(', ')}\n`;

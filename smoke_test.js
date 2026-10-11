@@ -53,6 +53,7 @@ const patched = js
   .replace(/\blet _backReadiness\s*=/g, 'var _backReadiness =')
   .replace(/\blet _backPending\s*=/g, 'var _backPending =')
   .replace(/\blet _backStartIdx\s*=/g, 'var _backStartIdx =')
+  .replace(/\bconst MICRO_STEP_KG\s*=/g, 'var MICRO_STEP_KG =')
   .replace(/\bconst ACTIVITY_TYPES\s*=/g, 'var ACTIVITY_TYPES =')
   .replace(/\bconst MODALITY_TYPES\s*=/g, 'var MODALITY_TYPES =')
   .replace(/\blet _reachCache\s*=/g, 'var _reachCache =')
@@ -2930,6 +2931,86 @@ console.log('[Q2 FinisherCollapse]');
   document.getElementById=_gid;S.activeSession=_as;_userOpened=_uo;_userClosed=_uc;
 })();
 assert(!/<div class="ex-body" style="display:block">\$\{circuitCardHTML/.test(html), 'D3: the finisher body no longer forces itself open inline');
+
+// ---- Q3/C: micro-progression inside the maintain phase ----
+console.log('[Q3 MicroProgression]');
+(function(){
+  const _sp=JSON.parse(JSON.stringify(S.program)),_ss=S.sessions,_as=S.activeSession,_g=S.settings.activeGymId;
+  global.startTimer=()=>{};global.showSessionHero=global.showSessionHero||(()=>{});global.confirm=window.confirm=()=>true;
+  S.settings.activeGymId='gym-singapore';ensureGyms();
+  const TB=(load)=>({id:'t1',name:'Trap Bar Deadlift',cat:'hinge',sets:2,reps:'5',loadKg:load,unit:'kg',rest:180,tags:['reset-every-rep'],equipmentClass:'barbell',barKg:36});
+  const prog=(exs)=>({name:'MicroTest',version:90,active:true,phase:'maintain',mode:'on-demand',startDate:'2026-09-01',days:[{id:1,label:'Gym A',sessionType:'lifting',dur:60,exercises:exs}]});
+  const rec=(date,name,load,rpes,extra)=>({id:'s_'+date,date,dayLabel:'Gym A',dayId:1,blockName:'MicroTest',sessionType:'lifting',duration:60,rpe:7,status:'complete',painEvents:[],
+    exercises:[Object.assign({name,cat:'hinge',prescribed:{sets:rpes.length,reps:'5',loadKg:load,unit:'kg'},performed:rpes.map(r=>({type:'working',weightKg:load,reps:5,rpe:r,logged:true})),variant:null,tags:[]},extra||{})]});
+  // run a live session: every working set at `load` with the given RPEs
+  const run=(exDef,load,rpes,mut)=>{
+    S.program=prog([exDef]);S.activeSession=null;
+    startDay(0);
+    const ex=S.activeSession.exercises[0];
+    const w=ex.performed.filter(p=>p.type==='working');
+    ex.performed.forEach(p=>{p.logged=true;});
+    w.forEach((p,i)=>{p.weightKg=load;p.rpe=rpes[i]!==undefined?rpes[i]:null;});
+    if(mut)mut(ex);
+    evalProg(0);
+    return ex;
+  };
+  // --- the rule fires: two consecutive sessions, all sets RPE <=7, same held load ---
+  S.sessions=[rec('2026-09-21','Trap Bar Deadlift',101,[7,7,7,7])];
+  let ex=run(TB(101),101,[7,7]);
+  assert(ex.progression==='hold', 'C: micro-progression never flips the lift to "increase" (it stays hold). Got '+ex.progression);
+  assert(ex.counsel&&ex.counsel.loadKg===103.5&&ex.counsel.deltaKg===2.5, 'C: 101@7 twice → counsel +2.5 = 103.5 (the Trap Bar case). Got '+JSON.stringify(ex.counsel));
+  assert(/Two sessions at RPE ≤7 — counsel \+2\.5 kg \(suggestion, not applied\)/.test(ex.progressionReason), 'C: the reason names the rule and that it is a suggestion');
+  assert(isMakeableTotal(103.5,36), 'C: the counselled load is rackable on the 36 bar');
+  assert(counselText(ex)==='+2.5 kg → '+fmtW(103.5,'kg'), 'C: counsel text. Got '+counselText(ex));
+  // never auto-applied: finishing the session leaves the program load alone
+  selRpe=7;confirmRpe();
+  assert(S.program.days[0].exercises[0].loadKg===101, 'C: the program load is NOT written back (counsel only). Got '+S.program.days[0].exercises[0].loadKg);
+  const saved=S.sessions[S.sessions.length-1].exercises[0];
+  assert(saved.counsel&&saved.counsel.loadKg===103.5&&saved.progression==='hold', 'C: the saved record carries the counsel');
+  const rpt=buildCoachReport(S.sessions,S.program,weekDatesFor(todayStr()));
+  assert(/Trap Bar Deadlift[^\n]*→ hold 101 kg · counsel \+2\.5 → 103\.5 kg \(2× RPE ≤7, not applied\)/.test(rpt), 'C: Dispatch prints the counsel. Got: '+((rpt.match(/.*Trap Bar Deadlift.*/)||['<none>'])[0]));
+  // --- the rule does NOT fire ---
+  S.sessions=[];
+  ex=run(TB(101),101,[7,7]);
+  assert(ex.progression==='hold'&&ex.counsel===null&&ex.progressionReason==='Maintain phase — holding load', 'C: ONE easy session → plain hold, no counsel');
+  S.sessions=[rec('2026-09-21','Trap Bar Deadlift',101,[7,7,7,7])];
+  ex=run(TB(101),101,[7,8]);
+  assert(ex.counsel===null&&ex.progression==='hold', 'C: one set at RPE 8 today → hold');
+  ex=run(TB(101),101,[7]);
+  assert(ex.counsel===null, 'C: a working set with NO RPE logged → hold (all sets must read ≤7)');
+  S.sessions=[rec('2026-09-21','Trap Bar Deadlift',101,[7,8,7,7])];
+  ex=run(TB(101),101,[7,7]);
+  assert(ex.counsel===null, 'C: the previous session had an RPE 8 set → hold');
+  S.sessions=[rec('2026-09-21','Trap Bar Deadlift',100,[7,7,7,7])];
+  ex=run(TB(101),101,[7,7]);
+  assert(ex.counsel===null, 'C: previous session at a DIFFERENT load is not a held load → hold');
+  // consecutive means the most recent session on the track
+  S.sessions=[rec('2026-09-14','Trap Bar Deadlift',101,[7,7]),rec('2026-09-21','Trap Bar Deadlift',101,[9,9])];
+  ex=run(TB(101),101,[7,7]);
+  assert(ex.counsel===null, 'C: an easy session two back does not count — the two must be CONSECUTIVE');
+  // --- precedence + plate-makeability ---
+  S.sessions=[rec('2026-09-21','Trap Bar Deadlift',101,[7,7,7,7])];
+  ex=run(Object.assign(TB(101),{frozen:true,cue:'stay'}),101,[7,7]);
+  assert(ex.counsel===null&&/^Frozen/.test(ex.progressionReason), 'C: a FROZEN lift keeps its frozen hold — no counsel');
+  ex=run(TB(101),101,[7,7],e=>{e.painEvent={severity:1,bodyArea:'low back'};});
+  assert(ex.counsel===null&&ex.progression==='flag', 'C: pain still wins — flag, no counsel');
+  ex=run(Object.assign(TB(101),{tags:['build']}),101,[7,7]);
+  assert(ex.counsel===null&&ex.progression==='increase', 'C: a build-tagged lift uses normal progression, not counsel');
+  S.sessions=[rec('2026-09-21','Cable Low Row',61,[7,7,7])];
+  ex=run({id:'c1',name:'Cable Low Row',cat:'pull',sets:3,reps:'10',loadKg:61,unit:'kg',rest:120,tags:[],equipmentClass:'cable'},61,[7,7,7]);
+  assert(ex.counsel&&ex.counsel.loadKg===63&&ex.counsel.deltaKg===2, 'C: cable stack snaps the counsel to a real pin (61 → 63, +2). Got '+JSON.stringify(ex.counsel));
+  S.sessions=[rec('2026-09-21','Strict Pull-Up',0,[7,7,7])];
+  ex=run({id:'p1',name:'Strict Pull-Up',cat:'pull',sets:3,reps:'6',loadKg:0,unit:'bw',rest:120,tags:[],equipmentClass:'bw'},0,[7,7,7]);
+  assert(ex.counsel===null, 'C: bodyweight work gets no load counsel');
+  // nothing loadable above the held load → hold
+  const _gy=S.settings.gyms.find(x=>x.id==='gym-singapore'),_pl=_gy.plateInventory;_gy.plateInventory=[20,10];
+  S.sessions=[rec('2026-09-21','Back Squat',100,[7,7])];
+  ex=run({id:'q1',name:'Back Squat',cat:'squat',sets:2,reps:'5',loadKg:100,unit:'kg',rest:150,tags:[],equipmentClass:'barbell'},100,[7,7]);
+  assert(ex.counsel===null&&ex.progression==='hold', 'C: when +2.5 cannot be racked the lift simply holds (plate-makeability enforced)');
+  _gy.plateInventory=_pl;
+  S.activeSession=null;S.program=_sp;S.sessions=_ss;S.activeSession=_as;S.settings.activeGymId=_g;
+})();
+assert(/if\(rx\.progression==='increase'&&!\(rx\.tags\|\|\[\]\)\.includes\('bonus'\)/.test(html), 'C: the write-back fires ONLY on "increase" — a counselled hold can never be auto-applied');
 
 // ---- N3 (Sep 28): sprint speed on Intervals circuits ----
 console.log('[N3 SprintSpeed]');
